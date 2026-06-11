@@ -1,0 +1,33 @@
+{
+  "name": "Togetherly",
+  "short_name": "Togetherly",
+  "description": "Watch together, feel closer. Synchronized streaming with video calls and chat.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#a855f7",
+  "orientation": "any",
+  "categories": ["entertainment", "social"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Create Room",
+      "short_name": "Create",
+      "url": "/room",
+      "description": "Create a new watch party room"
+    },
+    {
+      "name": "Discover Rooms",
+      "short_name": "Discover",
+      "url": "/discover",
+      "description": "Browse public watch party rooms"
+    }
+  ]
+}

@@ -30,15 +30,15 @@ export const translations = {
         },
         {
           number: "02",
-          title: "Paste any YouTube link",
+          title: "Paste any video link",
           description:
-            "Share what you want to watch. The video syncs instantly for both of you.",
+            "YouTube, Twitch, Vimeo or Spotify — paste the link and it loads for everyone instantly.",
         },
         {
           number: "03",
           title: "Watch and react together",
           description:
-            "Chat, send reactions, and feel like you're right there on the couch together.",
+            "Chat, send reactions, and hop on a video call — feel like you're right there on the couch.",
         },
       ],
     },
@@ -47,28 +47,28 @@ export const translations = {
       subtitle: "Built for the distance, designed for closeness.",
       items: [
         {
-          title: "Synchronized playback",
-          description: "Play, pause, and seek in perfect sync. What you see is what they see.",
+          title: "Perfect sync",
+          description: "Play, pause, and seek in perfect sync. What you see is exactly what they see.",
+        },
+        {
+          title: "Video calls",
+          description: "One tap to start a face-to-face call while watching. No extra apps needed.",
         },
         {
           title: "Live chat",
-          description: "Comment in real time with emoji, GIFs, and reactions as the story unfolds.",
+          description: "Comment in real time with text and emoji reactions as the story unfolds.",
         },
         {
-          title: "Reactions",
-          description: "Express yourself with animated emoji reactions that float across the screen.",
+          title: "Floating reactions",
+          description: "Express yourself with animated emoji that float across the screen for everyone.",
         },
         {
-          title: "Private rooms",
-          description: "Each room is private by default. Share the link only with who you choose.",
+          title: "Multi-platform",
+          description: "YouTube, Twitch, Vimeo, and Spotify — watch anything, together.",
         },
         {
-          title: "Dark & light mode",
-          description: "Looks great at any hour. Switch between themes to match the mood.",
-        },
-        {
-          title: "Multi-language",
-          description: "Available in English and Spanish. More languages coming soon.",
+          title: "Public rooms",
+          description: "Discover live public rooms and join strangers watching the same thing as you.",
         },
       ],
     },
@@ -168,15 +168,15 @@ export const translations = {
         },
         {
           number: "02",
-          title: "Pega cualquier enlace de YouTube",
+          title: "Pega cualquier enlace de video",
           description:
-            "Comparte lo que quieren ver. El video se sincroniza al instante para ambos.",
+            "YouTube, Twitch, Vimeo o Spotify — pega el enlace y carga al instante para todos.",
         },
         {
           number: "03",
           title: "Miren y reaccionen juntos",
           description:
-            "Chaten, envíen reacciones y sientan que están en el mismo sofá.",
+            "Chaten, envíen reacciones e inicien una videollamada — como si estuvieran en el mismo sofá.",
         },
       ],
     },
@@ -185,34 +185,34 @@ export const translations = {
       subtitle: "Construido para la distancia, diseñado para la cercanía.",
       items: [
         {
-          title: "Reproducción sincronizada",
+          title: "Sincronía perfecta",
           description:
-            "Play, pausa y avance en perfecta sincronía. Lo que tú ves es lo que ellos ven.",
+            "Play, pausa y avance en perfecta sincronía. Lo que tú ves es exactamente lo que ellos ven.",
+        },
+        {
+          title: "Videollamada",
+          description:
+            "Un toque para iniciar una llamada cara a cara mientras ven. Sin apps extra.",
         },
         {
           title: "Chat en vivo",
           description:
-            "Comenta en tiempo real con emoji, GIFs y reacciones mientras la historia avanza.",
+            "Comenta en tiempo real con texto y reacciones emoji mientras la historia avanza.",
         },
         {
-          title: "Reacciones animadas",
+          title: "Reacciones flotantes",
           description:
-            "Exprésate con reacciones emoji animadas que flotan en la pantalla.",
+            "Exprésate con reacciones emoji animadas que flotan en la pantalla para todos.",
         },
         {
-          title: "Salas privadas",
+          title: "Multi-plataforma",
           description:
-            "Cada sala es privada por defecto. Comparte el enlace solo con quien quieras.",
+            "YouTube, Twitch, Vimeo y Spotify — mira lo que quieras, juntos.",
         },
         {
-          title: "Modo claro y oscuro",
+          title: "Salas públicas",
           description:
-            "Se ve bien a cualquier hora. Cambia entre temas para que combine con el momento.",
-        },
-        {
-          title: "Multiidioma",
-          description:
-            "Disponible en inglés y español. Más idiomas próximamente.",
+            "Descubre salas públicas en vivo y únete a desconocidos viendo lo mismo que tú.",
         },
       ],
     },

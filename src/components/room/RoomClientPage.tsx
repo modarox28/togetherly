@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight } from "lucide-react";
+import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight, Share2 } from "lucide-react";
 import { VideoPlayer } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { VideoCallPanel } from "@/components/room/VideoCallPanel";
 import { useRoom } from "@/hooks/useRoom";
 import { useWebRTC } from "@/hooks/useWebRTC";
+import { useWakeLock } from "@/hooks/useWakeLock";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -36,6 +37,8 @@ export function RoomClientPage({ roomId }: Props) {
     toggleMic, toggleCamera,
   } = useWebRTC(roomId);
 
+  useWakeLock(hasJoined);
+
   useEffect(() => {
     const storedName = sessionStorage.getItem("togetherly-username");
     const storedCharId = sessionStorage.getItem("togetherly-character");
@@ -59,7 +62,17 @@ export function RoomClientPage({ roomId }: Props) {
     setHasJoined(true);
   };
 
-  const handleCopyLink = () => {
+  const handleShareLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Togetherly — Room ${roomId}`,
+          text: "Join me to watch together!",
+          url: window.location.href,
+        });
+        return;
+      } catch {}
+    }
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -164,8 +177,8 @@ export function RoomClientPage({ roomId }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={handleCopyLink}
-            icon={copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}>
+          <Button size="sm" variant="ghost" onClick={handleShareLink}
+            icon={copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Share2 className="w-3.5 h-3.5" />}>
             <span className="hidden sm:inline">{copied ? t.watchRoom.linkCopied : t.watchRoom.copyLink}</span>
           </Button>
           <Button size="sm" variant="ghost" onClick={() => router.push("/")}
