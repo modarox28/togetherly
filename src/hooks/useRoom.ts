@@ -7,6 +7,7 @@ export interface Participant {
   id: string;
   name: string;
   color: string;
+  avatar: string;
 }
 
 export interface ChatMessage {
@@ -43,7 +44,7 @@ interface RoomState {
 }
 
 interface RoomActions {
-  joinRoom: (roomId: string, username: string) => void;
+  joinRoom: (roomId: string, username: string, avatar: string) => void;
   changeVideoUrl: (roomId: string, url: string) => void;
   sendPlay: (roomId: string, currentTime: number) => void;
   sendPause: (roomId: string, currentTime: number) => void;
@@ -188,8 +189,8 @@ export function useRoom(): [RoomState, RoomActions] {
   }, []);
 
   const actions: RoomActions = {
-    joinRoom: useCallback((roomId, username) => {
-      getSocket().emit("join-room", { roomId, username });
+    joinRoom: useCallback((roomId, username, avatar) => {
+      getSocket().emit("join-room", { roomId, username, avatar });
     }, []),
     changeVideoUrl: useCallback((roomId, url) => {
       getSocket().emit("video-url-change", { roomId, url });

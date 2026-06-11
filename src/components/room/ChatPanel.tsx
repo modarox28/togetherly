@@ -53,10 +53,10 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
             <div
               key={p.id}
               title={p.name}
-              className="w-6 h-6 rounded-full text-[10px] font-bold text-white flex items-center justify-center border-2 -ml-1 first:ml-0 border-day-50 dark:border-night-900"
+              className="w-6 h-6 rounded-full text-xs flex items-center justify-center border-2 -ml-1 first:ml-0 border-day-50 dark:border-night-900"
               style={{ background: p.color, zIndex: participants.length - i }}
             >
-              {p.name[0].toUpperCase()}
+              {p.avatar ?? p.name[0].toUpperCase()}
             </div>
           ))}
         </div>
@@ -81,10 +81,10 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
               className={`flex gap-2 items-start ${msg.username === myName ? "flex-row-reverse" : ""}`}
             >
               <div
-                className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white mt-0.5"
+                className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs mt-0.5"
                 style={{ background: msg.color }}
               >
-                {msg.username[0].toUpperCase()}
+                {(msg as any).avatar ?? msg.username[0].toUpperCase()}
               </div>
               <div className={`max-w-[80%] flex flex-col gap-0.5 ${msg.username === myName ? "items-end" : "items-start"}`}>
                 <span className="text-[10px] font-medium px-1" style={{ color: msg.color }}>{msg.username}</span>

@@ -47,7 +47,7 @@ io.on("connection", (socket) => {
   let currentRoomId = null;
   let currentUsername = null;
 
-  socket.on("join-room", ({ roomId, username }) => {
+  socket.on("join-room", ({ roomId, username, avatar }) => {
     if (!roomId || !username) return;
 
     currentRoomId = roomId;
@@ -61,6 +61,7 @@ io.on("connection", (socket) => {
       id: socket.id,
       name: username,
       color: getColorForIndex(colorIndex),
+      avatar: avatar || "🎮",
     };
     room.participants.set(socket.id, participant);
 
@@ -122,6 +123,7 @@ io.on("connection", (socket) => {
       text: text.trim().slice(0, 500),
       username: participant.name,
       color: participant.color,
+      avatar: participant.avatar,
       timestamp: Date.now(),
     };
     io.to(roomId).emit("chat-message", message);

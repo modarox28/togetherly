@@ -95,6 +95,11 @@ export const translations = {
       joinButton: "Join room",
       invalidCode: "Invalid room code",
       nameRequired: "Please enter your name",
+      chooseCharacter: "Choose your character",
+      characterSubtitle: "It will show as your avatar in the room.",
+      characterRequired: "Please choose a character",
+      back: "Back",
+      enterRoom: "Enter room",
     },
     watchRoom: {
       addVideo: "Add a YouTube video",
@@ -219,6 +224,11 @@ export const translations = {
       joinButton: "Unirse",
       invalidCode: "Código de sala inválido",
       nameRequired: "Por favor ingresa tu nombre",
+      chooseCharacter: "Elige tu personaje",
+      characterSubtitle: "Aparecerá como tu avatar en la sala.",
+      characterRequired: "Por favor elige un personaje",
+      back: "Volver",
+      enterRoom: "Entrar a la sala",
     },
     watchRoom: {
       addVideo: "Agrega un video de YouTube",
