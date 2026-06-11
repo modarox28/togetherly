@@ -172,6 +172,29 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("reaction", { emoji, username: participant.name, id: Date.now() });
   });
 
+  // WebRTC signaling
+  socket.on("call-request", ({ roomId }) => {
+    socket.to(roomId).emit("call-request", { from: currentUsername, fromId: socket.id });
+  });
+  socket.on("call-accept", ({ targetId }) => {
+    io.to(targetId).emit("call-accepted", { fromId: socket.id });
+  });
+  socket.on("call-decline", ({ targetId }) => {
+    io.to(targetId).emit("call-declined");
+  });
+  socket.on("call-offer", ({ offer, targetId }) => {
+    io.to(targetId).emit("call-offer", { offer, fromId: socket.id });
+  });
+  socket.on("call-answer", ({ answer, targetId }) => {
+    io.to(targetId).emit("call-answer", { answer, fromId: socket.id });
+  });
+  socket.on("call-ice-candidate", ({ candidate, targetId }) => {
+    io.to(targetId).emit("call-ice-candidate", { candidate, fromId: socket.id });
+  });
+  socket.on("call-end", ({ roomId }) => {
+    socket.to(roomId).emit("call-ended");
+  });
+
   socket.on("disconnect", () => {
     if (!currentRoomId) return;
     const room = rooms.get(currentRoomId);

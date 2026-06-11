@@ -6,7 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight } from "lucide-react";
 import { VideoPlayer } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
+import { VideoCallPanel } from "@/components/room/VideoCallPanel";
 import { useRoom } from "@/hooks/useRoom";
+import { useWebRTC } from "@/hooks/useWebRTC";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -26,6 +28,13 @@ export function RoomClientPage({ roomId }: Props) {
 
   const { t } = useLanguage();
   const router = useRouter();
+
+  const {
+    callState, localStream, remoteStream, incomingCall,
+    isMicOn, isCameraOn,
+    startCall, answerCall, declineCall, endCall,
+    toggleMic, toggleCamera,
+  } = useWebRTC(roomId);
 
   useEffect(() => {
     const storedName = sessionStorage.getItem("togetherly-username");
@@ -167,7 +176,22 @@ export function RoomClientPage({ roomId }: Props) {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col min-w-0 group">
+        <div className="flex-1 flex flex-col min-w-0 group relative">
+          <VideoCallPanel
+            callState={callState}
+            localStream={localStream}
+            remoteStream={remoteStream}
+            incomingCall={incomingCall}
+            isMicOn={isMicOn}
+            isCameraOn={isCameraOn}
+            onStart={startCall}
+            onAnswer={answerCall}
+            onDecline={declineCall}
+            onEnd={endCall}
+            onToggleMic={toggleMic}
+            onToggleCamera={toggleCamera}
+            participantCount={state.participants.length}
+          />
           <VideoPlayer
             videoUrl={state.videoUrl}
             roomId={roomId}
