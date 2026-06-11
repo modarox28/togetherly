@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Copy, Check, LogOut, Heart, Wifi, WifiOff } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight } from "lucide-react";
 import { VideoPlayer } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { useRoom } from "@/hooks/useRoom";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { CHARACTERS } from "@/lib/characters";
 
 interface Props { roomId: string }
@@ -16,22 +17,35 @@ interface Props { roomId: string }
 export function RoomClientPage({ roomId }: Props) {
   const [state, actions] = useRoom();
   const [copied, setCopied] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
+
+  // Inline join form state (used when opening a shared link directly)
+  const [username, setUsername] = useState("");
+  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  const [step, setStep] = useState<"name" | "character">("name");
+
   const { t } = useLanguage();
   const router = useRouter();
 
   useEffect(() => {
-    const username = sessionStorage.getItem("togetherly-username");
-    const characterId = sessionStorage.getItem("togetherly-character");
-    if (!username || !characterId) {
-      router.replace("/room");
-      return;
+    const storedName = sessionStorage.getItem("togetherly-username");
+    const storedCharId = sessionStorage.getItem("togetherly-character");
+    if (storedName && storedCharId) {
+      const character = CHARACTERS.find((c) => c.id === storedCharId);
+      actions.joinRoom(roomId, storedName, character?.emoji ?? "🎮");
+      setHasJoined(true);
     }
-    const character = CHARACTERS.find((c) => c.id === characterId);
-    const avatar = character?.emoji ?? "🎮";
-    actions.joinRoom(roomId, username, avatar);
-    setReady(true);
   }, [roomId]);
+
+  const handleJoinWithForm = () => {
+    if (!username.trim() || !selectedCharacter) return;
+    const character = CHARACTERS.find((c) => c.id === selectedCharacter);
+    const avatar = character?.emoji ?? "🎮";
+    sessionStorage.setItem("togetherly-username", username.trim());
+    sessionStorage.setItem("togetherly-character", selectedCharacter);
+    actions.joinRoom(roomId, username.trim(), avatar);
+    setHasJoined(true);
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -39,16 +53,76 @@ export function RoomClientPage({ roomId }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!ready) {
+  if (!hasJoined) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950">
+      <div className="min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950 px-4">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full animate-blob-drift"
+            style={{ background: "radial-gradient(circle, rgba(192,132,252,0.15) 0%, transparent 70%)" }} />
+          <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full animate-blob-drift-reverse"
+            style={{ background: "radial-gradient(circle, rgba(244,114,182,0.12) 0%, transparent 70%)" }} />
+        </div>
+
         <motion.div
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          className="flex items-center gap-3 text-day-900/40 dark:text-white/40"
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="relative w-full max-w-sm"
         >
-          <Heart className="w-5 h-5 text-neon-pink fill-neon-pink" />
-          <span className="text-sm font-medium">Connecting...</span>
+          <div className="glass rounded-3xl p-8 border shadow-2xl bg-white/90 dark:bg-night-800/60 border-black/5 dark:border-white/10">
+            <div className="flex items-center gap-2 mb-6">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
+                <Heart className="w-4 h-4 text-white fill-white" />
+              </div>
+              <span className="font-bold gradient-text text-base">Togetherly</span>
+            </div>
+
+            <h1 className="text-xl font-bold text-day-900 dark:text-white mb-1">
+              Room <span className="gradient-text font-mono">{roomId}</span>
+            </h1>
+
+            <AnimatePresence mode="wait">
+              {step === "name" ? (
+                <motion.div key="name" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                  <p className="text-sm text-day-900/40 dark:text-white/40 mb-5 mt-1">{t.room.namePlaceholder}</p>
+                  <Input
+                    label={t.room.yourName}
+                    placeholder={t.room.namePlaceholder}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && username.trim() && setStep("character")}
+                    maxLength={20}
+                  />
+                  <Button className="w-full mt-4" size="lg" onClick={() => setStep("character")} disabled={!username.trim()}>
+                    {t.room.chooseCharacter} <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div key="character" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+                  <p className="text-sm text-day-900/40 dark:text-white/40 mb-4 mt-1">{t.room.chooseCharacter}</p>
+                  <div className="grid grid-cols-4 gap-2 mb-5">
+                    {CHARACTERS.map((char) => (
+                      <button
+                        key={char.id}
+                        onClick={() => setSelectedCharacter(char.id)}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all cursor-pointer ${
+                          selectedCharacter === char.id
+                            ? "border-neon-purple bg-neon-purple/10 scale-105"
+                            : "border-transparent bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5"
+                        }`}
+                      >
+                        <span className="text-xl">{char.emoji}</span>
+                        <span className="text-[9px] font-medium text-day-900/60 dark:text-white/60 leading-tight text-center">{char.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <Button className="w-full" size="lg" onClick={handleJoinWithForm} disabled={!selectedCharacter}>
+                    <Heart className="w-4 h-4" /> {t.room.joinButton}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </motion.div>
       </div>
     );
@@ -56,10 +130,8 @@ export function RoomClientPage({ roomId }: Props) {
 
   return (
     <div className="flex flex-col h-screen bg-day-100 dark:bg-night-950 overflow-hidden">
-      {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 glass border-b flex-shrink-0 z-10
-        bg-white/90 dark:bg-night-900/80
-        border-black/5 dark:border-white/5">
+        bg-white/90 dark:bg-night-900/80 border-black/5 dark:border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
             <Heart className="w-3.5 h-3.5 text-white fill-white" />
@@ -80,24 +152,17 @@ export function RoomClientPage({ roomId }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            size="sm" variant="ghost"
-            onClick={handleCopyLink}
-            icon={copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-          >
+          <Button size="sm" variant="ghost" onClick={handleCopyLink}
+            icon={copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}>
             <span className="hidden sm:inline">{copied ? t.watchRoom.linkCopied : t.watchRoom.copyLink}</span>
           </Button>
-          <Button
-            size="sm" variant="ghost"
-            onClick={() => router.push("/")}
-            icon={<LogOut className="w-3.5 h-3.5" />}
-          >
+          <Button size="sm" variant="ghost" onClick={() => router.push("/")}
+            icon={<LogOut className="w-3.5 h-3.5" />}>
             <span className="hidden sm:inline">{t.watchRoom.leaveRoom}</span>
           </Button>
         </div>
       </header>
 
-      {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0 group">
           <VideoPlayer
@@ -113,7 +178,6 @@ export function RoomClientPage({ roomId }: Props) {
             onRemoteSeek={actions.onRemoteSeek}
           />
         </div>
-
         <div className="w-72 xl:w-80 flex-shrink-0 border-l border-black/5 dark:border-white/5">
           <ChatPanel
             messages={state.messages}

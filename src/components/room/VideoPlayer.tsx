@@ -38,7 +38,6 @@ export function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(100);
-  const [showVolume, setShowVolume] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -336,37 +335,20 @@ export function VideoPlayer({
           >
             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
           </button>
-          <div className="relative flex items-center">
-            <button
-              onClick={() => setShowVolume((v) => !v)}
-              onBlur={() => setTimeout(() => setShowVolume(false), 150)}
-              className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
-            >
-              {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-            <AnimatePresence>
-              {showVolume && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex flex-col items-center gap-1 px-2 py-3 rounded-xl bg-night-800/95 border border-white/10 shadow-xl"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={isMuted ? 0 : volume}
-                    onChange={handleVolumeChange}
-                    className="h-20 cursor-pointer accent-neon-purple"
-                    style={{ writingMode: "vertical-lr", direction: "rtl" }}
-                  />
-                  <span className="text-white/50 text-[10px] tabular-nums">{isMuted ? 0 : volume}%</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <button
+            onClick={toggleMute}
+            className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0"
+          >
+            {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={isMuted ? 0 : volume}
+            onChange={handleVolumeChange}
+            className="w-16 sm:w-20 cursor-pointer accent-neon-purple"
+          />
           <span className="text-white/60 text-xs font-mono tabular-nums">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
