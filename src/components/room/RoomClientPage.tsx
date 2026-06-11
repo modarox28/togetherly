@@ -32,7 +32,10 @@ export function RoomClientPage({ roomId }: Props) {
     const storedCharId = sessionStorage.getItem("togetherly-character");
     if (storedName && storedCharId) {
       const character = CHARACTERS.find((c) => c.id === storedCharId);
-      actions.joinRoom(roomId, storedName, character?.emoji ?? "🎮");
+      const avatar = character?.emoji ?? "🎮";
+      const isPublic = sessionStorage.getItem("togetherly-is-public") === "1";
+      const roomName = sessionStorage.getItem("togetherly-room-name") || storedName + "'s room";
+      actions.joinRoom(roomId, storedName, avatar, isPublic, roomName);
       setHasJoined(true);
     }
   }, [roomId]);

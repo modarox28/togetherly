@@ -44,6 +44,7 @@ export function Navbar() {
           {[
             { label: t.nav.features, href: "#features" },
             { label: t.nav.howItWorks, href: "#how-it-works" },
+            { label: t.nav.discover, href: "/discover" },
           ].map((item) => (
             <a
               key={item.href}

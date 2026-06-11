@@ -19,6 +19,7 @@ export default function RoomSetupPage() {
   const [step, setStep] = useState<"info" | "character">("info");
   const [username, setUsername] = useState("");
   const [roomName, setRoomName] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [tab, setTab] = useState<"create" | "join">("create");
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
@@ -38,6 +39,8 @@ export default function RoomSetupPage() {
     if (!selectedCharacter) { setErrors({ character: t.room.characterRequired }); return; }
     sessionStorage.setItem("togetherly-username", username.trim());
     sessionStorage.setItem("togetherly-character", selectedCharacter);
+    sessionStorage.setItem("togetherly-is-public", isPublic ? "1" : "0");
+    sessionStorage.setItem("togetherly-room-name", roomName.trim() || username.trim() + "'s room");
     if (tab === "create") {
       const roomId = generateRoomId();
       router.push(`/room/${roomId}`);
@@ -124,6 +127,22 @@ export default function RoomSetupPage() {
                           onChange={(e) => setRoomName(e.target.value)}
                           maxLength={30}
                         />
+                        <button
+                          onClick={() => setIsPublic((v) => !v)}
+                          className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${
+                            isPublic
+                              ? "border-neon-purple bg-neon-purple/5 text-neon-purple"
+                              : "border-black/5 dark:border-white/10 text-day-900/50 dark:text-white/40"
+                          }`}
+                        >
+                          <div className="text-left">
+                            <p className="text-sm font-medium">{isPublic ? t.room.publicRoom : t.room.privateRoom}</p>
+                            {isPublic && <p className="text-xs opacity-70 mt-0.5">{t.room.publicRoomHint}</p>}
+                          </div>
+                          <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${isPublic ? "bg-neon-purple" : "bg-black/10 dark:bg-white/10"}`}>
+                            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isPublic ? "translate-x-4" : "translate-x-0"}`} />
+                          </div>
+                        </button>
                         <Button size="lg" className="w-full" onClick={handleNextStep} disabled={!username.trim()}>
                           {t.room.createButton}
                           <ArrowRight className="w-4 h-4" />

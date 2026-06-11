@@ -3,7 +3,37 @@ const { Server } = require("socket.io");
 
 const PORT = process.env.SOCKET_PORT || 3001;
 
-const httpServer = createServer();
+const httpServer = createServer((req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") { res.writeHead(200); res.end(); return; }
+
+  if (req.method === "GET" && req.url === "/api/rooms") {
+    const publicRooms = [];
+    for (const [roomId, room] of rooms.entries()) {
+      if (room.isPublic && room.participants.size > 0) {
+        publicRooms.push({
+          id: roomId,
+          name: room.name || roomId,
+          participants: room.participants.size,
+          host: room.host ? room.participants.get(room.host)?.name : null,
+          videoUrl: room.videoUrl,
+          platform: room.platform || "youtube",
+          createdAt: room.createdAt,
+        });
+      }
+    }
+    res.setHeader("Content-Type", "application/json");
+    res.writeHead(200);
+    res.end(JSON.stringify(publicRooms));
+    return;
+  }
+
+  res.writeHead(404);
+  res.end();
+});
 
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
@@ -23,13 +53,17 @@ const AVATAR_COLORS = [
   "#C084FC", "#F472B6", "#60A5FA", "#34D399", "#FBBF24", "#F87171", "#A78BFA",
 ];
 
-function getRoom(roomId) {
+function getRoom(roomId, isPublic = false, name = null) {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
       host: null,
       participants: new Map(),
       videoUrl: null,
       videoState: { playing: false, currentTime: 0, updatedAt: Date.now() },
+      isPublic,
+      name: name || roomId,
+      platform: "youtube",
+      createdAt: Date.now(),
     });
   }
   return rooms.get(roomId);
@@ -47,13 +81,13 @@ io.on("connection", (socket) => {
   let currentRoomId = null;
   let currentUsername = null;
 
-  socket.on("join-room", ({ roomId, username, avatar }) => {
+  socket.on("join-room", ({ roomId, username, avatar, isPublic, roomName }) => {
     if (!roomId || !username) return;
 
     currentRoomId = roomId;
     currentUsername = username;
 
-    const room = getRoom(roomId);
+    const room = getRoom(roomId, isPublic, roomName);
     socket.join(roomId);
 
     const colorIndex = room.participants.size;
@@ -81,10 +115,11 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("participant-joined", { participant });
   });
 
-  socket.on("video-url-change", ({ roomId, url }) => {
+  socket.on("video-url-change", ({ roomId, url, platform }) => {
     const room = rooms.get(roomId);
     if (!room) return;
     room.videoUrl = url;
+    room.platform = platform || "youtube";
     room.videoState = { playing: false, currentTime: 0, updatedAt: Date.now() };
     io.to(roomId).emit("video-url-changed", { url, by: currentUsername });
   });
