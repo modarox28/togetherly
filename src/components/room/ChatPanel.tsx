@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, SmilePlus } from "lucide-react";
+import { Send, SmilePlus, ArrowDown } from "lucide-react";
 import type { ChatMessage, Participant, Reaction } from "@/hooks/useRoom";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 
@@ -14,19 +14,51 @@ interface ChatPanelProps {
   participants: Participant[];
   youId: string | null;
   roomId: string;
+  typingUsers: string[];
   onSendMessage: (text: string) => void;
   onSendReaction: (emoji: string) => void;
+  onTyping: () => void;
 }
 
-export function ChatPanel({ messages, reactions, participants, youId, roomId, onSendMessage, onSendReaction }: ChatPanelProps) {
+export function ChatPanel({
+  messages, reactions, participants, youId,
+  typingUsers, onSendMessage, onSendReaction, onTyping,
+}: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [showReactions, setShowReactions] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
+  const [unread, setUnread] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const lastTypingRef = useRef(0);
   const { t } = useLanguage();
   const myName = participants.find((p) => p.id === youId)?.name;
 
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    setUnread(0);
+    setAtBottom(true);
+  }, []);
+
+  const handleScroll = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    setAtBottom(isNearBottom);
+    if (isNearBottom) setUnread(0);
+  };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (isNearBottom || atBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      setUnread(0);
+    } else {
+      const last = messages[messages.length - 1];
+      if (last && !last.isSystem) setUnread((c) => c + 1);
+    }
   }, [messages]);
 
   const handleSend = () => {
@@ -36,8 +68,17 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
     setInput("");
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    const now = Date.now();
+    if (now - lastTypingRef.current > 1000) {
+      onTyping();
+      lastTypingRef.current = now;
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-day-50 dark:bg-night-900 relative">
+    <div className="flex flex-col flex-1 min-h-0 bg-day-50 dark:bg-night-900 relative overflow-hidden">
       {/* Floating reactions overlay */}
       <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
         <AnimatePresence>
@@ -46,7 +87,7 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
       </div>
 
       {/* Participants bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b bg-day-100/80 dark:bg-night-800/50 border-black/5 dark:border-white/5">
+      <div className="flex items-center gap-2 px-3 py-2 border-b bg-day-100/80 dark:bg-night-800/50 border-black/5 dark:border-white/5 flex-shrink-0">
         <span className="text-xs text-day-900/40 dark:text-white/40">{t.watchRoom.participants}</span>
         <div className="flex items-center gap-1">
           {participants.map((p, i) => (
@@ -64,7 +105,11 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2 min-h-0"
+      >
         {messages.map((msg) =>
           msg.isSystem ? (
             <div key={msg.id} className="text-center my-1">
@@ -103,8 +148,52 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
             </motion.div>
           )
         )}
+
+        {/* Typing indicator */}
+        <AnimatePresence>
+          {typingUsers.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              className="flex items-center gap-2 px-1 py-1"
+            >
+              <div className="flex gap-0.5">
+                {[0, 1, 2].map((i) => (
+                  <motion.span
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full bg-day-900/30 dark:bg-white/30"
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+                  />
+                ))}
+              </div>
+              <span className="text-[11px] text-day-900/40 dark:text-white/40">
+                {typingUsers.slice(0, 2).join(", ")} {typingUsers.length === 1 ? "está escribiendo" : "están escribiendo"}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div ref={bottomRef} />
       </div>
+
+      {/* Scroll to bottom button */}
+      <AnimatePresence>
+        {!atBottom && (
+          <motion.button
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            onClick={scrollToBottom}
+            className="absolute bottom-16 right-3 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full
+              bg-neon-purple text-white text-xs font-medium shadow-lg hover:bg-neon-purple/90 transition-colors"
+          >
+            <ArrowDown className="w-3 h-3" />
+            {unread > 0 ? `${unread} nuevo${unread === 1 ? "" : "s"}` : "Bajar"}
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Reaction picker */}
       <AnimatePresence>
@@ -113,7 +202,7 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="px-3 pb-2"
+            className="px-3 pb-2 flex-shrink-0"
           >
             <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-day-100 dark:bg-night-800 border border-black/5 dark:border-white/5">
               {REACTIONS.map((emoji) => (
@@ -131,7 +220,7 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
       </AnimatePresence>
 
       {/* Input */}
-      <div className="px-3 pb-3 pt-2 border-t border-black/5 dark:border-white/5 flex gap-2 items-center">
+      <div className="px-3 pb-3 pt-2 border-t border-black/5 dark:border-white/5 flex gap-2 items-center flex-shrink-0">
         <button
           onClick={() => setShowReactions((v) => !v)}
           className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl
@@ -142,7 +231,7 @@ export function ChatPanel({ messages, reactions, participants, youId, roomId, on
         </button>
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder={t.watchRoom.typeMessage}
           maxLength={500}

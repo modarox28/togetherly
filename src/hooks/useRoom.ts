@@ -41,6 +41,7 @@ interface RoomState {
   videoState: VideoState;
   messages: ChatMessage[];
   reactions: Reaction[];
+  typingUsers: string[];
 }
 
 interface RoomActions {
@@ -51,7 +52,7 @@ interface RoomActions {
   sendSeek: (roomId: string, currentTime: number) => void;
   sendMessage: (roomId: string, text: string) => void;
   sendReaction: (roomId: string, emoji: string) => void;
-  // Callbacks for video player to call when remote events arrive
+  sendTyping: (roomId: string) => void;
   onRemotePlay: (cb: (t: number) => void) => void;
   onRemotePause: (cb: (t: number) => void) => void;
   onRemoteSeek: (cb: (t: number) => void) => void;
@@ -68,11 +69,13 @@ export function useRoom(): [RoomState, RoomActions] {
     videoState: { playing: false, currentTime: 0, updatedAt: Date.now() },
     messages: [],
     reactions: [],
+    typingUsers: [],
   });
 
   const remotePlayRef = useRef<((t: number) => void) | null>(null);
   const remotePauseRef = useRef<((t: number) => void) | null>(null);
   const remoteSeekRef = useRef<((t: number) => void) | null>(null);
+  const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     const socket = getSocket();
@@ -162,6 +165,20 @@ export function useRoom(): [RoomState, RoomActions] {
       setState((s) => ({ ...s, messages: [...s.messages, message] }));
     });
 
+    socket.on("typing", ({ username }: { username: string }) => {
+      setState((s) => ({
+        ...s,
+        typingUsers: [...s.typingUsers.filter((u) => u !== username), username],
+      }));
+      const existing = typingTimeoutsRef.current.get(username);
+      if (existing) clearTimeout(existing);
+      const timeout = setTimeout(() => {
+        setState((s) => ({ ...s, typingUsers: s.typingUsers.filter((u) => u !== username) }));
+        typingTimeoutsRef.current.delete(username);
+      }, 3000);
+      typingTimeoutsRef.current.set(username, timeout);
+    });
+
     socket.on("reaction", (reaction: Reaction) => {
       setState((s) => {
         const reactions = [...s.reactions, reaction];
@@ -183,6 +200,7 @@ export function useRoom(): [RoomState, RoomActions] {
       socket.off("video-pause");
       socket.off("video-seek");
       socket.off("chat-message");
+      socket.off("typing");
       socket.off("reaction");
       socket.disconnect();
     };
@@ -209,6 +227,9 @@ export function useRoom(): [RoomState, RoomActions] {
     }, []),
     sendReaction: useCallback((roomId, emoji) => {
       getSocket().emit("reaction", { roomId, emoji });
+    }, []),
+    sendTyping: useCallback((roomId) => {
+      getSocket().emit("typing", { roomId });
     }, []),
     onRemotePlay: useCallback((cb) => { remotePlayRef.current = cb; }, []),
     onRemotePause: useCallback((cb) => { remotePauseRef.current = cb; }, []),

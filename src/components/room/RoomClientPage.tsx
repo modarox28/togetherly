@@ -7,6 +7,7 @@ import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight, Share2 } from "l
 import { VideoPlayer } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { VideoCallPanel } from "@/components/room/VideoCallPanel";
+import { CallStrip } from "@/components/room/CallStrip";
 import { useRoom } from "@/hooks/useRoom";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useWakeLock } from "@/hooks/useWakeLock";
@@ -22,7 +23,6 @@ export function RoomClientPage({ roomId }: Props) {
   const [copied, setCopied] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
 
-  // Inline join form state (used when opening a shared link directly)
   const [username, setUsername] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [step, setStep] = useState<"name" | "character">("name");
@@ -67,7 +67,7 @@ export function RoomClientPage({ roomId }: Props) {
       try {
         await navigator.share({
           title: `Togetherly — Room ${roomId}`,
-          text: "Join me to watch together!",
+          text: "¡Únete a ver conmigo!",
           url: window.location.href,
         });
         return;
@@ -155,6 +155,7 @@ export function RoomClientPage({ roomId }: Props) {
 
   return (
     <div className="flex flex-col h-screen bg-day-100 dark:bg-night-950 overflow-hidden">
+      {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 glass border-b flex-shrink-0 z-10
         bg-white/90 dark:bg-night-900/80 border-black/5 dark:border-white/5">
         <div className="flex items-center gap-3">
@@ -188,21 +189,17 @@ export function RoomClientPage({ roomId }: Props) {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 flex flex-col min-w-0 group relative">
+      {/* Main content — stacks vertically on mobile, horizontal on desktop */}
+      <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+        {/* Video area */}
+        <div className="h-[56vw] max-h-[60vh] md:h-auto md:max-h-none md:flex-1 flex flex-col min-w-0 group relative flex-shrink-0">
           <VideoCallPanel
             callState={callState}
-            localStream={localStream}
-            remoteStream={remoteStream}
             incomingCall={incomingCall}
-            isMicOn={isMicOn}
-            isCameraOn={isCameraOn}
             onStart={startCall}
             onAnswer={answerCall}
             onDecline={declineCall}
             onEnd={endCall}
-            onToggleMic={toggleMic}
-            onToggleCamera={toggleCamera}
             participantCount={state.participants.length}
           />
           <VideoPlayer
@@ -218,15 +215,33 @@ export function RoomClientPage({ roomId }: Props) {
             onRemoteSeek={actions.onRemoteSeek}
           />
         </div>
-        <div className="w-72 xl:w-80 flex-shrink-0 border-l border-black/5 dark:border-white/5">
+
+        {/* Chat column — includes call strip when active */}
+        <div className="flex-1 md:flex-none md:w-72 xl:w-80 flex flex-col min-h-0 border-t md:border-t-0 md:border-l border-black/5 dark:border-white/5 overflow-hidden">
+          <AnimatePresence>
+            {(callState === "connected" || callState === "calling") && (
+              <CallStrip
+                callState={callState}
+                localStream={localStream}
+                remoteStream={remoteStream}
+                isMicOn={isMicOn}
+                isCameraOn={isCameraOn}
+                onToggleMic={toggleMic}
+                onToggleCamera={toggleCamera}
+                onEnd={endCall}
+              />
+            )}
+          </AnimatePresence>
           <ChatPanel
             messages={state.messages}
             reactions={state.reactions}
             participants={state.participants}
             youId={state.you?.id ?? null}
             roomId={roomId}
+            typingUsers={state.typingUsers}
             onSendMessage={(text) => actions.sendMessage(roomId, text)}
             onSendReaction={(emoji) => actions.sendReaction(roomId, emoji)}
+            onTyping={() => actions.sendTyping(roomId)}
           />
         </div>
       </div>
