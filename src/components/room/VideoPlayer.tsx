@@ -90,6 +90,17 @@ export function VideoPlayer({
     });
   }, [onRemotePlay, onRemotePause, onRemoteSeek]);
 
+  // Reset state when video changes
+  useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsDragging(false);
+    setPendingSync(null);
+    pendingSyncRef.current = null;
+    playerRef.current = null;
+  }, [videoId]);
+
   // Progress update interval
   useEffect(() => {
     const interval = setInterval(() => {
@@ -233,6 +244,7 @@ export function VideoPlayer({
       {/* YouTube Player */}
       <div className="flex-1 relative">
         <YouTube
+          key={videoId}
           videoId={videoId}
           onReady={handleReady}
           onStateChange={handleStateChange}
