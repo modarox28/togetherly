@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import YouTube, { type YouTubePlayer, type YouTubeEvent } from "react-youtube";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, Volume2, VolumeX, CheckCircle2 } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, CheckCircle2, Link } from "lucide-react";
 import { extractYouTubeId, formatTime } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 
@@ -37,10 +37,13 @@ export function VideoPlayer({
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(100);
+  const [showVolume, setShowVolume] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [showUrlBar, setShowUrlBar] = useState(false);
   const [syncIndicator, setSyncIndicator] = useState(false);
   const [pendingSync, setPendingSync] = useState<{ time: number; by?: string } | null>(null);
 
@@ -145,10 +148,26 @@ export function VideoPlayer({
     if (!playerRef.current) return;
     if (isMuted) {
       playerRef.current.unMute();
+      playerRef.current.setVolume(volume);
       setIsMuted(false);
     } else {
       playerRef.current.mute();
       setIsMuted(true);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = parseInt(e.target.value);
+    setVolume(v);
+    if (playerRef.current) {
+      playerRef.current.setVolume(v);
+      if (v === 0) {
+        playerRef.current.mute();
+        setIsMuted(true);
+      } else {
+        playerRef.current.unMute();
+        setIsMuted(false);
+      }
     }
   };
 
@@ -317,36 +336,83 @@ export function VideoPlayer({
           >
             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
           </button>
-          <button
-            onClick={toggleMute}
-            className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
+          <div className="relative flex items-center">
+            <button
+              onClick={() => setShowVolume((v) => !v)}
+              onBlur={() => setTimeout(() => setShowVolume(false), 150)}
+              className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+            >
+              {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+            <AnimatePresence>
+              {showVolume && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex flex-col items-center gap-1 px-2 py-3 rounded-xl bg-night-800/95 border border-white/10 shadow-xl"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="h-20 cursor-pointer accent-neon-purple"
+                    style={{ writingMode: "vertical-lr", direction: "rtl" }}
+                  />
+                  <span className="text-white/50 text-[10px] tabular-nums">{isMuted ? 0 : volume}%</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <span className="text-white/60 text-xs font-mono tabular-nums">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
 
           <div className="flex-1" />
+          <button
+            onClick={() => setShowUrlBar((v) => !v)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-colors"
+            title="Change video"
+          >
+            <Link className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
-          {/* URL change input */}
-          <div className="flex gap-2 items-center">
+      {/* URL change bar — always accessible, outside controls overlay */}
+      <AnimatePresence>
+        {showUrlBar && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="flex gap-2 px-3 py-2 bg-night-900 border-t border-white/5 z-30 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <input
+              autoFocus
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="New YouTube URL..."
-              onKeyDown={(e) => e.key === "Enter" && handleLoadUrl()}
-              className="w-32 sm:w-44 px-2.5 py-1 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-xs outline-none focus:border-neon-purple transition-all"
+              placeholder="Paste YouTube URL..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter") { handleLoadUrl(); setShowUrlBar(false); }
+                if (e.key === "Escape") setShowUrlBar(false);
+              }}
+              className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm outline-none focus:border-neon-purple transition-all"
             />
             <button
-              onClick={handleLoadUrl}
-              className="px-2.5 py-1 rounded-lg bg-neon-purple/20 border border-neon-purple/30 text-neon-purple text-xs hover:bg-neon-purple/30 transition-colors whitespace-nowrap"
+              onClick={() => { handleLoadUrl(); setShowUrlBar(false); }}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-neon-purple to-neon-pink text-white text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
             >
               Load
             </button>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
