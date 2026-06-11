@@ -26,65 +26,86 @@ export const VimeoEmbed = forwardRef<PlayerHandle, Props>(function VimeoEmbed(
   ref
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const vimeoPlayerRef = useRef<any>(null);
+  const vimeoRef = useRef<any>(null);
   const cachedTime = useRef(0);
   const cachedDuration = useRef(0);
+  const mountedRef = useRef(true);
 
   const videoId = extractVimeoId(url);
 
   useImperativeHandle(ref, () => ({
-    play() { vimeoPlayerRef.current?.play(); },
-    pause() { vimeoPlayerRef.current?.pause(); },
-    seekTo(s) { vimeoPlayerRef.current?.setCurrentTime(s); },
+    play() { vimeoRef.current?.play(); },
+    pause() { vimeoRef.current?.pause(); },
+    seekTo(s) { vimeoRef.current?.setCurrentTime(s); },
     getCurrentTime() { return cachedTime.current; },
     getDuration() { return cachedDuration.current; },
-    setVolume(v) { vimeoPlayerRef.current?.setVolume(v / 100); },
-    mute() { vimeoPlayerRef.current?.setVolume(0); },
-    unmute() { vimeoPlayerRef.current?.setVolume(1); },
+    setVolume(v) { vimeoRef.current?.setVolume(v / 100); },
+    mute() { vimeoRef.current?.setVolume(0); },
+    unmute() { vimeoRef.current?.setVolume(1); },
   }));
 
   useEffect(() => {
-    if (!videoId || !iframeRef.current) return;
+    mountedRef.current = true;
+    if (!videoId) return;
 
-    const loadPlayer = () => {
+    const initPlayer = () => {
+      if (!mountedRef.current || !iframeRef.current) return;
       const VimeoLib = (window as any).Vimeo;
-      if (!VimeoLib || !iframeRef.current) return;
+      if (!VimeoLib?.Player) return;
 
       const player = new VimeoLib.Player(iframeRef.current);
-      vimeoPlayerRef.current = player;
+      vimeoRef.current = player;
 
       player.getDuration().then((d: number) => {
+        if (!mountedRef.current) return;
         cachedDuration.current = d;
         onReady(d);
-      });
+      }).catch(() => {});
 
       player.on("play", () => {
+        if (!mountedRef.current) return;
         player.getCurrentTime().then((t: number) => {
           cachedTime.current = t;
           onPlay(t);
-        });
+        }).catch(() => {});
       });
+
       player.on("pause", () => {
+        if (!mountedRef.current) return;
         player.getCurrentTime().then((t: number) => {
           cachedTime.current = t;
           onPause(t);
-        });
+        }).catch(() => {});
       });
+
       player.on("timeupdate", ({ seconds }: { seconds: number }) => {
         cachedTime.current = seconds;
       });
     };
 
-    if ((window as any).Vimeo) {
-      loadPlayer();
-    } else {
-      const script = document.createElement("script");
-      script.src = "https://player.vimeo.com/api/player.js";
-      script.onload = loadPlayer;
-      document.head.appendChild(script);
-    }
+    // Small delay to ensure iframe is fully mounted in DOM
+    const timer = setTimeout(() => {
+      if ((window as any).Vimeo?.Player) {
+        initPlayer();
+      } else {
+        const existing = document.querySelector('script[src*="player.vimeo.com"]');
+        if (existing) {
+          existing.addEventListener("load", initPlayer);
+        } else {
+          const script = document.createElement("script");
+          script.src = "https://player.vimeo.com/api/player.js";
+          script.onload = initPlayer;
+          document.head.appendChild(script);
+        }
+      }
+    }, 100);
 
-    return () => { vimeoPlayerRef.current = null; };
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timer);
+      vimeoRef.current?.destroy?.().catch(() => {});
+      vimeoRef.current = null;
+    };
   }, [videoId]);
 
   if (!videoId) return null;
@@ -92,9 +113,9 @@ export const VimeoEmbed = forwardRef<PlayerHandle, Props>(function VimeoEmbed(
   return (
     <iframe
       ref={iframeRef}
-      src={`https://player.vimeo.com/video/${videoId}?api=1&autopause=0`}
+      src={`https://player.vimeo.com/video/${videoId}?api=1&autopause=0&playsinline=1`}
       className="absolute inset-0 w-full h-full"
-      allow="autoplay; fullscreen"
+      allow="autoplay; fullscreen; picture-in-picture"
       allowFullScreen
     />
   );

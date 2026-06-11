@@ -25,75 +25,85 @@ export const TwitchEmbed = forwardRef<PlayerHandle, Props>(function TwitchEmbed(
   { url, onReady, onPlay, onPause },
   ref
 ) {
-  const containerId = "twitch-player-container";
-  const twitchPlayerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<any>(null);
   const cachedTime = useRef(0);
-  const cachedDuration = useRef(0);
+  const mountedRef = useRef(true);
 
   useImperativeHandle(ref, () => ({
-    play() { twitchPlayerRef.current?.play(); },
-    pause() { twitchPlayerRef.current?.pause(); },
-    seekTo(s) { twitchPlayerRef.current?.seek(s); },
-    getCurrentTime() { return twitchPlayerRef.current?.getCurrentTime() ?? cachedTime.current; },
-    getDuration() { return twitchPlayerRef.current?.getDuration() ?? cachedDuration.current; },
-    setVolume(v) { twitchPlayerRef.current?.setVolume(v / 100); },
-    mute() { twitchPlayerRef.current?.setMuted(true); },
-    unmute() { twitchPlayerRef.current?.setMuted(false); },
+    play() { playerRef.current?.play(); },
+    pause() { playerRef.current?.pause(); },
+    seekTo(s) { playerRef.current?.seek(s); },
+    getCurrentTime() { return playerRef.current?.getCurrentTime?.() ?? cachedTime.current; },
+    getDuration() { return playerRef.current?.getDuration?.() ?? 0; },
+    setVolume(v) { playerRef.current?.setVolume(v / 100); },
+    mute() { playerRef.current?.setMuted(true); },
+    unmute() { playerRef.current?.setMuted(false); },
   }));
 
   useEffect(() => {
+    mountedRef.current = true;
     const info = extractTwitchId(url);
-    if (!info) return;
+    if (!info || !containerRef.current) return;
 
-    const loadEmbed = () => {
+    const container = containerRef.current;
+
+    const initPlayer = () => {
+      if (!mountedRef.current || !container) return;
       const TwitchLib = (window as any).Twitch;
-      if (!TwitchLib) return;
+      if (!TwitchLib?.Player) return;
 
-      const hostname = window.location.hostname;
-      const options: any = {
+      // Clear any previous player
+      container.innerHTML = "";
+
+      const opts: any = {
         width: "100%",
         height: "100%",
         autoplay: false,
-        muted: false,
-        parent: [hostname],
-        layout: "video",
+        parent: [window.location.hostname],
       };
-      if (info.type === "vod") options.video = info.id;
-      else options.channel = info.id;
+      if (info.type === "vod") opts.video = info.id;
+      else opts.channel = info.id;
 
-      const embed = new TwitchLib.Embed(containerId, options);
-      const player = embed.getPlayer();
-      twitchPlayerRef.current = player;
+      const player = new TwitchLib.Player(container, opts);
+      playerRef.current = player;
 
       player.addEventListener(TwitchLib.Player.READY, () => {
-        cachedDuration.current = player.getDuration?.() ?? 0;
-        onReady(cachedDuration.current);
+        if (!mountedRef.current) return;
+        onReady(player.getDuration?.() ?? 0);
       });
       player.addEventListener(TwitchLib.Player.PLAY, () => {
+        if (!mountedRef.current) return;
         cachedTime.current = player.getCurrentTime?.() ?? 0;
         onPlay(cachedTime.current);
       });
       player.addEventListener(TwitchLib.Player.PAUSE, () => {
+        if (!mountedRef.current) return;
         cachedTime.current = player.getCurrentTime?.() ?? 0;
         onPause(cachedTime.current);
       });
     };
 
-    if ((window as any).Twitch) {
-      loadEmbed();
+    if ((window as any).Twitch?.Player) {
+      initPlayer();
     } else {
-      const script = document.createElement("script");
-      script.src = "https://embed.twitch.tv/embed/v1.js";
-      script.onload = loadEmbed;
-      document.head.appendChild(script);
+      const existing = document.querySelector('script[src*="twitch.tv/embed"]');
+      if (existing) {
+        existing.addEventListener("load", initPlayer);
+      } else {
+        const script = document.createElement("script");
+        script.src = "https://embed.twitch.tv/embed/v1.js";
+        script.onload = initPlayer;
+        document.head.appendChild(script);
+      }
     }
 
     return () => {
-      twitchPlayerRef.current = null;
-      const el = document.getElementById(containerId);
-      if (el) el.innerHTML = "";
+      mountedRef.current = false;
+      playerRef.current = null;
+      if (container) container.innerHTML = "";
     };
   }, [url]);
 
-  return <div id={containerId} className="absolute inset-0 w-full h-full" />;
+  return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;
 });
