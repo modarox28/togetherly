@@ -30,11 +30,17 @@ export function useWebRTC(roomId: string) {
   const remoteIdRef = useRef<string | null>(null);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const videoDeviceIdRef = useRef<string | undefined>(undefined);
+  const audioDeviceIdRef = useRef<string | undefined>(undefined);
 
   const getMedia = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
-      audio: true,
+      video: videoDeviceIdRef.current
+        ? { deviceId: { exact: videoDeviceIdRef.current }, width: { ideal: 640 }, height: { ideal: 480 } }
+        : { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+      audio: audioDeviceIdRef.current
+        ? { deviceId: { exact: audioDeviceIdRef.current } }
+        : true,
     });
     localStreamRef.current = stream;
     setLocalStream(stream);
@@ -89,14 +95,12 @@ export function useWebRTC(roomId: string) {
   useEffect(() => {
     const socket = getSocket();
 
-    // Someone in the room wants to call
     socket.on("call-request", ({ from, fromId }: IncomingCall) => {
-      if (pcRef.current) return; // already in a call
+      if (pcRef.current) return;
       setIncomingCall({ from, fromId });
       setCallState("incoming");
     });
 
-    // Our call-request was accepted — now create and send offer
     socket.on("call-accepted", async ({ fromId }: { fromId: string }) => {
       remoteIdRef.current = fromId;
       try {
@@ -105,12 +109,11 @@ export function useWebRTC(roomId: string) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit("call-offer", { roomId, offer, targetId: fromId });
-      } catch (e) {
+      } catch {
         cleanup();
       }
     });
 
-    // We received an offer — set remote desc, create answer
     socket.on("call-offer", async ({ offer, fromId }: { offer: RTCSessionDescriptionInit; fromId: string }) => {
       remoteIdRef.current = fromId;
       try {
@@ -125,19 +128,17 @@ export function useWebRTC(roomId: string) {
         await pc.setLocalDescription(answer);
         socket.emit("call-answer", { roomId, answer, targetId: fromId });
         setCallState("connected");
-      } catch (e) {
+      } catch {
         cleanup();
       }
     });
 
-    // We received an answer to our offer
     socket.on("call-answer", async ({ answer }: { answer: RTCSessionDescriptionInit }) => {
       try {
         await pcRef.current?.setRemoteDescription(new RTCSessionDescription(answer));
-      } catch (e) {}
+      } catch {}
     });
 
-    // ICE candidates
     socket.on("call-ice-candidate", async ({ candidate }: { candidate: RTCIceCandidateInit }) => {
       if (pcRef.current?.remoteDescription) {
         await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
@@ -160,7 +161,9 @@ export function useWebRTC(roomId: string) {
     };
   }, [roomId, createPC, cleanup]);
 
-  const startCall = useCallback(() => {
+  const startCall = useCallback((videoDeviceId?: string, audioDeviceId?: string) => {
+    videoDeviceIdRef.current = videoDeviceId;
+    audioDeviceIdRef.current = audioDeviceId;
     setCallState("calling");
     getSocket().emit("call-request", { roomId });
   }, [roomId]);

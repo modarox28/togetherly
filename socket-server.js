@@ -146,6 +146,11 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("video-seek", { currentTime, by: currentUsername });
   });
 
+  socket.on("typing", ({ roomId }) => {
+    if (!currentUsername) return;
+    socket.to(roomId).emit("typing", { username: currentUsername });
+  });
+
   socket.on("chat-message", ({ roomId, text }) => {
     if (!text || !text.trim()) return;
     const room = rooms.get(roomId);

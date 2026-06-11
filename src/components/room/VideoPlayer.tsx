@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import YouTube, { type YouTubePlayer, type YouTubeEvent } from "react-youtube";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, Volume2, VolumeX, CheckCircle2, Link } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, CheckCircle2, Link, Maximize2, Minimize2 } from "lucide-react";
 import { extractYouTubeId, formatTime } from "@/lib/utils";
 import { detectPlatform } from "@/lib/platforms";
 import { useLanguage } from "@/components/providers/LanguageProvider";
@@ -48,6 +48,8 @@ export function VideoPlayer({
   const [showUrlBar, setShowUrlBar] = useState(false);
   const [syncIndicator, setSyncIndicator] = useState(false);
   const [pendingSync, setPendingSync] = useState<{ time: number } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { t } = useLanguage();
   const platform = videoUrl ? detectPlatform(videoUrl) : null;
@@ -207,6 +209,20 @@ export function VideoPlayer({
     setUrlInput("");
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  };
+
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
   if (!videoUrl || !platform) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 bg-night-900">
@@ -236,7 +252,7 @@ export function VideoPlayer({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-black relative">
+    <div ref={containerRef} className="flex-1 flex flex-col bg-black relative">
       {/* Player area */}
       <div className="flex-1 relative">
 
@@ -355,6 +371,11 @@ export function VideoPlayer({
               className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-colors"
               title="Change video">
               <Link className="w-4 h-4" />
+            </button>
+            <button onClick={toggleFullscreen}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-colors"
+              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
         </div>
