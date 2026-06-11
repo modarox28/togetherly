@@ -2,23 +2,23 @@
 
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
-import { Zap, MessageSquare, Smile, Lock, Palette, Languages } from "lucide-react";
+import { Zap, Video, MessageSquare, Smile, Layers, Users } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 
-const featureIcons = [Zap, MessageSquare, Smile, Lock, Palette, Languages];
+const featureIcons = [Zap, Video, MessageSquare, Smile, Layers, Users];
 const featureColors = [
   "from-violet-500/20 to-purple-500/20 border-violet-500/20",
+  "from-green-500/20 to-emerald-500/20 border-green-500/20",
   "from-blue-500/20 to-cyan-500/20 border-blue-500/20",
   "from-pink-500/20 to-rose-500/20 border-pink-500/20",
-  "from-green-500/20 to-emerald-500/20 border-green-500/20",
   "from-amber-500/20 to-orange-500/20 border-amber-500/20",
-  "from-indigo-500/20 to-blue-500/20 border-indigo-500/20",
+  "from-indigo-500/20 to-violet-500/20 border-indigo-500/20",
 ];
 const iconColors = [
   "text-violet-500 dark:text-violet-400",
+  "text-green-500 dark:text-green-400",
   "text-blue-500 dark:text-blue-400",
   "text-pink-500 dark:text-pink-400",
-  "text-green-500 dark:text-green-400",
   "text-amber-500 dark:text-amber-400",
   "text-indigo-500 dark:text-indigo-400",
 ];
