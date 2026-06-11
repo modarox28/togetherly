@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import YouTube, { type YouTubePlayer, type YouTubeEvent } from "react-youtube";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, Volume2, VolumeX, Maximize, CheckCircle2 } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, CheckCircle2 } from "lucide-react";
 import { extractYouTubeId, formatTime } from "@/lib/utils";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 
@@ -22,7 +22,6 @@ interface VideoPlayerProps {
 
 export function VideoPlayer({
   videoUrl,
-  roomId,
   isSynced,
   onPlay,
   onPause,
@@ -34,6 +33,8 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const playerRef = useRef<YouTubePlayer | null>(null);
   const isRemoteAction = useRef(false);
+  const pendingSyncRef = useRef<{ time: number; action: "play" | "seek" } | null>(null);
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -41,38 +42,53 @@ export function VideoPlayer({
   const [isDragging, setIsDragging] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [syncIndicator, setSyncIndicator] = useState(false);
-  const { t } = useLanguage();
+  const [pendingSync, setPendingSync] = useState<{ time: number; by?: string } | null>(null);
 
+  const { t } = useLanguage();
   const videoId = videoUrl ? extractYouTubeId(videoUrl) : null;
+
+  const showSync = () => {
+    setSyncIndicator(true);
+    setTimeout(() => setSyncIndicator(false), 1500);
+  };
 
   // Register remote callbacks
   useEffect(() => {
     onRemotePlay((time) => {
       isRemoteAction.current = true;
-      playerRef.current?.seekTo(time, true);
-      playerRef.current?.playVideo();
+      if (playerRef.current) {
+        playerRef.current.seekTo(time, true);
+        const result = playerRef.current.playVideo();
+        // iOS blocks programmatic play — show tap-to-sync banner
+        if (result === undefined || result === null) {
+          pendingSyncRef.current = { time, action: "play" };
+          setPendingSync({ time });
+        }
+      } else {
+        pendingSyncRef.current = { time, action: "play" };
+        setPendingSync({ time });
+      }
       setIsPlaying(true);
-      setSyncIndicator(true);
-      setTimeout(() => setSyncIndicator(false), 1500);
+      showSync();
     });
+
     onRemotePause((time) => {
       isRemoteAction.current = true;
       playerRef.current?.seekTo(time, true);
       playerRef.current?.pauseVideo();
       setIsPlaying(false);
-      setSyncIndicator(true);
-      setTimeout(() => setSyncIndicator(false), 1500);
+      showSync();
     });
+
     onRemoteSeek((time) => {
       isRemoteAction.current = true;
       playerRef.current?.seekTo(time, true);
       setCurrentTime(time);
-      setSyncIndicator(true);
-      setTimeout(() => setSyncIndicator(false), 1500);
+      showSync();
     });
   }, [onRemotePlay, onRemotePause, onRemoteSeek]);
 
-  // Progress update
+  // Progress update interval
   useEffect(() => {
     const interval = setInterval(() => {
       if (playerRef.current && isPlaying && !isDragging) {
@@ -95,15 +111,12 @@ export function VideoPlayer({
 
       if (e.data === YT.PlayerState.PLAYING) {
         setIsPlaying(true);
-        if (!isRemoteAction.current) {
-          onPlay(e.target.getCurrentTime());
-        }
+        setPendingSync(null);
+        if (!isRemoteAction.current) onPlay(e.target.getCurrentTime());
         isRemoteAction.current = false;
       } else if (e.data === YT.PlayerState.PAUSED) {
         setIsPlaying(false);
-        if (!isRemoteAction.current) {
-          onPause(e.target.getCurrentTime());
-        }
+        if (!isRemoteAction.current) onPause(e.target.getCurrentTime());
         isRemoteAction.current = false;
       }
     },
@@ -119,6 +132,15 @@ export function VideoPlayer({
     }
   };
 
+  const handleTapToSync = () => {
+    if (!playerRef.current || !pendingSyncRef.current) return;
+    const { time } = pendingSyncRef.current;
+    playerRef.current.seekTo(time, true);
+    playerRef.current.playVideo();
+    pendingSyncRef.current = null;
+    setPendingSync(null);
+  };
+
   const toggleMute = () => {
     if (!playerRef.current) return;
     if (isMuted) {
@@ -131,15 +153,21 @@ export function VideoPlayer({
   };
 
   const handleSeekBar = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    setCurrentTime(time);
+    setCurrentTime(parseFloat(e.target.value));
   };
 
-  const handleSeekCommit = (e: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>) => {
-    const time = parseFloat((e.target as HTMLInputElement).value);
-    playerRef.current?.seekTo(time, true);
-    onSeek(time);
+  const commitSeek = (value: number) => {
+    playerRef.current?.seekTo(value, true);
+    onSeek(value);
     setIsDragging(false);
+  };
+
+  const handleSeekMouseUp = (e: React.MouseEvent<HTMLInputElement>) => {
+    commitSeek(parseFloat((e.target as HTMLInputElement).value));
+  };
+
+  const handleSeekTouchEnd = (e: React.TouchEvent<HTMLInputElement>) => {
+    commitSeek(parseFloat((e.target as HTMLInputElement).value));
   };
 
   const handleLoadUrl = () => {
@@ -163,7 +191,6 @@ export function VideoPlayer({
             {t.watchRoom.pasteToStart}
           </p>
         </div>
-
         <div className="w-full max-w-md flex gap-2">
           <input
             value={urlInput}
@@ -184,7 +211,7 @@ export function VideoPlayer({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-black relative group">
+    <div className="flex-1 flex flex-col bg-black relative">
       {/* YouTube Player */}
       <div className="flex-1 relative">
         <YouTube
@@ -201,6 +228,7 @@ export function VideoPlayer({
               iv_load_policy: 3,
               disablekb: 1,
               fs: 0,
+              playsinline: 1,
             },
           }}
           className="absolute inset-0 w-full h-full"
@@ -214,7 +242,7 @@ export function VideoPlayer({
               initial={{ opacity: 0, scale: 0.8, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-night-800/90 border border-neon-purple/30 text-neon-purple text-xs font-medium"
+              className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-night-800/90 border border-neon-purple/30 text-neon-purple text-xs font-medium z-20"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               {t.watchRoom.syncedWith}
@@ -222,29 +250,61 @@ export function VideoPlayer({
           )}
         </AnimatePresence>
 
-        {/* Click to play/pause overlay */}
-        <div className="absolute inset-0 cursor-pointer" onClick={togglePlay} />
+        {/* Tap-to-sync banner (iOS autoplay blocked) */}
+        <AnimatePresence>
+          {pendingSync && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="absolute inset-0 flex items-center justify-center z-30 bg-black/40"
+            >
+              <button
+                onClick={handleTapToSync}
+                className="flex flex-col items-center gap-3 px-8 py-5 rounded-2xl bg-night-900/95 border border-neon-purple/40 text-white shadow-2xl"
+              >
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
+                  <Play className="w-6 h-6 fill-white text-white ml-1" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-sm">Tu pareja dio play</p>
+                  <p className="text-white/50 text-xs mt-0.5">Toca para sincronizar</p>
+                </div>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Click/tap overlay — only when no pending sync */}
+        {!pendingSync && (
+          <div className="absolute inset-0 cursor-pointer z-10" onClick={togglePlay} />
+        )}
       </div>
 
-      {/* Controls bar */}
-      <div className="bg-gradient-to-t from-black/95 to-transparent -mt-16 pt-16 pb-3 px-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 absolute bottom-0 left-0 right-0">
+      {/* Controls bar — always visible on mobile, hover on desktop */}
+      <div className="bg-gradient-to-t from-black/95 to-transparent pb-3 px-4 pt-8 absolute bottom-0 left-0 right-0 z-20
+        opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200"
+        style={{ pointerEvents: "auto" }}
+      >
         {/* Progress bar */}
-        <div className="mb-2 relative h-1.5 group/bar">
+        <div className="mb-3 relative h-4 flex items-center">
           <input
             type="range"
             min={0}
             max={duration || 100}
+            step={0.1}
             value={currentTime}
             onChange={handleSeekBar}
             onMouseDown={() => setIsDragging(true)}
-            onMouseUp={handleSeekCommit}
-            onTouchEnd={handleSeekCommit}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            onMouseUp={handleSeekMouseUp}
+            onTouchStart={() => setIsDragging(true)}
+            onTouchEnd={handleSeekTouchEnd}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
           />
           <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-neon-purple to-neon-pink rounded-full transition-all"
-              style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%" }}
+              className="h-full bg-gradient-to-r from-neon-purple to-neon-pink rounded-full"
+              style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%", transition: isDragging ? "none" : "width 0.5s linear" }}
             />
           </div>
         </div>
@@ -253,19 +313,20 @@ export function VideoPlayer({
         <div className="flex items-center gap-3">
           <button
             onClick={togglePlay}
-            className="w-8 h-8 flex items-center justify-center text-white hover:text-neon-purple transition-colors"
+            className="w-9 h-9 flex items-center justify-center text-white hover:text-neon-purple transition-colors"
           >
             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
           </button>
           <button
             onClick={toggleMute}
-            className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white transition-colors"
+            className="w-9 h-9 flex items-center justify-center text-white/70 hover:text-white transition-colors"
           >
             {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
-          <span className="text-white/50 text-xs font-mono">
+          <span className="text-white/60 text-xs font-mono tabular-nums">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
+
           <div className="flex-1" />
 
           {/* URL change input */}
@@ -275,11 +336,11 @@ export function VideoPlayer({
               onChange={(e) => setUrlInput(e.target.value)}
               placeholder="New YouTube URL..."
               onKeyDown={(e) => e.key === "Enter" && handleLoadUrl()}
-              className="w-40 px-2.5 py-1 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-xs outline-none focus:border-neon-purple transition-all"
+              className="w-32 sm:w-44 px-2.5 py-1 rounded-lg bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-xs outline-none focus:border-neon-purple transition-all"
             />
             <button
               onClick={handleLoadUrl}
-              className="px-2.5 py-1 rounded-lg bg-neon-purple/20 border border-neon-purple/30 text-neon-purple text-xs hover:bg-neon-purple/30 transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-neon-purple/20 border border-neon-purple/30 text-neon-purple text-xs hover:bg-neon-purple/30 transition-colors whitespace-nowrap"
             >
               Load
             </button>
