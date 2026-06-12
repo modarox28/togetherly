@@ -258,8 +258,8 @@ export function VideoPlayer({
 
   return (
     <div ref={containerRef} className="flex-1 flex flex-col bg-black relative">
-      {/* Player area */}
-      <div className="flex-1 relative">
+      {/* Player area — [&_iframe]:pointer-events-none prevents iframes from stealing drag events (volume slider, etc.) */}
+      <div className="flex-1 relative [&_iframe]:pointer-events-none">
 
         {/* YouTube */}
         {platform === "youtube" && videoId && (
