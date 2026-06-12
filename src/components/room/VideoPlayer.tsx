@@ -5,17 +5,19 @@ import YouTube, { type YouTubePlayer, type YouTubeEvent } from "react-youtube";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, Volume2, VolumeX, CheckCircle2, Link, Maximize2, Minimize2 } from "lucide-react";
 import { extractYouTubeId, formatTime } from "@/lib/utils";
-import { detectPlatform } from "@/lib/platforms";
+import { detectPlatform, getPlayerType } from "@/lib/platforms";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { TwitchEmbed } from "@/components/room/players/TwitchEmbed";
 import { VimeoEmbed } from "@/components/room/players/VimeoEmbed";
 import { SpotifyEmbed } from "@/components/room/players/SpotifyEmbed";
+import { CompanionEmbed } from "@/components/room/players/CompanionEmbed";
 import type { PlayerHandle } from "@/components/room/players/TwitchEmbed";
 
 interface VideoPlayerProps {
   videoUrl: string | null;
   roomId: string;
   isSynced: boolean;
+  extensionActive?: boolean;
   onPlay: (currentTime: number) => void;
   onPause: (currentTime: number) => void;
   onSeek: (currentTime: number) => void;
@@ -26,7 +28,7 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({
-  videoUrl, isSynced,
+  videoUrl, isSynced, extensionActive = false,
   onPlay, onPause, onSeek, onUrlChange,
   onRemotePlay, onRemotePause, onRemoteSeek,
 }: VideoPlayerProps) {
@@ -55,6 +57,7 @@ export function VideoPlayer({
   const platform = videoUrl ? detectPlatform(videoUrl) : null;
   const videoId = (platform === "youtube" && videoUrl) ? extractYouTubeId(videoUrl) : null;
   const isSpotify = platform === "spotify";
+  const isCompanion = platform ? getPlayerType(platform) === "companion" : false;
 
   // Helper: play/pause/seek regardless of platform
   const playerPlay = () => {
@@ -88,8 +91,9 @@ export function VideoPlayer({
     playerHandleRef.current = null;
   }, [videoUrl]);
 
-  // Register remote callbacks
+  // Register remote callbacks — companion mode handles its own remote events
   useEffect(() => {
+    if (isCompanion) return;
     onRemotePlay((time) => {
       isRemoteAction.current = true;
       playerSeek(time);
@@ -111,7 +115,7 @@ export function VideoPlayer({
       setCurrentTime(time);
       showSync();
     });
-  }, [onRemotePlay, onRemotePause, onRemoteSeek, platform]);
+  }, [onRemotePlay, onRemotePause, onRemoteSeek, platform, isCompanion]);
 
   // Progress interval
   useEffect(() => {
@@ -233,6 +237,7 @@ export function VideoPlayer({
           <h3 className="text-white font-semibold text-lg">{t.watchRoom.addVideo}</h3>
           <p className="text-white/40 text-sm">{t.watchRoom.pasteToStart}</p>
           <p className="text-white/25 text-xs mt-1">YouTube · Twitch · Vimeo · Spotify</p>
+          <p className="text-white/15 text-xs mt-0.5">Netflix · Disney+ · HBO Max · Prime Video · y más</p>
         </div>
         <div className="w-full max-w-md flex gap-2">
           <input
@@ -296,9 +301,23 @@ export function VideoPlayer({
         {/* Spotify */}
         {platform === "spotify" && <SpotifyEmbed key={videoUrl} url={videoUrl!} />}
 
+        {/* Companion (Netflix, Disney+, HBO Max, etc.) */}
+        {isCompanion && platform && (
+          <CompanionEmbed
+            key={videoUrl}
+            url={videoUrl!}
+            platform={platform}
+            extensionActive={extensionActive}
+            onPlay={(t) => onPlay(t)}
+            onPause={(t) => onPause(t)}
+            onRemotePlay={onRemotePlay}
+            onRemotePause={onRemotePause}
+          />
+        )}
+
         {/* Sync indicator */}
         <AnimatePresence>
-          {syncIndicator && (
+          {syncIndicator && !isCompanion && (
             <motion.div initial={{ opacity: 0, scale: 0.8, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }}
               className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-night-800/90 border border-neon-purple/30 text-neon-purple text-xs font-medium z-20">
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -326,14 +345,14 @@ export function VideoPlayer({
           )}
         </AnimatePresence>
 
-        {/* Click overlay (not for Spotify) */}
-        {!pendingSync && !isSpotify && (
+        {/* Click overlay (not for Spotify or companion) */}
+        {!pendingSync && !isSpotify && !isCompanion && (
           <div className="absolute inset-0 cursor-pointer z-10" onClick={togglePlay} />
         )}
       </div>
 
-      {/* Controls — hidden for Spotify */}
-      {!isSpotify && (
+      {/* Controls — hidden for Spotify and companion mode */}
+      {!isSpotify && !isCompanion && (
         <div className="bg-gradient-to-t from-black/95 to-transparent pb-3 px-4 pt-8 absolute bottom-0 left-0 right-0 z-20
           opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
           {/* Progress bar */}
@@ -388,7 +407,7 @@ export function VideoPlayer({
             className="flex gap-2 px-3 py-2 bg-night-900 border-t border-white/5 z-30 relative"
             onClick={(e) => e.stopPropagation()}>
             <input autoFocus value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="YouTube, Twitch, Vimeo o Spotify..."
+              placeholder="YouTube, Netflix, Disney+, Twitch, Vimeo..."
               onKeyDown={(e) => { if (e.key === "Enter") { handleLoadUrl(); setShowUrlBar(false); } if (e.key === "Escape") setShowUrlBar(false); }}
               className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm outline-none focus:border-neon-purple transition-all" />
             <button onClick={() => { handleLoadUrl(); setShowUrlBar(false); }}

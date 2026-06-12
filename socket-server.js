@@ -80,6 +80,17 @@ function getColorForIndex(index) {
 io.on("connection", (socket) => {
   let currentRoomId = null;
   let currentUsername = null;
+  let isExtension = false;
+
+  // Extension connects invisibly — joins room events without appearing as participant
+  socket.on("ext-connect", ({ roomId, username }) => {
+    if (!roomId) return;
+    currentRoomId = roomId;
+    currentUsername = username || "Extension";
+    isExtension = true;
+    socket.join(roomId);
+    socket.emit("ext-connected", { roomId });
+  });
 
   socket.on("join-room", ({ roomId, username, avatar, isPublic, roomName }) => {
     if (!roomId || !username) return;
@@ -202,6 +213,8 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     if (!currentRoomId) return;
+    if (isExtension) return; // Extension disconnect doesn't affect participant list
+
     const room = rooms.get(currentRoomId);
     if (!room) return;
 

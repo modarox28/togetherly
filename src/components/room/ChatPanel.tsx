@@ -2,9 +2,10 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, SmilePlus, ArrowDown } from "lucide-react";
+import { Send, SmilePlus, ArrowDown, Bell, BellOff } from "lucide-react";
 import type { ChatMessage, Participant, Reaction } from "@/hooks/useRoom";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const REACTIONS = ["❤️", "😂", "😮", "😭", "🔥", "👏", "😍", "💀", "🤣", "🥰"];
 
@@ -31,8 +32,10 @@ export function ChatPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastTypingRef = useRef(0);
+  const prevMsgCountRef = useRef(0);
   const { t } = useLanguage();
   const myName = participants.find((p) => p.id === youId)?.name;
+  const { permission, request: requestNotif, notify } = useNotifications();
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,6 +52,17 @@ export function ChatPanel({
   };
 
   useEffect(() => {
+    const count = messages.length;
+    if (count > prevMsgCountRef.current && myName) {
+      const newMsgs = messages.slice(prevMsgCountRef.current);
+      newMsgs.forEach((msg) => {
+        if (!msg.isSystem && msg.username !== myName) {
+          notify(msg.username, msg.text);
+        }
+      });
+    }
+    prevMsgCountRef.current = count;
+
     const el = containerRef.current;
     if (!el) return;
     const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -102,6 +116,30 @@ export function ChatPanel({
           ))}
         </div>
         <span className="text-xs text-day-900/30 dark:text-white/30 ml-auto">{participants.length} online</span>
+        <button
+          onClick={requestNotif}
+          disabled={permission === "denied"}
+          title={
+            permission === "granted"
+              ? "Notificaciones activas"
+              : permission === "denied"
+              ? "Permisos denegados en el navegador"
+              : "Activar notificaciones de chat"
+          }
+          className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+            permission === "granted"
+              ? "text-neon-purple"
+              : permission === "denied"
+              ? "text-day-900/20 dark:text-white/20 cursor-not-allowed"
+              : "text-day-900/30 dark:text-white/30 hover:text-neon-purple"
+          }`}
+        >
+          {permission === "denied" ? (
+            <BellOff className="w-3.5 h-3.5" />
+          ) : (
+            <Bell className="w-3.5 h-3.5" />
+          )}
+        </button>
       </div>
 
       {/* Messages */}
