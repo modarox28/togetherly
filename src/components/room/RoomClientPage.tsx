@@ -22,6 +22,7 @@ export function RoomClientPage({ roomId }: Props) {
   const [state, actions] = useRoom();
   const [copied, setCopied] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
+  const [extensionActive, setExtensionActive] = useState(false);
 
   const [username, setUsername] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
@@ -38,6 +39,34 @@ export function RoomClientPage({ roomId }: Props) {
   } = useWebRTC(roomId);
 
   useWakeLock(hasJoined);
+
+  // Extension bridge — auto-connect extension when user joins a room
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.source !== "togetherly-ext") return;
+      if (e.data.type === "EXT_READY" || e.data.type === "EXT_STATUS") {
+        setExtensionActive(e.data.connected ?? true);
+      }
+    };
+    window.addEventListener("message", handler);
+    // Ping to detect extension on load
+    window.postMessage({ source: "togetherly-web", type: "PING" }, "*");
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  useEffect(() => {
+    if (!state.joined || !state.you) return;
+    window.postMessage({
+      source: "togetherly-web",
+      type: "JOIN_ROOM",
+      roomId,
+      username: state.you.name,
+      avatar: state.you.avatar,
+    }, "*");
+    return () => {
+      window.postMessage({ source: "togetherly-web", type: "LEAVE_ROOM" }, "*");
+    };
+  }, [state.joined]);
 
   useEffect(() => {
     const storedName = sessionStorage.getItem("togetherly-username");
@@ -206,6 +235,7 @@ export function RoomClientPage({ roomId }: Props) {
             videoUrl={state.videoUrl}
             roomId={roomId}
             isSynced={state.connected}
+            extensionActive={extensionActive}
             onPlay={(t) => actions.sendPlay(roomId, t)}
             onPause={(t) => actions.sendPause(roomId, t)}
             onSeek={(t) => actions.sendSeek(roomId, t)}

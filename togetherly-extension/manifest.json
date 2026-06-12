@@ -1,0 +1,55 @@
+{
+  "manifest_version": 3,
+  "name": "Togetherly Sync",
+  "version": "1.0.0",
+  "description": "Sincroniza Netflix, Disney+, HBO Max y más con tu pareja automáticamente.",
+
+  "permissions": ["tabs", "storage", "scripting"],
+
+  "host_permissions": [
+    "https://www.netflix.com/*",
+    "https://www.disneyplus.com/*",
+    "https://www.max.com/*",
+    "https://www.primevideo.com/*",
+    "https://www.amazon.com/*",
+    "https://tv.apple.com/*",
+    "https://www.paramountplus.com/*",
+    "https://www.crunchyroll.com/*",
+    "https://togetherly-weld.vercel.app/*",
+    "http://localhost:3000/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.netflix.com/*",
+        "https://www.disneyplus.com/*",
+        "https://www.max.com/*",
+        "https://www.primevideo.com/*",
+        "https://www.amazon.com/*",
+        "https://tv.apple.com/*",
+        "https://www.paramountplus.com/*",
+        "https://www.crunchyroll.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://togetherly-weld.vercel.app/*",
+        "http://localhost:3000/*"
+      ],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Togetherly Sync"
+  }
+}
