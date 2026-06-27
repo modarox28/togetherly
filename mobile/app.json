@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Togetherly",
+    "slug": "togetherly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "togetherly",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.togetherly.app"
+    },
+    "android": {
+      "package": "com.togetherly.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0D0D1A",
+        "foregroundImage": "./assets/icon.png"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      [
+        "react-native-webview",
+        {
+          "android": {
+            "useAndroidX": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
