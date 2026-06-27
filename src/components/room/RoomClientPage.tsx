@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight, Share2 } from "lucide-react";
-import { VideoPlayer } from "@/components/room/VideoPlayer";
+import { VideoPlayer, type VideoPlayerHandle } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { VideoCallPanel } from "@/components/room/VideoCallPanel";
 import { CallStrip } from "@/components/room/CallStrip";
 import { useRoom } from "@/hooks/useRoom";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -23,6 +24,8 @@ export function RoomClientPage({ roomId }: Props) {
   const [copied, setCopied] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [extensionActive, setExtensionActive] = useState(false);
+  const playerRef = useRef<VideoPlayerHandle>(null);
+  useKeyboardShortcuts(playerRef);
 
   const [username, setUsername] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
@@ -232,6 +235,7 @@ export function RoomClientPage({ roomId }: Props) {
             participantCount={state.participants.length}
           />
           <VideoPlayer
+            ref={playerRef}
             videoUrl={state.videoUrl}
             roomId={roomId}
             isSynced={state.connected}
