@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowRight, Users, ChevronLeft } from "lucide-react";
+import { Heart, ArrowRight, Users, ChevronLeft, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -16,6 +17,7 @@ import { CHARACTERS } from "@/lib/characters";
 export default function RoomSetupPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { data: session } = useSession();
   const [step, setStep] = useState<"info" | "character">("info");
   const [username, setUsername] = useState("");
   const [roomName, setRoomName] = useState("");
@@ -24,6 +26,10 @@ export default function RoomSetupPage() {
   const [tab, setTab] = useState<"create" | "join">("create");
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ username?: string; joinCode?: string; character?: string }>({});
+
+  useEffect(() => {
+    if (session?.user?.name && !username) setUsername(session.user.name);
+  }, [session?.user?.name]);
 
   const handleNextStep = () => {
     if (!username.trim()) { setErrors({ username: t.room.nameRequired }); return; }
@@ -107,6 +113,37 @@ export default function RoomSetupPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Auth banner */}
+                  {session ? (
+                    <div className="flex items-center justify-between px-5 py-3 bg-neon-purple/5 border-b border-black/5 dark:border-white/5">
+                      <div className="flex items-center gap-2">
+                        {session.user?.image && (
+                          <img src={session.user.image} alt="" className="w-6 h-6 rounded-full object-cover" />
+                        )}
+                        <span className="text-xs text-day-900/60 dark:text-white/50">
+                          Signed in as <strong className="text-neon-purple">{session.user?.name}</strong>
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => signOut({ callbackUrl: "/room" })}
+                        className="text-xs text-day-900/30 dark:text-white/30 hover:text-red-400 transition-colors"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 px-5 py-3 bg-black/2 dark:bg-white/2 border-b border-black/5 dark:border-white/5">
+                      <span className="text-xs text-day-900/40 dark:text-white/30 flex-1">Save your profile across sessions</span>
+                      <Link href="/login" className="flex items-center gap-1 text-xs text-neon-purple font-medium hover:underline">
+                        <LogIn className="w-3 h-3" /> Sign in
+                      </Link>
+                      <span className="text-xs text-day-900/20 dark:text-white/20">·</span>
+                      <Link href="/register" className="flex items-center gap-1 text-xs text-neon-pink font-medium hover:underline">
+                        <UserPlus className="w-3 h-3" /> Register
+                      </Link>
+                    </div>
+                  )}
 
                   <div className="p-8 flex flex-col gap-5">
                     <Input

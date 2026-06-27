@@ -10,3 +10,5 @@ npm-debug.log*
 *.pem
 .vercel
 tsconfig.tsbuildinfo
+
+/src/generated/prisma

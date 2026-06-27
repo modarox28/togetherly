@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
 import YouTube, { type YouTubePlayer, type YouTubeEvent } from "react-youtube";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, Volume2, VolumeX, CheckCircle2, Link, Maximize2, Minimize2 } from "lucide-react";
@@ -12,6 +12,13 @@ import { VimeoEmbed } from "@/components/room/players/VimeoEmbed";
 import { SpotifyEmbed } from "@/components/room/players/SpotifyEmbed";
 import { CompanionEmbed } from "@/components/room/players/CompanionEmbed";
 import type { PlayerHandle } from "@/components/room/players/TwitchEmbed";
+
+export interface VideoPlayerHandle {
+  togglePlay: () => void;
+  toggleFullscreen: () => void;
+  seekRelative: (delta: number) => void;
+  adjustVolume: (delta: number) => void;
+}
 
 interface VideoPlayerProps {
   videoUrl: string | null;
@@ -27,11 +34,11 @@ interface VideoPlayerProps {
   onRemoteSeek: (cb: (t: number) => void) => void;
 }
 
-export function VideoPlayer({
+export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer({
   videoUrl, isSynced, extensionActive = false,
   onPlay, onPause, onSeek, onUrlChange,
   onRemotePlay, onRemotePause, onRemoteSeek,
-}: VideoPlayerProps) {
+}, ref) {
   // YouTube-specific ref
   const ytPlayerRef = useRef<YouTubePlayer | null>(null);
   // Generic player ref (Twitch/Vimeo)
@@ -227,6 +234,30 @@ export function VideoPlayer({
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
+  useImperativeHandle(ref, () => ({
+    togglePlay,
+    toggleFullscreen,
+    seekRelative: (delta: number) => {
+      const t = Math.max(0, playerGetTime() + delta);
+      playerSeek(t);
+      onSeek(t);
+      setCurrentTime(t);
+    },
+    adjustVolume: (delta: number) => {
+      const next = Math.max(0, Math.min(100, volume + delta));
+      setVolume(next);
+      if (platform === "youtube") {
+        ytPlayerRef.current?.setVolume(next);
+        if (next === 0) { ytPlayerRef.current?.mute(); setIsMuted(true); }
+        else { ytPlayerRef.current?.unMute(); setIsMuted(false); }
+      } else {
+        playerHandleRef.current?.setVolume(next);
+        if (next === 0) { playerHandleRef.current?.mute(); setIsMuted(true); }
+        else { playerHandleRef.current?.unmute(); setIsMuted(false); }
+      }
+    },
+  }));
+
   if (!videoUrl || !platform) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 bg-night-900">
@@ -419,4 +450,4 @@ export function VideoPlayer({
       </AnimatePresence>
     </div>
   );
-}
+});
