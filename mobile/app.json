@@ -23,18 +23,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-status-bar",
-      [
-        "react-native-webview",
-        {
-          "android": {
-            "useAndroidX": true
-          }
-        }
-      ]
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "autolinking": {
+      "exclude": ["react-native-reanimated"]
     }
   }
 }

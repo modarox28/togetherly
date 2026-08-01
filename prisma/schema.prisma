@@ -17,6 +17,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Stripe subscription
+  isPremium              Boolean   @default(false)
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
+
   accounts Account[]
   sessions Session[]
 }
