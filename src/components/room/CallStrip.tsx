@@ -43,8 +43,8 @@ export function CallStrip({
             <StreamVideo stream={remoteStream} className="w-full h-full object-cover" />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-neon-purple/20 flex items-center justify-center animate-pulse">
-                <Video className="w-4 h-4 text-neon-purple" />
+              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center animate-pulse">
+                <Video className="w-4 h-4 text-accent" />
               </div>
               {callState === "calling" && (
                 <span className="text-white/40 text-[10px]">Llamando...</span>

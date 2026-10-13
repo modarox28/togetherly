@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import { LogoMark } from "@/components/ui/Logo";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Check, Sparkles, Zap, Crown, Heart } from "lucide-react";
+import { Check, Sparkles, Zap, Crown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { PLANS } from "@/lib/stripe";
+import { PLANS } from "@/lib/plans";
 
 const FREE_FEATURES = PLANS.free.features;
 const PREMIUM_FEATURES = PLANS.premium.features;
@@ -79,8 +80,8 @@ function PricingContent() {
     <div className="min-h-screen bg-night-950 text-white overflow-hidden">
       {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-neon-purple/10 blur-[120px] animate-[blob-drift_8s_ease-in-out_infinite]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-neon-pink/10 blur-[100px] animate-[blob-drift-reverse_10s_ease-in-out_infinite]" />
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-accent/10 blur-[120px] animate-[blob-drift_8s_ease-in-out_infinite]" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-accent-2/10 blur-[100px] animate-[blob-drift-reverse_10s_ease-in-out_infinite]" />
       </div>
 
       {/* Toast */}
@@ -102,7 +103,7 @@ function PricingContent() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-20">
         {/* Back */}
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors mb-12">
-          <Heart className="w-4 h-4 fill-neon-pink text-neon-pink" />
+          <LogoMark className="w-6 h-6 text-accent" />
           Togetherly
         </Link>
 
@@ -113,18 +114,15 @@ function PricingContent() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neon-purple/10 border border-neon-purple/30 text-neon-purple text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-accent text-sm font-medium mb-6">
             <Sparkles className="w-4 h-4" />
             Planes simples y transparentes
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Elige tu{" "}
-            <span className="bg-gradient-to-r from-neon-purple to-neon-pink bg-clip-text text-transparent">
-              experiencia
-            </span>
+          <h1 className="font-display text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
+            Gratis para dos. Premium para el grupo.
           </h1>
           <p className="text-white/60 text-lg max-w-xl mx-auto">
-            Gratis para siempre para parejas. Premium para grupos y funciones extra.
+            Ver una película en pareja siempre será gratis. Si quieren armar la noche de cine con amigos, Premium abre la sala hasta para 8 personas.
           </p>
         </motion.div>
 
@@ -142,7 +140,7 @@ function PricingContent() {
                 <Zap className="w-5 h-5 text-white/70" />
               </div>
               <div>
-                <h2 className="font-bold text-lg">Free</h2>
+                <h2 className="font-bold text-lg">Gratis</h2>
                 <p className="text-white/50 text-sm">Para siempre</p>
               </div>
             </div>
@@ -171,20 +169,20 @@ function PricingContent() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="relative rounded-2xl border border-neon-purple/40 bg-gradient-to-b from-neon-purple/10 to-night-900/80 backdrop-blur p-8 shadow-[0_0_60px_rgba(192,132,252,0.15)]"
+            className="relative rounded-2xl border border-accent/40 bg-day-100 dark:bg-night-800 p-8 shadow-[0_24px_50px_-28px_rgba(42,33,64,0.6)]"
           >
             {/* Popular badge */}
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-neon-purple to-neon-pink text-xs font-semibold text-white shadow-lg">
-              MÁS POPULAR
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-accent text-xs font-semibold text-on-accent shadow-lg">
+              Para grupos
             </div>
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-lg">
                 <Crown className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="font-bold text-lg">Premium</h2>
-                <p className="text-neon-purple/80 text-sm">Experiencia completa</p>
+                <p className="text-accent/80 text-sm">Para ver en grupo</p>
               </div>
             </div>
 
@@ -197,7 +195,7 @@ function PricingContent() {
             <ul className="space-y-3 mb-8">
               {PREMIUM_FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-3 text-sm text-white/80">
-                  <Check className="w-4 h-4 text-neon-purple flex-shrink-0" />
+                  <Check className="w-4 h-4 text-accent flex-shrink-0" />
                   {f}
                 </li>
               ))}
@@ -248,8 +246,8 @@ function PricingContent() {
                 a: "Sí, el precio está en USD. Tu banco convertirá automáticamente al tipo de cambio vigente.",
               },
               {
-                q: "¿Qué pasa con los usuarios gratis cuando llega un Premium?",
-                a: "El plan Free siempre será gratuito. Solo las funciones avanzadas (más de 2 personas, historial, fondos) requieren Premium.",
+                q: "¿Mis invitados también tienen que pagar?",
+                a: "El plan Gratis seguirá siendo gratis. Solo las salas de más de 2 personas requieren que quien crea la sala tenga Premium; los invitados no pagan.",
               },
             ].map(({ q, a }) => (
               <div key={q} className="rounded-xl border border-white/8 bg-night-900/40 p-5">

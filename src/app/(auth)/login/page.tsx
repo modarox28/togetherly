@@ -96,7 +96,7 @@ function LoginForm() {
 
         <p className="text-center text-xs text-day-900/40 dark:text-white/40 mt-5">
           Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-neon-purple hover:underline font-medium">
+          <Link href="/register" className="text-accent hover:underline font-medium">
             Create one
           </Link>
         </p>

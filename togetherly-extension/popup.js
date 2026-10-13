@@ -1,83 +1,64 @@
-const dot = document.getElementById("status-dot");
-const statusText = document.getElementById("status-text");
-const viewConnect = document.getElementById("view-connect");
-const viewConnected = document.getElementById("view-connected");
-const displayRoom = document.getElementById("display-room");
-const inputRoom = document.getElementById("input-room");
-const inputName = document.getElementById("input-name");
-const btnConnect = document.getElementById("btn-connect");
-const btnDisconnect = document.getElementById("btn-disconnect");
+// Popup: conectarse a una sala a mano con su código.
+const $ = (id) => document.getElementById(id);
+const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{3,32}$/; // igual que en background.js
 
-function setUI(connected, room) {
-  if (connected && room) {
-    dot.className = "status-dot connected";
-    statusText.textContent = "Sincronizando";
-    viewConnect.style.display = "none";
-    viewConnected.style.display = "flex";
-    displayRoom.textContent = room.toUpperCase();
-  } else {
-    dot.className = "status-dot";
-    statusText.textContent = "Desconectado";
-    viewConnect.style.display = "flex";
-    viewConnected.style.display = "none";
-  }
+function render(connected, roomId) {
+  $("status-dot").className = connected ? "status-dot ok" : "status-dot";
+  $("status-text").textContent = connected ? "Sincronizando" : roomId ? "Reconectando…" : "Sin conectar";
+  $("view-connect").hidden = !!roomId;
+  $("view-connected").hidden = !roomId;
+  $("room-code").textContent = roomId ?? "";
 }
 
-// Restore saved name
+function refreshStatus() {
+  chrome.runtime.sendMessage({ type: "PING" }, (reply) => {
+    if (chrome.runtime.lastError || !reply) return;
+    render(reply.connected, reply.roomId);
+    if (reply.username) $("input-name").value = reply.username;
+  });
+}
+
 chrome.storage.local.get(["savedName"], ({ savedName }) => {
-  if (savedName) inputName.value = savedName;
+  if (savedName) $("input-name").value = savedName;
 });
+refreshStatus();
 
-// Check current state
-chrome.runtime.sendMessage({ type: "PING" }, (resp) => {
-  if (chrome.runtime.lastError || !resp) return;
-  setUI(resp.connected, resp.roomId);
-  if (resp.roomId) inputRoom.value = resp.roomId;
-  if (resp.username) inputName.value = resp.username;
-});
-
-// Connect
-btnConnect.addEventListener("click", () => {
-  const room = inputRoom.value.trim().toLowerCase();
-  const name = inputName.value.trim();
-  if (!room || !name) {
-    if (!room) inputRoom.focus();
-    else inputName.focus();
-    return;
+$("btn-connect").addEventListener("click", () => {
+  // Los códigos de Togetherly van en mayúsculas: se respetan tal cual.
+  const roomId = $("input-room").value.trim().toUpperCase();
+  const name = $("input-name").value.trim();
+  $("error").textContent = "";
+  if (!ROOM_ID_PATTERN.test(roomId)) {
+    $("error").textContent = "Escribe el código de la sala (letras y números).";
+    return $("input-room").focus();
+  }
+  if (!name) {
+    $("error").textContent = "Escribe tu nombre.";
+    return $("input-name").focus();
   }
 
   chrome.storage.local.set({ savedName: name });
-  btnConnect.disabled = true;
-  btnConnect.textContent = "Conectando...";
-  dot.className = "status-dot";
-  statusText.textContent = "Conectando...";
+  const button = $("btn-connect");
+  button.disabled = true;
+  button.textContent = "Conectando…";
 
-  chrome.runtime.sendMessage(
-    { type: "JOIN_ROOM", roomId: room, username: name, avatar: "🎮" },
-    (resp) => {
-      btnConnect.disabled = false;
-      btnConnect.textContent = "Conectar";
-      if (resp?.ok) {
-        setUI(true, room);
-      } else {
-        dot.className = "status-dot error";
-        statusText.textContent = "Error al conectar";
-      }
+  chrome.runtime.sendMessage({ type: "JOIN_ROOM", roomId, username: name, avatar: "🍿" }, (reply) => {
+    button.disabled = false;
+    button.textContent = "Conectar";
+    if (reply?.ok) {
+      render(false, roomId);
+    } else {
+      $("status-dot").className = "status-dot error";
+      $("error").textContent = reply?.error ?? "No se pudo conectar.";
     }
-  );
-});
-
-// Disconnect
-btnDisconnect.addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "LEAVE_ROOM" }, () => {
-    setUI(false, null);
+    // El socket tarda un instante en abrir: vuelve a preguntar el estado.
+    setTimeout(refreshStatus, 1200);
   });
 });
 
-// Enter key in inputs
-inputRoom.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") inputName.focus();
+$("btn-disconnect").addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "LEAVE_ROOM" }, () => render(false, null));
 });
-inputName.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") btnConnect.click();
-});
+
+$("input-room").addEventListener("keydown", (e) => e.key === "Enter" && $("input-name").focus());
+$("input-name").addEventListener("keydown", (e) => e.key === "Enter" && $("btn-connect").click());

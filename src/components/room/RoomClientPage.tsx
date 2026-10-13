@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { LogoMark } from "@/components/ui/Logo";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight, Share2 } from "lucide-react";
@@ -47,13 +48,14 @@ export function RoomClientPage({ roomId }: Props) {
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.source !== "togetherly-ext") return;
-      if (e.data.type === "EXT_READY" || e.data.type === "EXT_STATUS") {
+      if (e.source !== window || e.origin !== window.location.origin) return;
+      if (["EXT_READY", "EXT_STATUS", "PONG"].includes(e.data.type)) {
         setExtensionActive(e.data.connected ?? true);
       }
     };
     window.addEventListener("message", handler);
     // Ping to detect extension on load
-    window.postMessage({ source: "togetherly-web", type: "PING" }, "*");
+    window.postMessage({ source: "togetherly-web", type: "PING" }, window.location.origin);
     return () => window.removeEventListener("message", handler);
   }, []);
 
@@ -65,11 +67,26 @@ export function RoomClientPage({ roomId }: Props) {
       roomId,
       username: state.you.name,
       avatar: state.you.avatar,
-    }, "*");
+    }, window.location.origin);
     return () => {
-      window.postMessage({ source: "togetherly-web", type: "LEAVE_ROOM" }, "*");
+      window.postMessage({ source: "togetherly-web", type: "LEAVE_ROOM" }, window.location.origin);
     };
   }, [state.joined]);
+
+  // Pide un pase Premium (si la persona lo tiene) y entra a la sala.
+  // Si falla o no hay sesión, entra igual con el límite del plan gratis.
+  const joinWithPass = async (name: string, avatar: string, isPublic = false, roomName = "") => {
+    let pass: string | null = null;
+    try {
+      const r = await fetch("/api/rooms/pass", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId }),
+      });
+      if (r.ok) pass = (await r.json()).pass ?? null;
+    } catch {}
+    actions.joinRoom(roomId, name, avatar, isPublic, roomName, pass);
+  };
 
   useEffect(() => {
     const storedName = sessionStorage.getItem("togetherly-username");
@@ -79,7 +96,7 @@ export function RoomClientPage({ roomId }: Props) {
       const avatar = character?.emoji ?? "🎮";
       const isPublic = sessionStorage.getItem("togetherly-is-public") === "1";
       const roomName = sessionStorage.getItem("togetherly-room-name") || storedName + "'s room";
-      actions.joinRoom(roomId, storedName, avatar, isPublic, roomName);
+      joinWithPass(storedName, avatar, isPublic, roomName);
       setHasJoined(true);
     }
   }, [roomId]);
@@ -90,7 +107,7 @@ export function RoomClientPage({ roomId }: Props) {
     const avatar = character?.emoji ?? "🎮";
     sessionStorage.setItem("togetherly-username", username.trim());
     sessionStorage.setItem("togetherly-character", selectedCharacter);
-    actions.joinRoom(roomId, username.trim(), avatar);
+    joinWithPass(username.trim(), avatar);
     setHasJoined(true);
   };
 
@@ -110,14 +127,44 @@ export function RoomClientPage({ roomId }: Props) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  if (state.roomFull) {
+    return (
+      <div className="grain min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950 px-4">
+        <div className="max-w-md">
+          <LogoMark className="w-12 h-12 text-accent" />
+          <h1 className="mt-6 font-display text-4xl font-extrabold tracking-tight text-day-900 dark:text-white">
+            {t.watchRoom.roomFull}
+          </h1>
+          <p className="mt-3 text-lg leading-relaxed text-day-900/70 dark:text-white/70">
+            {t.watchRoom.roomFullHint.replace("{max}", String(state.roomFull))}
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <button
+              onClick={() => router.push("/pricing")}
+              className="rounded-full bg-accent px-6 py-3 font-bold text-on-accent"
+            >
+              {t.watchRoom.seePlans}
+            </button>
+            <button
+              onClick={() => router.push("/room")}
+              className="rounded-full border-2 border-day-900/15 px-6 py-3 font-bold text-day-900 dark:border-white/20 dark:text-white"
+            >
+              {t.watchRoom.createOwn}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!hasJoined) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950 px-4">
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full animate-blob-drift"
-            style={{ background: "radial-gradient(circle, rgba(192,132,252,0.15) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(255,201,101,0.15) 0%, transparent 70%)" }} />
           <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full animate-blob-drift-reverse"
-            style={{ background: "radial-gradient(circle, rgba(244,114,182,0.12) 0%, transparent 70%)" }} />
+            style={{ background: "radial-gradient(circle, rgba(242,167,176,0.12) 0%, transparent 70%)" }} />
         </div>
 
         <motion.div
@@ -128,10 +175,8 @@ export function RoomClientPage({ roomId }: Props) {
         >
           <div className="glass rounded-3xl p-8 border shadow-2xl bg-white/90 dark:bg-night-800/60 border-black/5 dark:border-white/10">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
-                <Heart className="w-4 h-4 text-white fill-white" />
-              </div>
-              <span className="font-bold gradient-text text-base">Togetherly</span>
+              <LogoMark className="text-accent" />
+              <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
             </div>
 
             <h1 className="text-xl font-bold text-day-900 dark:text-white mb-1">
@@ -164,7 +209,7 @@ export function RoomClientPage({ roomId }: Props) {
                         onClick={() => setSelectedCharacter(char.id)}
                         className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all cursor-pointer ${
                           selectedCharacter === char.id
-                            ? "border-neon-purple bg-neon-purple/10 scale-105"
+                            ? "border-accent bg-accent/10 scale-105"
                             : "border-transparent bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5"
                         }`}
                       >
@@ -191,9 +236,7 @@ export function RoomClientPage({ roomId }: Props) {
       <header className="flex items-center justify-between px-4 py-3 glass border-b flex-shrink-0 z-10
         bg-white/90 dark:bg-night-900/80 border-black/5 dark:border-white/5">
         <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
-            <Heart className="w-3.5 h-3.5 text-white fill-white" />
-          </div>
+          <LogoMark className="w-8 h-8 text-accent" />
           <div>
             <span className="font-semibold text-day-900 dark:text-white text-sm">
               Room <span className="gradient-text font-mono font-bold">{roomId}</span>

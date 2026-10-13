@@ -48,7 +48,7 @@ export function LanguageToggle() {
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors",
                   lang === language
-                    ? "bg-neon-purple/10 text-neon-purple dark:bg-neon-purple/20"
+                    ? "bg-accent/10 text-accent dark:bg-accent/20"
                     : "text-day-900/70 dark:text-white/70 hover:bg-black/5 dark:hover:bg-white/5 hover:text-day-900 dark:hover:text-white"
                 )}
               >

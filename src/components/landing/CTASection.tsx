@@ -1,73 +1,61 @@
 "use client";
 
-import { motion, useInView } from "framer-motion";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { ROOM_CODE_PATTERN, normalizeRoomCode } from "@/lib/room";
 
+// Sección final: entrar con un código o crear una sala. Ancla: #join (la usa el hero).
 export function CTASection() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
   const { t } = useLanguage();
   const router = useRouter();
   const [code, setCode] = useState("");
+  const isValid = ROOM_CODE_PATTERN.test(code);
 
-  const handleJoin = () => {
-    const clean = code.trim().toUpperCase();
-    if (clean.length === 6) router.push(`/room/${clean}`);
+  const handleJoin = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isValid) router.push(`/room/${code}`);
   };
 
   return (
-    <section ref={ref} className="relative py-28 px-4 overflow-hidden bg-day-100/80 dark:bg-night-950">
-      <div
-        className="absolute inset-0 opacity-40"
-        style={{ background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(192,132,252,0.12) 0%, transparent 70%)" }}
-      />
+    <section id="join" className="grain bg-day-50 px-4 py-24 dark:bg-night-950">
+      <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-2 md:items-end">
+        <div>
+          <h2 className="font-display text-[clamp(2.4rem,6vw,4.25rem)] font-extrabold leading-[0.98] tracking-[-0.035em] text-day-900 dark:text-white">
+            {t.cta.title}
+          </h2>
+          <p className="mt-3 text-lg text-day-900/70 dark:text-white/70">{t.cta.subtitle}</p>
+        </div>
 
-      <div className="relative z-10 max-w-2xl mx-auto text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.7 }}
-          className="flex flex-col items-center gap-6"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center shadow-lg shadow-neon-purple/30">
-            <Sparkles className="w-7 h-7 text-white" />
-          </div>
-
-          <h2 className="text-4xl md:text-5xl font-bold text-day-900 dark:text-white">{t.cta.title}</h2>
-          <p className="text-day-900/50 dark:text-white/50 text-lg">{t.cta.subtitle}</p>
-
-          <div className="w-full flex gap-2 max-w-md">
+        <div>
+          <form onSubmit={handleJoin} className="flex flex-wrap gap-3">
+            <label htmlFor="room-code" className="sr-only">
+              {t.cta.codeLabel}
+            </label>
             <input
+              id="room-code"
               value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, 6))}
+              onChange={(e) => setCode(normalizeRoomCode(e.target.value))}
               placeholder={t.cta.placeholder}
-              onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-              className="flex-1 px-4 py-3 rounded-xl
-                bg-white dark:bg-night-800/80
-                border border-day-200 dark:border-night-600
-                text-day-900 dark:text-white
-                placeholder:text-day-900/40 dark:placeholder:text-white/30
-                text-sm outline-none focus:border-neon-purple focus:ring-2 focus:ring-neon-purple/20 transition-all font-mono tracking-widest"
+              autoComplete="off"
+              spellCheck={false}
+              className="min-w-0 flex-1 rounded-2xl border-2 border-day-900/15 bg-white px-5 py-3.5 font-display text-2xl font-bold tracking-[0.3em] text-day-900 placeholder:text-day-900/25 focus:border-accent focus:outline-none dark:border-white/15 dark:bg-night-800 dark:text-white dark:placeholder:text-white/25"
             />
-            <Button onClick={handleJoin} disabled={code.length !== 6}>
-              {t.cta.join} <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-3 text-day-900/20 dark:text-white/20 text-sm w-full max-w-md">
-            <div className="flex-1 h-px bg-current" />
-            <span>{t.cta.createNew}</span>
-            <div className="flex-1 h-px bg-current" />
-          </div>
-
-          <Button size="lg" variant="secondary" onClick={() => router.push("/room")}>
-            {t.hero.createRoom}
-          </Button>
-        </motion.div>
+            <button
+              type="submit"
+              disabled={!isValid}
+              className="rounded-2xl bg-accent px-7 py-3.5 font-bold text-on-accent transition-opacity disabled:opacity-40"
+            >
+              {t.cta.join}
+            </button>
+          </form>
+          <button
+            onClick={() => router.push("/room")}
+            className="mt-5 font-bold text-day-900 underline decoration-accent decoration-2 underline-offset-4 dark:text-white"
+          >
+            {t.cta.createNew}
+          </button>
+        </div>
       </div>
     </section>
   );

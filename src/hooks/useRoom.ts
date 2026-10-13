@@ -42,14 +42,16 @@ interface RoomState {
   messages: ChatMessage[];
   reactions: Reaction[];
   typingUsers: string[];
+  /** Máximo de personas si la sala está llena; null si se pudo entrar. */
+  roomFull: number | null;
 }
 
 interface RoomActions {
-  joinRoom: (roomId: string, username: string, avatar: string, isPublic?: boolean, roomName?: string) => void;
+  joinRoom: (roomId: string, username: string, avatar: string, isPublic?: boolean, roomName?: string, pass?: string | null) => void;
   changeVideoUrl: (roomId: string, url: string) => void;
-  sendPlay: (roomId: string, currentTime: number) => void;
-  sendPause: (roomId: string, currentTime: number) => void;
-  sendSeek: (roomId: string, currentTime: number) => void;
+  sendPlay: (roomId: string, currentTime: number | null) => void;
+  sendPause: (roomId: string, currentTime: number | null) => void;
+  sendSeek: (roomId: string, currentTime: number | null) => void;
   sendMessage: (roomId: string, text: string) => void;
   sendReaction: (roomId: string, emoji: string) => void;
   sendTyping: (roomId: string) => void;
@@ -62,6 +64,7 @@ export function useRoom(): [RoomState, RoomActions] {
   const [state, setState] = useState<RoomState>({
     connected: false,
     joined: false,
+    roomFull: null,
     participants: [],
     you: null,
     isHost: false,
@@ -75,6 +78,7 @@ export function useRoom(): [RoomState, RoomActions] {
   const remotePlayRef = useRef<((t: number) => void) | null>(null);
   const remotePauseRef = useRef<((t: number) => void) | null>(null);
   const remoteSeekRef = useRef<((t: number) => void) | null>(null);
+  const lastTimeRef = useRef(0);
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
@@ -83,6 +87,10 @@ export function useRoom(): [RoomState, RoomActions] {
 
     socket.on("connect", () => setState((s) => ({ ...s, connected: true })));
     socket.on("disconnect", () => setState((s) => ({ ...s, connected: false, joined: false })));
+
+    socket.on("room-full", ({ max }: { max: number }) => {
+      setState((s) => ({ ...s, roomFull: max }));
+    });
 
     socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you }) => {
       setState((s) => ({
@@ -98,7 +106,7 @@ export function useRoom(): [RoomState, RoomActions] {
             id: "system-join",
             text: "You joined the room",
             username: "System",
-            color: "#C084FC",
+            color: "#FFC965",
             timestamp: Date.now(),
             isSystem: true,
           },
@@ -146,17 +154,25 @@ export function useRoom(): [RoomState, RoomActions] {
       setState((s) => ({ ...s, videoUrl: url, videoState: { playing: false, currentTime: 0, updatedAt: Date.now() } }));
     });
 
-    socket.on("video-play", ({ currentTime }) => {
-      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: true, currentTime, updatedAt: Date.now() } }));
-      remotePlayRef.current?.(currentTime);
+    // currentTime llega en null cuando alguien usa "Di Play" sin extensión:
+    // en ese caso se conserva el último tiempo conocido y no se salta.
+    socket.on("video-play", ({ currentTime }: { currentTime: number | null }) => {
+      const t = typeof currentTime === "number" ? currentTime : lastTimeRef.current;
+      lastTimeRef.current = t;
+      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: true, currentTime: t, updatedAt: Date.now() } }));
+      remotePlayRef.current?.(t);
     });
 
-    socket.on("video-pause", ({ currentTime }) => {
-      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: false, currentTime, updatedAt: Date.now() } }));
-      remotePauseRef.current?.(currentTime);
+    socket.on("video-pause", ({ currentTime }: { currentTime: number | null }) => {
+      const t = typeof currentTime === "number" ? currentTime : lastTimeRef.current;
+      lastTimeRef.current = t;
+      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: false, currentTime: t, updatedAt: Date.now() } }));
+      remotePauseRef.current?.(t);
     });
 
-    socket.on("video-seek", ({ currentTime }) => {
+    socket.on("video-seek", ({ currentTime }: { currentTime: number | null }) => {
+      if (typeof currentTime !== "number") return;
+      lastTimeRef.current = currentTime;
       setState((s) => ({ ...s, videoState: { ...s.videoState, currentTime, updatedAt: Date.now() } }));
       remoteSeekRef.current?.(currentTime);
     });
@@ -193,6 +209,7 @@ export function useRoom(): [RoomState, RoomActions] {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("room-joined");
+      socket.off("room-full");
       socket.off("participant-joined");
       socket.off("participant-left");
       socket.off("video-url-changed");
@@ -207,8 +224,8 @@ export function useRoom(): [RoomState, RoomActions] {
   }, []);
 
   const actions: RoomActions = {
-    joinRoom: useCallback((roomId, username, avatar, isPublic = false, roomName = "") => {
-      getSocket().emit("join-room", { roomId, username, avatar, isPublic, roomName });
+    joinRoom: useCallback((roomId, username, avatar, isPublic = false, roomName = "", pass = null) => {
+      getSocket().emit("join-room", { roomId, username, avatar, isPublic, roomName, pass });
     }, []),
     changeVideoUrl: useCallback((roomId, url) => {
       getSocket().emit("video-url-change", { roomId, url });

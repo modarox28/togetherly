@@ -1,75 +1,33 @@
 "use client";
 
-import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
-import { Zap, Video, MessageSquare, Smile, Layers, Users } from "lucide-react";
+import { Video, MessageCircle, Smile, DoorOpen } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { SectionHeading } from "@/components/landing/SectionHeading";
 
-const featureIcons = [Zap, Video, MessageSquare, Smile, Layers, Users];
-const featureColors = [
-  "from-violet-500/20 to-purple-500/20 border-violet-500/20",
-  "from-green-500/20 to-emerald-500/20 border-green-500/20",
-  "from-blue-500/20 to-cyan-500/20 border-blue-500/20",
-  "from-pink-500/20 to-rose-500/20 border-pink-500/20",
-  "from-amber-500/20 to-orange-500/20 border-amber-500/20",
-  "from-indigo-500/20 to-violet-500/20 border-indigo-500/20",
-];
-const iconColors = [
-  "text-violet-500 dark:text-violet-400",
-  "text-green-500 dark:text-green-400",
-  "text-blue-500 dark:text-blue-400",
-  "text-pink-500 dark:text-pink-400",
-  "text-amber-500 dark:text-amber-400",
-  "text-indigo-500 dark:text-indigo-400",
-];
+// Un ícono por cada elemento de translations.ts → features.items (mismo orden).
+const ICONS = [Video, MessageCircle, Smile, DoorOpen];
 
 export function Features() {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
   const { t } = useLanguage();
 
   return (
-    <section id="features" ref={ref} className="py-24 px-4 bg-day-50 dark:bg-night-950">
-      <div className="max-w-5xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={inView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-4xl md:text-5xl font-bold text-day-900 dark:text-white mb-4">
-            {t.features.title}
-          </h2>
-          <p className="text-day-900/50 dark:text-white/50 text-lg">{t.features.subtitle}</p>
-        </motion.div>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {t.features.items.map((feature, i) => {
-            const Icon = featureIcons[i];
+    <section id="room-features" className="bg-day-100 px-4 py-24 dark:bg-night-900">
+      <div className="mx-auto max-w-6xl">
+        <SectionHeading>{t.features.title}</SectionHeading>
+        <dl className="mt-12 grid gap-x-16 sm:grid-cols-2">
+          {t.features.items.map((item, index) => {
+            const Icon = ICONS[index] ?? Smile;
             return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                animate={inView ? { opacity: 1, y: 0, scale: 1 } : {}}
-                transition={{ duration: 0.5, delay: i * 0.08 }}
-                whileHover={{ y: -4, scale: 1.02 }}
-                className="group relative rounded-2xl p-5 border transition-all duration-300 cursor-default overflow-hidden
-                  bg-white dark:bg-night-800/60
-                  border-day-200 dark:border-white/5
-                  hover:border-neon-purple/20 hover:shadow-xl"
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${featureColors[i]} opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl`} />
-                <div className="relative z-10">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${featureColors[i]} border flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-200`}>
-                    <Icon className={`w-5 h-5 ${iconColors[i]}`} />
-                  </div>
-                  <h3 className="text-base font-semibold text-day-900 dark:text-white mb-1.5">{feature.title}</h3>
-                  <p className="text-sm text-day-900/60 dark:text-white/50 leading-relaxed">{feature.description}</p>
+              <div key={item.title} className="flex gap-4 border-t-2 border-day-900/10 py-7 dark:border-white/10">
+                <Icon aria-hidden="true" className="mt-1 h-6 w-6 flex-shrink-0 text-accent" strokeWidth={2.2} />
+                <div>
+                  <dt className="font-display text-xl font-bold text-day-900 dark:text-white">{item.title}</dt>
+                  <dd className="mt-1.5 max-w-[42ch] leading-relaxed text-day-900/70 dark:text-white/70">{item.description}</dd>
                 </div>
-              </motion.div>
+              </div>
             );
           })}
-        </div>
+        </dl>
       </div>
     </section>
   );

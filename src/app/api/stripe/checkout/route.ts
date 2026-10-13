@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { stripe, PLANS } from "@/lib/stripe";
+import { getStripe, getPremiumPriceId, PAYMENTS_DISABLED } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 
 export async function POST() {
+  const stripe = getStripe();
+  const priceId = getPremiumPriceId();
+  if (!stripe || !priceId) return NextResponse.json(PAYMENTS_DISABLED, { status: 503 });
+
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Inicia sesión para continuar" }, { status: 401 });
@@ -34,7 +38,7 @@ export async function POST() {
     customer: customerId,
     mode: "subscription",
     payment_method_types: ["card"],
-    line_items: [{ price: PLANS.premium.priceId, quantity: 1 }],
+    line_items: [{ price: priceId, quantity: 1 }],
     success_url: `${appUrl}/pricing?success=true`,
     cancel_url: `${appUrl}/pricing?canceled=true`,
     metadata: { userId: user.id },

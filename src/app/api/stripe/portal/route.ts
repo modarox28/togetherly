@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { stripe } from "@/lib/stripe";
+import { getStripe, PAYMENTS_DISABLED } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 
 export async function POST() {
+  const stripe = getStripe();
+  if (!stripe) return NextResponse.json(PAYMENTS_DISABLED, { status: 503 });
+
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });

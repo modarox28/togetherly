@@ -1,191 +1,251 @@
-// Content script — injected into Netflix, Disney+, HBO Max, Prime Video, etc.
-// Hooks into the HTMLVideoElement to intercept and apply sync events.
+// Motor de sincronización: se inyecta en las plataformas de streaming.
+// Escucha play/pausa/salto del video local y los manda a la sala; aplica los de los demás.
+// La lógica específica de cada plataforma está en platforms.js.
+//
+// Mensajes que recibe del background:
+//   REMOTE_COMMAND { action: "play" | "pause" | "seek", currentTime, by }
+//   ROOM_STATE     { playing, currentTime }   → al entrar tarde o cambiar de episodio
+//   EXT_STATUS     { connected, roomId }
 
-let video = null;
-let roomId = null;
-let isRemote = false; // prevent echo when we apply a remote command
-let overlay = null;
-let overlayTimeout = null;
+(() => {
+  if (globalThis.__togetherlyEngine) return;
+  globalThis.__togetherlyEngine = true;
 
-// ── Video discovery ────────────────────────────────────────────────────────
-// Streaming sites load their <video> element dynamically.
-// We watch the DOM with MutationObserver until we find it.
+  const platform = globalThis.TogetherlyPlatforms?.current();
+  if (!platform) return;
 
-function findVideo() {
-  // Direct search
-  const direct = document.querySelector("video");
-  if (direct && direct.readyState > 0) return direct;
+  const DRIFT_TOLERANCE = 1.5; // segundos de diferencia aceptables antes de saltar
+  const EXPECTED_EVENT_TTL = 2500; // ms que se espera un evento provocado por nosotros
 
-  // Shadow DOM search (some players use shadow roots)
-  for (const el of document.querySelectorAll("*")) {
-    if (el.shadowRoot) {
-      const v = el.shadowRoot.querySelector("video");
-      if (v && v.readyState > 0) return v;
+  let video = null;
+  let roomId = null;
+  let pendingOrder = null; // orden que llegó antes de encontrar el video
+  let orderQueue = Promise.resolve();
+  let seekDebounce = null;
+
+  // Eventos que provoca la propia extensión al aplicar una orden remota.
+  // Se ignoran uno a uno (no por tiempo): así una acción real de la persona nunca se pierde.
+  let expectedEvents = [];
+
+  const now = () => Date.now();
+  const isValidTime = (t) => typeof t === "number" && Number.isFinite(t) && t >= 0;
+
+  function expectEvent(type) {
+    expectedEvents.push({ type, until: now() + EXPECTED_EVENT_TTL });
+  }
+
+  // true si el evento lo provocamos nosotros (y lo descuenta de la lista)
+  function isOwnEvent(type) {
+    expectedEvents = expectedEvents.filter((e) => e.until > now());
+    const index = expectedEvents.findIndex((e) => e.type === type);
+    if (index === -1) return false;
+    expectedEvents.splice(index, 1);
+    return true;
+  }
+
+  function sendToBackground(message, onReply) {
+    try {
+      chrome.runtime.sendMessage({ ...message, platform: platform.id }, (reply) => {
+        if (chrome.runtime.lastError) return;
+        onReply?.(reply);
+      });
+    } catch {
+      // La extensión se recargó y este script quedó huérfano: no hay nada que hacer.
     }
   }
-  return null;
-}
 
-function attachVideo(v) {
-  if (video === v) return;
-  video = v;
-
-  video.addEventListener("play", onPlay);
-  video.addEventListener("pause", onPause);
-  video.addEventListener("seeked", onSeeked);
-
-  showOverlay(`Togetherly conectado — sala ${roomId}`);
-  console.log("[Togetherly] Video element hooked", video.src || video.currentSrc);
-}
-
-const observer = new MutationObserver(() => {
-  const v = findVideo();
-  if (v) attachVideo(v);
-});
-
-// ── Init: tell background we're here ──────────────────────────────────────
-chrome.runtime.sendMessage({ type: "CONTENT_READY" }, (resp) => {
-  if (chrome.runtime.lastError || !resp) return;
-  roomId = resp.roomId;
-  if (roomId) {
-    observer.observe(document.body, { childList: true, subtree: true });
-    const v = findVideo();
-    if (v) attachVideo(v);
-  }
-});
-
-// ── Local video events → send to background ───────────────────────────────
-function onPlay() {
-  if (isRemote) return;
-  chrome.runtime.sendMessage({ type: "VIDEO_PLAY", currentTime: video.currentTime });
-  showOverlay("▶ Enviando play a tu pareja...");
-}
-
-function onPause() {
-  if (isRemote) return;
-  chrome.runtime.sendMessage({ type: "VIDEO_PAUSE", currentTime: video.currentTime });
-  showOverlay("⏸ Enviando pausa a tu pareja...");
-}
-
-function onSeeked() {
-  if (isRemote) return;
-  chrome.runtime.sendMessage({ type: "VIDEO_SEEK", currentTime: video.currentTime });
-}
-
-// ── Remote commands from background → apply to video ─────────────────────
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === "REMOTE_PLAY") {
-    applyRemote(() => {
-      if (Math.abs(video.currentTime - msg.currentTime) > 2) {
-        video.currentTime = msg.currentTime;
-      }
-      video.play().catch(() => showOverlay("⚠ Toca la pantalla para reanudar"));
-    });
-    showOverlay("▶ Tu pareja dio play");
+  // ── Eventos del video local ─────────────────────────────────────────────
+  function onLocalPlay() {
+    if (isOwnEvent("play") || !roomId) return;
+    sendToBackground({ type: "VIDEO_PLAY", currentTime: video.currentTime });
+    showToast("▶ Diste play · sincronizando");
   }
 
-  if (msg.type === "REMOTE_PAUSE") {
-    applyRemote(() => {
-      video.pause();
-      if (Math.abs(video.currentTime - msg.currentTime) > 2) {
-        video.currentTime = msg.currentTime;
-      }
-    });
-    showOverlay("⏸ Tu pareja pausó");
+  function onLocalPause() {
+    if (isOwnEvent("pause") || !roomId || video.ended) return;
+    sendToBackground({ type: "VIDEO_PAUSE", currentTime: video.currentTime });
+    showToast("⏸ Pausaste · sincronizando");
   }
 
-  if (msg.type === "REMOTE_SEEK") {
-    applyRemote(() => {
-      video.currentTime = msg.currentTime;
-    });
+  function onLocalSeek() {
+    if (isOwnEvent("seeked") || !roomId) return;
+    // Al arrastrar la barra llegan varios "seeked": se manda solo el último.
+    clearTimeout(seekDebounce);
+    seekDebounce = setTimeout(() => {
+      if (video) sendToBackground({ type: "VIDEO_SEEK", currentTime: video.currentTime });
+    }, 300);
   }
 
-  if (msg.type === "EXT_STATUS") {
-    if (msg.connected && msg.roomId) {
-      roomId = msg.roomId;
-      if (!video) {
-        observer.observe(document.body, { childList: true, subtree: true });
-        const v = findVideo();
-        if (v) attachVideo(v);
-      }
-      showOverlay(`Togetherly — sala ${roomId}`);
-    } else {
-      showOverlay("Togetherly desconectado");
+  function attachVideo(newVideo) {
+    if (video === newVideo) return;
+    detachVideo();
+    video = newVideo;
+    video.addEventListener("play", onLocalPlay);
+    video.addEventListener("pause", onLocalPause);
+    video.addEventListener("seeked", onLocalSeek);
+
+    if (pendingOrder) {
+      const order = pendingOrder;
+      pendingOrder = null;
+      enqueue(order);
+    } else if (roomId) {
+      // Entraste tarde o cambiaste de episodio: pide en qué va la sala.
+      sendToBackground({ type: "REQUEST_STATE" });
+    }
+    if (roomId) showToast(`Sincronizado con la sala ${roomId}`);
+  }
+
+  function detachVideo() {
+    if (!video) return;
+    video.removeEventListener("play", onLocalPlay);
+    video.removeEventListener("pause", onLocalPause);
+    video.removeEventListener("seeked", onLocalSeek);
+    video = null;
+  }
+
+  // Busca el video cada segundo: las plataformas lo cambian al pasar de episodio
+  // o al terminar un anuncio. Es barato porque solo busca cuando hace falta.
+  setInterval(() => {
+    if (!roomId) return;
+    if (!platform.isPlayerPage()) {
+      detachVideo();
+      return;
+    }
+    if (video && video.isConnected && video.readyState > 0) return;
+    const found = platform.findVideo();
+    if (found) attachVideo(found);
+  }, 1000);
+
+  // ── Órdenes que llegan de la sala ───────────────────────────────────────
+  // Se aplican en fila para que un "play" y un "seek" seguidos no se pisen.
+  function enqueue(order) {
+    orderQueue = orderQueue.then(() => applyOrder(order)).catch(() => {});
+  }
+
+  async function applyOrder(order) {
+    if (!video) {
+      pendingOrder = order;
+      return;
+    }
+    const control = platform.control;
+    const target = order.currentTime;
+    const isFar = isValidTime(target) && Math.abs(video.currentTime - target) > DRIFT_TOLERANCE;
+
+    const seek = async () => {
+      expectEvent("seeked");
+      if (!(await control.seek(video, target))) showToast("No pude saltar: muévete al minuto a mano");
+    };
+    const play = async () => {
+      expectEvent("play");
+      if (!(await control.play(video))) showToast("Toca el video para reanudar (el navegador bloqueó el play)");
+    };
+    const pause = async () => {
+      expectEvent("pause");
+      await control.pause(video);
+    };
+
+    switch (order.action) {
+      case "play":
+        if (isFar) await seek();
+        if (video.paused) await play();
+        break;
+      case "pause":
+        if (!video.paused) await pause();
+        if (isFar) await seek();
+        break;
+      case "seek":
+        if (isFar) await seek();
+        break;
+      case "state":
+        if (isFar) await seek();
+        if (order.playing && video.paused) await play();
+        if (!order.playing && !video.paused) await pause();
+        showToast("Te pusiste al día con la sala");
+        break;
     }
   }
-});
 
-function applyRemote(fn) {
-  if (!video) return;
-  isRemote = true;
-  fn();
-  // Give the event loop a tick so play/pause events fire before we clear the flag
-  setTimeout(() => { isRemote = false; }, 200);
-}
+  chrome.runtime.onMessage.addListener((message) => {
+    if (!message || typeof message !== "object") return;
 
-// ── Overlay UI ────────────────────────────────────────────────────────────
-function createOverlay() {
-  const div = document.createElement("div");
-  div.id = "togetherly-overlay";
-  Object.assign(div.style, {
-    position: "fixed",
-    bottom: "24px",
-    right: "24px",
-    zIndex: "2147483647",
-    background: "rgba(13,13,26,0.92)",
-    border: "1px solid rgba(192,132,252,0.45)",
-    borderRadius: "24px",
-    padding: "9px 16px",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    fontSize: "13px",
-    fontWeight: "500",
-    color: "#E5E7EB",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    backdropFilter: "blur(12px)",
-    webkitBackdropFilter: "blur(12px)",
-    boxShadow: "0 4px 24px rgba(192,132,252,0.2)",
-    pointerEvents: "none",
-    transition: "opacity 0.3s ease, transform 0.3s ease",
-    opacity: "0",
-    transform: "translateY(8px)",
-    userSelect: "none",
+    if (message.type === "REMOTE_COMMAND") {
+      enqueue(message);
+      const who = typeof message.by === "string" && message.by ? message.by.slice(0, 24) : "Alguien";
+      if (message.action === "play") showToast(`▶ ${who} dio play`);
+      if (message.action === "pause") showToast(`⏸ ${who} pausó`);
+      if (message.action === "seek") showToast(`⏩ ${who} saltó a ${formatTime(message.currentTime)}`);
+    } else if (message.type === "ROOM_STATE" && message.playing !== undefined) {
+      enqueue({ ...message, action: "state" });
+    } else if (message.type === "EXT_STATUS") {
+      roomId = message.connected ? message.roomId : null;
+      if (!roomId) {
+        detachVideo();
+        showToast("Togetherly desconectado");
+      }
+    }
   });
 
-  // Purple dot
-  const dot = document.createElement("span");
-  Object.assign(dot.style, {
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    background: "#C084FC",
-    flexShrink: "0",
-    display: "inline-block",
+  sendToBackground({ type: "CONTENT_READY" }, (reply) => {
+    if (reply?.connected && reply.roomId) roomId = reply.roomId;
   });
-  div.appendChild(dot);
 
-  const text = document.createElement("span");
-  text.id = "togetherly-overlay-text";
-  div.appendChild(text);
+  function formatTime(seconds) {
+    if (!isValidTime(seconds)) return "?";
+    const s = Math.floor(seconds % 60).toString().padStart(2, "0");
+    const m = Math.floor((seconds / 60) % 60);
+    const h = Math.floor(seconds / 3600);
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  }
 
-  document.body.appendChild(div);
-  return div;
-}
+  // ── Aviso flotante ───────────────────────────────────────────────────────
+  // Va en un shadow DOM cerrado para que los estilos de la plataforma no lo dañen,
+  // y se mueve dentro del elemento en pantalla completa para seguir visible.
+  const TOAST_CSS = `
+    .toast{position:fixed;left:50%;bottom:28px;z-index:2147483647;display:flex;align-items:center;gap:10px;
+      transform:translate(-50%,14px) scale(.96);opacity:0;pointer-events:none;
+      padding:10px 18px 10px 12px;border-radius:999px;background:#2A2140;color:#F6EFF7;
+      font:700 14px/1.2 "Nunito",ui-rounded,"Segoe UI",system-ui,sans-serif;
+      box-shadow:0 10px 30px rgba(15,10,25,.45),inset 0 0 0 1.5px rgba(255,201,101,.35);
+      transition:opacity .35s ease,transform .45s cubic-bezier(.34,1.56,.64,1)}
+    .toast.visible{opacity:1;transform:translate(-50%,0) scale(1)}
+    .dot{width:22px;height:22px;border-radius:50%;background:#FFC965;display:grid;place-items:center;flex-shrink:0}
+    .dot::after{content:"";width:8px;height:8px;border-radius:50%;background:#2A2140;animation:beat 1.6s ease-in-out infinite}
+    @keyframes beat{50%{transform:scale(1.35)}}
+    @media (prefers-reduced-motion:reduce){.toast{transition:opacity .2s}.dot::after{animation:none}}`;
 
-function showOverlay(message) {
-  if (!overlay) overlay = createOverlay();
-  const textEl = document.getElementById("togetherly-overlay-text");
-  if (textEl) textEl.textContent = message;
+  let toastHost = null;
+  let toastBox = null;
+  let toastText = null;
+  let hideTimer = null;
 
-  overlay.style.opacity = "1";
-  overlay.style.transform = "translateY(0)";
+  function createToast() {
+    toastHost = document.createElement("div");
+    toastHost.id = "togetherly-toast";
+    const shadow = toastHost.attachShadow({ mode: "closed" });
+    const style = document.createElement("style");
+    style.textContent = TOAST_CSS;
+    toastBox = document.createElement("div");
+    toastBox.className = "toast";
+    toastBox.setAttribute("role", "status");
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    toastText = document.createElement("span");
+    toastBox.append(dot, toastText);
+    shadow.append(style, toastBox);
+    document.addEventListener("fullscreenchange", placeToast);
+  }
 
-  clearTimeout(overlayTimeout);
-  overlayTimeout = setTimeout(() => {
-    if (overlay) {
-      overlay.style.opacity = "0";
-      overlay.style.transform = "translateY(8px)";
-    }
-  }, 4000);
-}
+  function placeToast() {
+    const parent = document.fullscreenElement ?? document.documentElement;
+    if (toastHost && toastHost.parentNode !== parent) parent.appendChild(toastHost);
+  }
+
+  function showToast(text) {
+    if (!toastHost) createToast();
+    placeToast();
+    toastText.textContent = text; // textContent: nunca se interpreta como HTML
+    requestAnimationFrame(() => toastBox.classList.add("visible"));
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => toastBox.classList.remove("visible"), 3800);
+  }
+})();

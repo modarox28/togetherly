@@ -1,86 +1,107 @@
 export const translations = {
   en: {
     nav: {
-      features: "Features",
+      features: "In the room",
       howItWorks: "How it works",
-      startWatching: "Start watching",
-      discover: "Discover",
+      platforms: "Where to watch",
+      startWatching: "Create a room",
+      discover: "Public rooms",
+      pricing: "Plans",
       toggleTheme: "Toggle theme",
       language: "Language",
     },
     hero: {
-      badge: "Made for couples at a distance",
-      title1: "Watch Together.",
-      title2: "Feel Closer.",
+      title: "Movie night, even when you're miles apart.",
       subtitle:
-        "Synchronized streaming, real-time reactions, and video chat — built for the moments you want to share.",
+        "Press play in your home and it plays in theirs too. Netflix, Prime Video, HBO Max, Disney+ or YouTube, with chat and video call on the side.",
       createRoom: "Create a room",
-      joinRoom: "Join a room",
-      noAccount: "No account needed. Just a link.",
+      joinRoom: "I have a code",
+      noAccount: "Free, and no account needed to start.",
+      sceneLabel: "Two living rooms in different cities watching the same movie at the same second",
+      leftCity: "Barranquilla",
+      leftTime: "6:40 p.m.",
+      rightCity: "Madrid",
+      rightTime: "1:40 a.m.",
+      playing: "Playing",
     },
     howItWorks: {
-      title: "Simple as 1, 2, 3",
-      subtitle: "From zero to movie night in under a minute.",
+      title: "How a night together works",
       steps: [
         {
-          number: "01",
-          title: "Create your room",
-          description:
-            "One click and you have a private room with a unique link to share with your partner.",
+          title: "Create the room",
+          description: "You get a six-letter code, like a ticket. No sign-up needed.",
         },
         {
-          number: "02",
-          title: "Paste any video link",
-          description:
-            "YouTube, Twitch, Vimeo or Spotify — paste the link and it loads for everyone instantly.",
+          title: "Send the code",
+          description: "By WhatsApp, text, however you like. They join from any browser.",
         },
         {
-          number: "03",
-          title: "Watch and react together",
+          title: "Press play",
           description:
-            "Chat, send reactions, and hop on a video call — feel like you're right there on the couch.",
+            "Each person opens the movie on their own account. When one pauses, everyone pauses; when one skips ahead, everyone follows.",
         },
       ],
     },
+    platforms: {
+      title: "Watch what you already pay for",
+      insideTitle: "Right inside the room",
+      insideText: "Paste a link and it plays for everyone, no extension needed.",
+      extensionTitle: "With the Chrome extension",
+      extensionText:
+        "Streaming apps don't let anyone embed their movies, so each person watches on their own subscription and the extension keeps play, pause and skips in sync.",
+      extensionButton: "Install the extension",
+      extensionNote: "Works on Chrome, Edge, Brave, Opera and Firefox on computers. Free.",
+    },
     features: {
-      title: "Everything you need",
-      subtitle: "Built for the distance, designed for closeness.",
+      title: "What else is in the room",
       items: [
-        {
-          title: "Perfect sync",
-          description: "Play, pause, and seek in perfect sync. What you see is exactly what they see.",
-        },
-        {
-          title: "Video calls",
-          description: "One tap to start a face-to-face call while watching. No extra apps needed.",
-        },
-        {
-          title: "Live chat",
-          description: "Comment in real time with text and emoji reactions as the story unfolds.",
-        },
-        {
-          title: "Floating reactions",
-          description: "Express yourself with animated emoji that float across the screen for everyone.",
-        },
-        {
-          title: "Multi-platform",
-          description: "YouTube, Twitch, Vimeo, and Spotify — watch anything, together.",
-        },
-        {
-          title: "Public rooms",
-          description: "Discover live public rooms and join strangers watching the same thing as you.",
-        },
+        { title: "Video call", description: "See their face while you watch, in a small window that doesn't cover the movie." },
+        { title: "Chat", description: "Comment the scene without pausing. Messages stay in the room, not in a group chat." },
+        { title: "Reactions", description: "Send a 😭 or a 🍿 that floats over everyone's screen." },
+        { title: "Public rooms", description: "Feeling social? Join a room someone opened for anyone to watch along." },
       ],
     },
     cta: {
-      title: "Ready for tonight?",
-      subtitle: "Create your room in seconds and send the link.",
-      placeholder: "Enter a room code to join...",
+      title: "Movie tonight?",
+      subtitle: "If someone sent you a code, type it here.",
+      placeholder: "ABC123",
+      codeLabel: "Room code",
       join: "Join",
-      createNew: "Or create a new room",
+      createNew: "Create a new room",
+    },
+    extensionPage: {
+      title: "Install Togetherly Sync",
+      subtitle:
+        "The extension that keeps Netflix, Prime Video, HBO Max, Disney+ and more in sync. It's free and takes a minute.",
+      pickBrowser: "Which browser do you use?",
+      download: "Download for {browser}",
+      downloadNote: "A .zip file, under 100 KB.",
+      steps: {
+        download: { title: "Download and unzip", text: "Download the file and unzip it (right click → Extract all). You get a folder called togetherly-sync: keep it somewhere you won't delete it, like Documents." },
+        open: { title: "Open the extensions page", text: "Paste {url} in the address bar and press Enter." },
+        devMode: { title: "Turn on developer mode", text: "Switch on “{devMode}”, {devModeWhere}." },
+        load: { title: "Load the folder", text: "Click “{load}” and choose the togetherly-sync folder." },
+        loadFirefox: { title: "Load the add-on", text: "Click “{load}” and choose the manifest.json file inside the togetherly-sync folder." },
+        pin: { title: "Pin it to the toolbar", text: "Click the puzzle piece icon, then the pin next to Togetherly Sync." },
+        pinFirefox: { title: "Pin it to the toolbar", text: "Click the puzzle piece icon, then the gear next to Togetherly Sync and “Pin to Toolbar”." },
+      },
+      firefoxNote: "Firefox removes temporary add-ons when it closes. Soon it will be on Firefox Add-ons so you can install it for good.",
+      screenshotsNote: "The screenshots are from Chrome; in {browser} the buttons look a bit different but the steps are the same.",
+      afterTitle: "Then, how do you use it?",
+      afterText: "Open your room in Togetherly and then your movie in the streaming app. The extension connects by itself and you'll see “Synced with room…”.",
+      videoTitle: "Watch it in a video",
+      videoLabel: "22-second video showing the installation steps",
+      faqTitle: "Questions",
+      faq: [
+        { q: "Is it safe?", a: "It only runs on the streaming sites in the list and on Togetherly. It doesn't read your passwords or your account: it only shares when you press play, pause or skip. The code is open on GitHub." },
+        { q: "Why isn't it in the Chrome Web Store?", a: "We're working on it. Meanwhile it installs this way, just as safe, and updates are posted on this page." },
+        { q: "How do I update it?", a: "Download the new file, replace the folder and click the reload button on the Togetherly Sync card." },
+        { q: "Does it work on my phone?", a: "No: browser extensions only work on computers." },
+      ],
+      sourceCode: "See the code on GitHub",
     },
     footer: {
-      tagline: "Bringing couples closer, one movie at a time.",
+      tagline: "Made in Colombia for people who love each other from far away.",
       rights: "All rights reserved.",
     },
     room: {
@@ -135,96 +156,115 @@ export const translations = {
       waitingForVideo: "Waiting for a video..",
       pasteToStart: "Paste a YouTube link above to start watching together.",
       syncedWith: "Synced",
+      roomFull: "This room is full",
+      roomFullHint: "Up to {max} people can be here. Free rooms are for two; with Premium, whoever creates the room can invite up to 8.",
+      seePlans: "See plans",
+      createOwn: "Create my own room",
     },
   },
   es: {
     nav: {
-      features: "Funciones",
+      features: "En la sala",
       howItWorks: "Cómo funciona",
-      startWatching: "Empezar",
-      discover: "Descubrir",
+      platforms: "Dónde ver",
+      startWatching: "Crear una sala",
+      discover: "Salas públicas",
+      pricing: "Planes",
       toggleTheme: "Cambiar tema",
       language: "Idioma",
     },
     hero: {
-      badge: "Hecho para parejas a distancia",
-      title1: "Miren juntos.",
-      title2: "Siéntanse cerca.",
+      title: "Noche de película, aunque estén lejos.",
       subtitle:
-        "Streaming sincronizado, reacciones en tiempo real y videollamada — para los momentos que quieren compartir.",
-      createRoom: "Crear sala",
-      joinRoom: "Unirse a sala",
-      noAccount: "Sin registro. Solo un enlace.",
+        "Le das play en tu casa y también arranca en la suya. Netflix, Prime Video, HBO Max, Disney+ o YouTube, con chat y videollamada al lado.",
+      createRoom: "Crear una sala",
+      joinRoom: "Tengo un código",
+      noAccount: "Gratis y sin crear cuenta para empezar.",
+      sceneLabel: "Dos salas en ciudades distintas viendo la misma película en el mismo segundo",
+      leftCity: "Barranquilla",
+      leftTime: "6:40 p. m.",
+      rightCity: "Madrid",
+      rightTime: "1:40 a. m.",
+      playing: "Reproduciendo",
     },
     howItWorks: {
-      title: "Simple como 1, 2, 3",
-      subtitle: "De cero a noche de película en menos de un minuto.",
+      title: "Así funciona una noche juntos",
       steps: [
         {
-          number: "01",
-          title: "Crea tu sala",
-          description:
-            "Un clic y tienes una sala privada con un enlace único para compartir con tu pareja.",
+          title: "Crea la sala",
+          description: "Te damos un código de seis letras, como una boleta. No hace falta registrarse.",
         },
         {
-          number: "02",
-          title: "Pega cualquier enlace de video",
-          description:
-            "YouTube, Twitch, Vimeo o Spotify — pega el enlace y carga al instante para todos.",
+          title: "Manda el código",
+          description: "Por WhatsApp, por mensaje, como quieras. Entra desde cualquier navegador.",
         },
         {
-          number: "03",
-          title: "Miren y reaccionen juntos",
+          title: "Den play",
           description:
-            "Chaten, envíen reacciones e inicien una videollamada — como si estuvieran en el mismo sofá.",
+            "Cada quien abre la película en su propia cuenta. Si uno pausa, pausan todos; si uno adelanta, todos adelantan.",
         },
       ],
     },
+    platforms: {
+      title: "Vean lo que ya pagan",
+      insideTitle: "Dentro de la sala",
+      insideText: "Pegas el enlace y se reproduce para todos, sin instalar nada.",
+      extensionTitle: "Con la extensión de Chrome",
+      extensionText:
+        "Las apps de streaming no dejan que nadie incruste sus películas, así que cada quien las ve con su suscripción y la extensión mantiene sincronizados el play, la pausa y los saltos.",
+      extensionButton: "Instalar la extensión",
+      extensionNote: "Funciona en Chrome, Edge, Brave, Opera y Firefox de computador. Gratis.",
+    },
     features: {
-      title: "Todo lo que necesitas",
-      subtitle: "Construido para la distancia, diseñado para la cercanía.",
+      title: "Qué más hay en la sala",
       items: [
-        {
-          title: "Sincronía perfecta",
-          description:
-            "Play, pausa y avance en perfecta sincronía. Lo que tú ves es exactamente lo que ellos ven.",
-        },
-        {
-          title: "Videollamada",
-          description:
-            "Un toque para iniciar una llamada cara a cara mientras ven. Sin apps extra.",
-        },
-        {
-          title: "Chat en vivo",
-          description:
-            "Comenta en tiempo real con texto y reacciones emoji mientras la historia avanza.",
-        },
-        {
-          title: "Reacciones flotantes",
-          description:
-            "Exprésate con reacciones emoji animadas que flotan en la pantalla para todos.",
-        },
-        {
-          title: "Multi-plataforma",
-          description:
-            "YouTube, Twitch, Vimeo y Spotify — mira lo que quieras, juntos.",
-        },
-        {
-          title: "Salas públicas",
-          description:
-            "Descubre salas públicas en vivo y únete a desconocidos viendo lo mismo que tú.",
-        },
+        { title: "Videollamada", description: "Ves su cara mientras ven la película, en una ventanita que no tapa la pantalla." },
+        { title: "Chat", description: "Comenten la escena sin pausar. Los mensajes se quedan en la sala, no en el grupo de WhatsApp." },
+        { title: "Reacciones", description: "Manda un 😭 o un 🍿 que flota sobre la pantalla de todos." },
+        { title: "Salas públicas", description: "¿Con ganas de compañía? Únete a una sala que alguien abrió para ver con quien llegue." },
       ],
     },
     cta: {
-      title: "¿Listo para esta noche?",
-      subtitle: "Crea tu sala en segundos y envía el enlace.",
-      placeholder: "Ingresa un código de sala...",
-      join: "Unirse",
-      createNew: "O crea una sala nueva",
+      title: "¿Película esta noche?",
+      subtitle: "Si alguien te mandó un código, escríbelo aquí.",
+      placeholder: "ABC123",
+      codeLabel: "Código de la sala",
+      join: "Entrar",
+      createNew: "Crear una sala nueva",
+    },
+    extensionPage: {
+      title: "Instala Togetherly Sync",
+      subtitle:
+        "La extensión que sincroniza Netflix, Prime Video, HBO Max, Disney+ y más. Es gratis y tarda un minuto.",
+      pickBrowser: "¿Qué navegador usas?",
+      download: "Descargar para {browser}",
+      downloadNote: "Archivo .zip de menos de 100 KB.",
+      steps: {
+        download: { title: "Descarga y descomprime", text: "Descarga el archivo y descomprímelo (clic derecho → Extraer todo). Queda una carpeta llamada togetherly-sync: guárdala donde no la borres, por ejemplo en Documentos." },
+        open: { title: "Abre la página de extensiones", text: "Pega {url} en la barra de direcciones y presiona Enter." },
+        devMode: { title: "Activa el modo de desarrollador", text: "Enciende «{devMode}», {devModeWhere}." },
+        load: { title: "Carga la carpeta", text: "Pulsa «{load}» y elige la carpeta togetherly-sync." },
+        loadFirefox: { title: "Carga el complemento", text: "Pulsa «{load}» y elige el archivo manifest.json que está dentro de la carpeta togetherly-sync." },
+        pin: { title: "Fíjala en la barra", text: "Toca el ícono de la pieza de rompecabezas y luego el pin junto a Togetherly Sync." },
+        pinFirefox: { title: "Fíjala en la barra", text: "Toca el ícono de la pieza de rompecabezas, luego el engranaje junto a Togetherly Sync y «Fijar a la barra de herramientas»." },
+      },
+      firefoxNote: "Firefox quita los complementos temporales al cerrarse. Pronto estará en la tienda de complementos de Firefox para instalarla de forma permanente.",
+      screenshotsNote: "Las capturas son de Chrome; en {browser} los botones se ven un poco distintos, pero los pasos son los mismos.",
+      afterTitle: "Y después, ¿cómo se usa?",
+      afterText: "Abre tu sala en Togetherly y luego tu película en la app de streaming. La extensión se conecta sola y verás el aviso «Sincronizado con la sala…».",
+      videoTitle: "Míralo en video",
+      videoLabel: "Video de 22 segundos con los pasos de instalación",
+      faqTitle: "Preguntas",
+      faq: [
+        { q: "¿Es segura?", a: "Solo funciona en las páginas de streaming de la lista y en Togetherly. No lee tus contraseñas ni tu cuenta: solo avisa cuándo das play, pausa o adelantas. El código es abierto y está en GitHub." },
+        { q: "¿Por qué no está en la tienda de Chrome?", a: "Estamos en eso. Mientras tanto se instala así, igual de segura, y las actualizaciones se publican en esta página." },
+        { q: "¿Cómo la actualizo?", a: "Descarga el archivo nuevo, reemplaza la carpeta y pulsa el botón de recargar en la tarjeta de Togetherly Sync." },
+        { q: "¿Funciona en el celular?", a: "No: las extensiones de navegador solo funcionan en computador." },
+      ],
+      sourceCode: "Ver el código en GitHub",
     },
     footer: {
-      tagline: "Acercando parejas, una película a la vez.",
+      tagline: "Hecho en Colombia para quienes se quieren a la distancia.",
       rights: "Todos los derechos reservados.",
     },
     room: {
@@ -279,6 +319,10 @@ export const translations = {
       waitingForVideo: "Esperando un video...",
       pasteToStart: "Pega un enlace de YouTube arriba para empezar a ver juntos.",
       syncedWith: "Sincronizado",
+      roomFull: "Esta sala está llena",
+      roomFullHint: "Aquí caben {max} personas. Las salas gratis son para dos; con Premium, quien crea la sala puede invitar hasta 8.",
+      seePlans: "Ver planes",
+      createOwn: "Crear mi propia sala",
     },
   },
 } as const;

@@ -16,7 +16,7 @@ type ButtonProps = Omit<HTMLMotionProps<"button">, "ref"> & {
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-gradient-to-r from-neon-purple to-neon-pink text-white shadow-lg hover:shadow-xl",
+    "bg-accent text-on-accent shadow-lg hover:shadow-xl",
   secondary:
     "bg-day-100 dark:bg-night-800 border border-day-200 dark:border-night-600 text-day-900 dark:text-white hover:bg-day-200 dark:hover:bg-night-700",
   ghost:
@@ -40,10 +40,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         whileHover={{ scale: 1.02 }}
         transition={{ duration: 0.15 }}
         className={cn(
-          "relative inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-neon-purple",
+          "relative inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-accent",
           variants[variant],
           sizes[size],
-          (disabled || loading) && "opacity-50 cursor-not-allowed pointer-events-none",
+          (disabled || loading) && "!bg-day-900/10 dark:!bg-white/10 !text-day-900/45 dark:!text-white/45 !shadow-none cursor-not-allowed pointer-events-none",
           className
         )}
         disabled={disabled || loading}

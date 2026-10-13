@@ -49,7 +49,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   spotify: "Spotify",
   netflix: "Netflix",
   disney: "Disney+",
-  hbo: "Max",
+  hbo: "HBO Max",
   prime: "Prime Video",
   appletv: "Apple TV+",
   paramount: "Paramount+",

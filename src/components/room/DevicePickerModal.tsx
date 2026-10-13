@@ -130,7 +130,7 @@ export function DevicePickerModal({ onConfirm, onCancel }: Props) {
                 <Video className="w-3.5 h-3.5" /> Cámara
               </label>
               <select value={selectedCamera} onChange={(e) => handleCameraChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-night-800 border border-white/10 text-white text-sm outline-none focus:border-neon-purple/50 transition-colors">
+                className="w-full px-3 py-2 rounded-xl bg-night-800 border border-white/10 text-white text-sm outline-none focus:border-accent/50 transition-colors">
                 {cameras.length === 0 && <option value="">Sin cámaras detectadas</option>}
                 {cameras.map((c) => <option key={c.deviceId} value={c.deviceId}>{c.label}</option>)}
               </select>
@@ -141,7 +141,7 @@ export function DevicePickerModal({ onConfirm, onCancel }: Props) {
                 <Mic className="w-3.5 h-3.5" /> Micrófono
               </label>
               <select value={selectedMic} onChange={(e) => setSelectedMic(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-night-800 border border-white/10 text-white text-sm outline-none focus:border-neon-purple/50 transition-colors">
+                className="w-full px-3 py-2 rounded-xl bg-night-800 border border-white/10 text-white text-sm outline-none focus:border-accent/50 transition-colors">
                 {mics.length === 0 && <option value="">Sin micrófonos detectados</option>}
                 {mics.map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label}</option>)}
               </select>
@@ -153,7 +153,7 @@ export function DevicePickerModal({ onConfirm, onCancel }: Props) {
                 Cancelar
               </button>
               <button onClick={handleConfirm}
-                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-neon-purple to-neon-pink text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
                 <Phone className="w-3.5 h-3.5" /> Llamar
               </button>
             </div>
