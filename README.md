@@ -13,12 +13,12 @@ Para ver películas y series en sincronía con quien quieras, aunque estén en c
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · Tailwind CSS 4 · Framer Motion · Auth.js 5 · Prisma 7 + Neon PostgreSQL · Socket.io 4 (servidor aparte en Railway) · WebRTC · Stripe · Playwright.
+Next.js 16 (App Router, Turbopack) · React 19 · Tailwind CSS 4 · Framer Motion · Auth.js 5 · Prisma 7 + Neon PostgreSQL · Socket.io 4 (servidor aparte en Render, plan gratis) · WebRTC · Stripe · Playwright.
 
 ```
 Navegador ──HTTP──▶ Next.js (Vercel)      páginas, inicio de sesión, pagos, pases Premium
     │
-    └──WebSocket──▶ socket-server.js (Railway)   salas, play/pausa, chat, señalización de llamadas
+    └──WebSocket──▶ socket-server.js (Render)    salas, play/pausa, chat, señalización de llamadas
                           ▲
 Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
 ```
@@ -104,14 +104,26 @@ GitHub Actions corre TypeScript, la compilación y estas pruebas en cada push (`
 | `AUTH_SECRET`, `NEXTAUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Vercel | Inicio de sesión |
 | `NEXT_PUBLIC_SOCKET_URL` | Vercel | Dirección del servidor de salas |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID` | Vercel | Pagos (opcionales: sin ellas la web se publica igual) |
-| `ROOM_PASS_SECRET` | Vercel **y** Railway (mismo valor) | Pases Premium; sin ella no hay límite por plan |
-| `SOCKET_PORT`, `ALLOWED_ORIGINS` | Railway | Puerto y dominios permitidos |
+| `ROOM_PASS_SECRET` | Vercel **y** Render (mismo valor) | Pases Premium; sin ella no hay límite por plan |
+| `ALLOWED_ORIGINS` | Render (ya viene en `render.yaml`) | Dominios que pueden conectarse. Render pone el puerto en `PORT` |
 
-Ninguna clave va en el código ni en GitHub: solo en `.env.local` (tu computador) o en los paneles de Vercel y Railway.
+Ninguna clave va en el código ni en GitHub: solo en `.env.local` (tu computador) o en los paneles de Vercel y Render.
 
 ## Despliegue
 
-Un push a `main` publica la web en Vercel y el servidor de salas en Railway. Los cambios grandes van en una rama con PR: Vercel genera una vista previa del PR antes de unirlo.
+Un push a `main` publica la web en Vercel y el servidor de salas en Render. Los cambios grandes van en una rama con PR: Vercel genera una vista previa del PR antes de unirlo.
+
+### Servidor de salas en Render (gratis)
+
+`render.yaml` describe el servicio. Para crearlo desde cero:
+
+1. Entra a [render.com](https://render.com) con tu cuenta de GitHub (plan gratis, sin tarjeta).
+2. **New → Blueprint**, elige el repo `togetherly` y confirma. Render pide `ROOM_PASS_SECRET`: pega el mismo valor que tienes en Vercel.
+3. Cuando termine, copia la dirección del servicio (algo como `https://togetherly-salas.onrender.com`) y ponla en Vercel como `NEXT_PUBLIC_SOCKET_URL`; luego vuelve a desplegar en Vercel.
+
+La extensión pregunta la dirección del servidor a `/api/config`, así que no hay que reinstalarla si el servidor cambia.
+
+Límites del plan gratis: se duerme tras 15 minutos sin uso y tarda cerca de 1 minuto en despertar (la web lo despierta sola al abrir la página de inicio o la de crear sala); 750 horas al mes.
 
 ## Pendientes conocidos
 
