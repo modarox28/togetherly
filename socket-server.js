@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- servidor Node en CommonJS */
-// Servidor de salas de Togetherly (se despliega en Railway: `node socket-server.js`).
+// Servidor de salas de Togetherly (se despliega gratis en Render: `node socket-server.js`, ver render.yaml).
 // La lógica está en la carpeta server/:
 //   validation.js  → validar datos de los clientes
 //   rooms.js       → estado de las salas en memoria
@@ -11,14 +11,15 @@ const { handleConnection } = require("./server/connection");
 const { MAX_PARTICIPANTS, listPublicRooms } = require("./server/rooms");
 
 // ── Configuración (variables de entorno) ─────────────────────────────────
-const PORT = process.env.SOCKET_PORT || 3001;
+// Render (y la mayoría de servicios) indica el puerto en PORT; SOCKET_PORT sirve para pruebas locales.
+const PORT = process.env.SOCKET_PORT || process.env.PORT || 3001;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim())
   : ["http://localhost:3000", "http://127.0.0.1:3000"];
 
 // Planes: sin pase, una sala admite 2 personas; con pase Premium, lo que diga el pase.
 // El límite solo se activa si ROOM_PASS_SECRET (32+ caracteres) está configurado con el
-// mismo valor en Vercel y Railway. Sin él, el servidor funciona sin límite por plan.
+// mismo valor en Vercel y en el servidor de salas. Sin él, el servidor funciona sin límite por plan.
 const passSecret = (process.env.ROOM_PASS_SECRET?.length ?? 0) >= 32 ? process.env.ROOM_PASS_SECRET : null;
 const plans = { passSecret, freeLimit: passSecret ? 2 : MAX_PARTICIPANTS };
 

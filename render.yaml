@@ -1,0 +1,25 @@
+# Servidor de salas de Togetherly en Render, plan gratuito (USD 0).
+# Render lee este archivo al crear el servicio desde "New → Blueprint".
+# Límites del plan gratis: se duerme tras 15 min sin uso y tarda ~1 min en despertar
+# (la web lo despierta sola al abrir Togetherly); 750 horas al mes por cuenta.
+services:
+  - type: web
+    name: togetherly-salas
+    runtime: node
+    plan: free
+    region: virginia # la más cercana a Colombia
+    # Solo se necesitan las dependencias de producción y sin scripts de instalación
+    # (el servidor de salas no usa Prisma ni Next.js).
+    buildCommand: npm install --omit=dev --ignore-scripts --no-audit --no-fund
+    startCommand: node socket-server.js
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Dominios que pueden conectarse (separados por coma)
+      - key: ALLOWED_ORIGINS
+        value: https://togetherly-weld.vercel.app
+      # El mismo valor que en Vercel. Render lo pide al crear el servicio.
+      - key: ROOM_PASS_SECRET
+        sync: false

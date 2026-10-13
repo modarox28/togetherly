@@ -4,7 +4,7 @@
 const { createHmac, timingSafeEqual } = require("node:crypto");
 
 /**
- * @param {string} secret  ROOM_PASS_SECRET (el mismo valor en Vercel y Railway)
+ * @param {string} secret  ROOM_PASS_SECRET (el mismo valor en Vercel y en el servidor de salas)
  * @param {unknown} pass   pase recibido del cliente
  * @param {string} roomId  sala a la que intenta entrar
  * @returns {number|null}  máximo de personas que autoriza el pase, o null si no es válido

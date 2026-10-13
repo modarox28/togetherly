@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, ArrowRight, Users, ChevronLeft, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
+import { wakeSocketServer } from "@/lib/socket";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -17,6 +18,9 @@ import { CHARACTERS } from "@/lib/characters";
 
 export default function RoomSetupPage() {
   const router = useRouter();
+
+  // Despierta el servidor de salas mientras la persona llena el formulario.
+  useEffect(() => wakeSocketServer(), []);
   const { t } = useLanguage();
   const { data: session } = useSession();
   const [step, setStep] = useState<"info" | "character">("info");

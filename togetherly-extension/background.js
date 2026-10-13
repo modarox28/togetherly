@@ -1,10 +1,13 @@
 // Service worker de la extensión: mantiene la conexión con el servidor de Togetherly
 // y reparte las órdenes entre la web de la sala, el popup y las pestañas de streaming.
 //
-//   web (bridge.js) / popup ──JOIN_ROOM──▶ background ──socket──▶ servidor (Railway)
+//   web (bridge.js) / popup ──JOIN_ROOM──▶ background ──socket──▶ servidor de salas (Render)
 //   pestaña de streaming (content.js) ◀──REMOTE_COMMAND / ROOM_STATE── background
 
-const DEFAULT_SERVER_URL = "https://togetherly-production-44b8.up.railway.app";
+// La dirección del servidor de salas la da la web en /api/config (así puede mudarse sin
+// reinstalar la extensión). Si la web no responde, se usa esta de respaldo.
+const WEB_CONFIG_URL = "https://togetherly-weld.vercel.app/api/config";
+const FALLBACK_SERVER_URL = "https://togetherly-salas.onrender.com";
 // Igual que en src/lib/room.ts y server/validation.js
 const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{3,32}$/;
 
@@ -109,10 +112,28 @@ const ready = chrome.storage.session.get(["roomId", "username", "avatar"]).then(
   }
 });
 
-// Para pruebas o servidores propios se puede guardar otra URL en storage.local.serverUrl
+const isHttpUrl = (value) => typeof value === "string" && /^https?:\/\/[^\s]+$/.test(value);
+
+// Orden: 1) storage.local.serverUrl (pruebas o servidor propio), 2) lo que diga la web
+// (guardado durante la sesión del navegador), 3) la dirección de respaldo.
 async function getServerUrl() {
   const { serverUrl } = await chrome.storage.local.get("serverUrl");
-  return typeof serverUrl === "string" && /^https?:\/\//.test(serverUrl) ? serverUrl : DEFAULT_SERVER_URL;
+  if (isHttpUrl(serverUrl)) return serverUrl;
+
+  const { discoveredServerUrl } = await chrome.storage.session.get("discoveredServerUrl");
+  if (isHttpUrl(discoveredServerUrl)) return discoveredServerUrl;
+
+  try {
+    const response = await fetch(WEB_CONFIG_URL, { cache: "no-store" });
+    const { socketUrl } = await response.json();
+    if (isHttpUrl(socketUrl) && socketUrl.startsWith("https://")) {
+      await chrome.storage.session.set({ discoveredServerUrl: socketUrl });
+      return socketUrl;
+    }
+  } catch {
+    // Sin internet o la web no respondió: se usa el respaldo.
+  }
+  return FALLBACK_SERVER_URL;
 }
 
 async function connect() {

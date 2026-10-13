@@ -1,4 +1,5 @@
-export const SOCKET_URL = "https://togetherly-production-44b8.up.railway.app";
+// Servidor de salas (Render, plan gratis). Si cambia, actualízalo aquí y en NEXT_PUBLIC_SOCKET_URL de Vercel.
+export const SOCKET_URL = "https://togetherly-salas.onrender.com";
 export const API_URL = "https://togetherly-weld.vercel.app";
 
 export const CHARACTERS = [

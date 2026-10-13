@@ -1,12 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { TwoRoomsScene } from "@/components/landing/TwoRoomsScene";
+import { wakeSocketServer } from "@/lib/socket";
 
 export function Hero() {
   const { t } = useLanguage();
   const router = useRouter();
+
+  // Despierta el servidor de salas mientras la persona lee la página.
+  useEffect(() => wakeSocketServer(), []);
 
   return (
     <section className="grain relative overflow-hidden bg-day-50 dark:bg-night-950 px-4 pt-28 pb-16 lg:pt-32">
