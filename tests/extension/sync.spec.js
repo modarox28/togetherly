@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Prueba de punta a punta de la extensión Togetherly Sync.
 // Levanta el servidor de sockets real, abre dos navegadores con la extensión
 // y simula Netflix, Prime Video y Disney+ con páginas falsas y un video de 10 min.

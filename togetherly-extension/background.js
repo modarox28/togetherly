@@ -143,7 +143,7 @@ async function conectar() {
 
 function insignia(encendida) {
   chrome.action.setBadgeText({ text: encendida ? "●" : "" });
-  chrome.action.setBadgeBackgroundColor({ color: encendida ? "#E07A5F" : "#9A8F86" });
+  chrome.action.setBadgeBackgroundColor({ color: encendida ? "#FFC965" : "#5E4F80" });
 }
 
 function avisarEstado(conectado) {

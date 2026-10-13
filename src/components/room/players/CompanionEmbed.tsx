@@ -93,7 +93,7 @@ export function CompanionEmbed({
               onClick={handlePlay}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-105 active:scale-95 ${
                 myState === "playing"
-                  ? "bg-neon-purple text-white shadow-lg"
+                  ? "bg-neon-purple text-on-accent shadow-lg"
                   : "bg-white/10 text-white/70 hover:bg-white/20"
               }`}
             >
@@ -104,7 +104,7 @@ export function CompanionEmbed({
               onClick={handlePause}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all hover:scale-105 active:scale-95 ${
                 myState === "paused"
-                  ? "bg-neon-pink text-white shadow-lg"
+                  ? "bg-neon-pink text-on-accent shadow-lg"
                   : "bg-white/10 text-white/70 hover:bg-white/20"
               }`}
             >

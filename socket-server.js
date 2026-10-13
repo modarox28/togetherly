@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- servidor Node en CommonJS */
 const { createServer } = require("http");
 const { Server } = require("socket.io");
+const { createHmac, timingSafeEqual } = require("node:crypto");
 
 const PORT = process.env.SOCKET_PORT || 3001;
 
@@ -9,7 +11,37 @@ const PLATAFORMAS = new Set([
   "youtube", "twitch", "vimeo", "spotify", "netflix", "disney", "hbo",
   "prime", "appletv", "paramount", "crunchyroll",
 ]);
-const MAX_PARTICIPANTES = 20;
+const MAX_PARTICIPANTES = 20; // tope técnico absoluto
+
+// Planes: sin pase, una sala admite 2 personas; con pase Premium, hasta lo que diga el pase.
+// El límite solo se aplica si ROOM_PASS_SECRET está configurado (el mismo valor en Vercel y Railway);
+// sin él, el servidor funciona como antes, con el tope técnico.
+const SECRETO_PASE = process.env.ROOM_PASS_SECRET && process.env.ROOM_PASS_SECRET.length >= 32
+  ? process.env.ROOM_PASS_SECRET
+  : null;
+const LIMITE_GRATIS = SECRETO_PASE ? 2 : MAX_PARTICIPANTES;
+
+// Devuelve el máximo de personas que autoriza un pase válido para esa sala, o null.
+function verificarPase(pase, roomId) {
+  if (!SECRETO_PASE || typeof pase !== "string" || pase.length > 600) return null;
+  const [datos, firma] = pase.split(".");
+  if (!datos || !firma) return null;
+  const esperada = createHmac("sha256", SECRETO_PASE).update(datos).digest();
+  let recibida;
+  try {
+    recibida = Buffer.from(firma, "base64url");
+  } catch {
+    return null;
+  }
+  if (recibida.length !== esperada.length || !timingSafeEqual(recibida, esperada)) return null;
+  try {
+    const { r, m, e } = JSON.parse(Buffer.from(datos, "base64url").toString("utf8"));
+    if (r !== roomId || typeof e !== "number" || e < Date.now()) return null;
+    return Number.isInteger(m) ? Math.min(Math.max(m, LIMITE_GRATIS), MAX_PARTICIPANTES) : null;
+  } catch {
+    return null;
+  }
+}
 
 const esSala = (id) => typeof id === "string" && SALA_VALIDA.test(id);
 const texto = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -81,6 +113,7 @@ function getRoom(roomId, isPublic = false, name = null) {
       name: texto(name, 40) || roomId,
       platform: "youtube",
       createdAt: Date.now(),
+      maxParticipants: LIMITE_GRATIS,
     });
   }
   return rooms.get(roomId);
@@ -144,13 +177,15 @@ io.on("connection", (socket) => {
     if (!esSala(roomId) || !username) return;
 
     const room = getRoom(roomId, datos.isPublic, datos.roomName);
+    const autorizado = verificarPase(datos.pass, roomId);
+    if (autorizado) room.maxParticipants = Math.max(room.maxParticipants, autorizado);
     if (room.participants.size === 0) {
       // La sala pudo nacer desde la extensión: la primera persona en la web define sus datos.
       room.isPublic = datos.isPublic === true;
       room.name = texto(datos.roomName, 40) || roomId;
     }
-    if (room.participants.size >= MAX_PARTICIPANTES && !room.participants.has(socket.id)) {
-      socket.emit("room-full", { roomId, max: MAX_PARTICIPANTES });
+    if (room.participants.size >= room.maxParticipants && !room.participants.has(socket.id)) {
+      socket.emit("room-full", { roomId, max: room.maxParticipants });
       return;
     }
 
@@ -174,6 +209,7 @@ io.on("connection", (socket) => {
       videoState: { ...room.videoState, currentTime: posicionActual(room.videoState) },
       isHost: room.host === socket.id,
       you: participant,
+      maxParticipants: room.maxParticipants,
     });
     socket.to(roomId).emit("participant-joined", { participant });
   });

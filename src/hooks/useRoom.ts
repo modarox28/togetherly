@@ -42,10 +42,12 @@ interface RoomState {
   messages: ChatMessage[];
   reactions: Reaction[];
   typingUsers: string[];
+  /** Máximo de personas si la sala está llena; null si se pudo entrar. */
+  roomFull: number | null;
 }
 
 interface RoomActions {
-  joinRoom: (roomId: string, username: string, avatar: string, isPublic?: boolean, roomName?: string) => void;
+  joinRoom: (roomId: string, username: string, avatar: string, isPublic?: boolean, roomName?: string, pass?: string | null) => void;
   changeVideoUrl: (roomId: string, url: string) => void;
   sendPlay: (roomId: string, currentTime: number | null) => void;
   sendPause: (roomId: string, currentTime: number | null) => void;
@@ -62,6 +64,7 @@ export function useRoom(): [RoomState, RoomActions] {
   const [state, setState] = useState<RoomState>({
     connected: false,
     joined: false,
+    roomFull: null,
     participants: [],
     you: null,
     isHost: false,
@@ -85,6 +88,10 @@ export function useRoom(): [RoomState, RoomActions] {
     socket.on("connect", () => setState((s) => ({ ...s, connected: true })));
     socket.on("disconnect", () => setState((s) => ({ ...s, connected: false, joined: false })));
 
+    socket.on("room-full", ({ max }: { max: number }) => {
+      setState((s) => ({ ...s, roomFull: max }));
+    });
+
     socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you }) => {
       setState((s) => ({
         ...s,
@@ -99,7 +106,7 @@ export function useRoom(): [RoomState, RoomActions] {
             id: "system-join",
             text: "You joined the room",
             username: "System",
-            color: "#C084FC",
+            color: "#FFC965",
             timestamp: Date.now(),
             isSystem: true,
           },
@@ -202,6 +209,7 @@ export function useRoom(): [RoomState, RoomActions] {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("room-joined");
+      socket.off("room-full");
       socket.off("participant-joined");
       socket.off("participant-left");
       socket.off("video-url-changed");
@@ -216,8 +224,8 @@ export function useRoom(): [RoomState, RoomActions] {
   }, []);
 
   const actions: RoomActions = {
-    joinRoom: useCallback((roomId, username, avatar, isPublic = false, roomName = "") => {
-      getSocket().emit("join-room", { roomId, username, avatar, isPublic, roomName });
+    joinRoom: useCallback((roomId, username, avatar, isPublic = false, roomName = "", pass = null) => {
+      getSocket().emit("join-room", { roomId, username, avatar, isPublic, roomName, pass });
     }, []),
     changeVideoUrl: useCallback((roomId, url) => {
       getSocket().emit("video-url-change", { roomId, url });

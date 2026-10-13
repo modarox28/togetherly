@@ -6,22 +6,22 @@
   <title>Togetherly Sync</title>
   <style>
     :root {
-      --papel: #FBF5EC;
-      --papel-2: #F3E8D8;
-      --cacao: #3B2F2A;
-      --cacao-suave: #6E5D55;
-      --terracota: #C2553A;
-      --terracota-claro: #E07A5F;
-      --salvia: #5E8C74;
-      --mantequilla: #F2CC8F;
-      --borde: rgba(59, 47, 42, 0.14);
+      --papel: #261D3A;
+      --papel-2: #2F2547;
+      --cacao: #F6EFF7;
+      --cacao-suave: #C9BCD6;
+      --terracota: #FFC965;
+      --terracota-claro: #FFC965;
+      --salvia: #9BC4A0;
+      --mantequilla: #F2A7B0;
+      --borde: rgba(246, 239, 247, 0.16);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       width: 300px;
       background: var(--papel);
       color: var(--cacao);
-      font: 14px/1.4 ui-rounded, "Nunito", "Segoe UI", system-ui, sans-serif;
+      font: 14px/1.4 "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
     }
     header { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
     .logo { width: 34px; height: 34px; flex-shrink: 0; }
@@ -40,31 +40,31 @@
     label { display: block; font-size: 12px; font-weight: 700; color: var(--cacao-suave); margin-bottom: 5px; }
     input {
       width: 100%; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--borde);
-      background: #fff; color: var(--cacao); font: inherit; outline: none;
+      background: #1E1730; color: var(--cacao); font: inherit; outline: none;
     }
-    input:focus-visible { border-color: var(--terracota-claro); box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.2); }
+    input:focus-visible { border-color: var(--terracota-claro); box-shadow: 0 0 0 3px rgba(255, 201, 101, 0.25); }
     #input-room { text-transform: uppercase; letter-spacing: 3px; font-weight: 800; font-family: ui-monospace, monospace; }
 
     .btn {
       width: 100%; padding: 11px; border: none; border-radius: 14px; cursor: pointer;
-      background: var(--terracota); color: #fff; font: 700 14px/1 inherit;
-      box-shadow: 0 3px 0 #8E3B27; transition: transform 0.12s ease, box-shadow 0.12s ease;
+      background: var(--terracota); color: #2A2140; font-family: inherit; font-size: 14px; font-weight: 800; line-height: 1;
+      box-shadow: 0 3px 0 #C99A3F; transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
     .btn:hover { transform: translateY(-1px); }
-    .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #8E3B27; }
+    .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #C99A3F; }
     .btn:disabled { opacity: 0.55; cursor: progress; transform: none; }
     .btn:focus-visible { outline: 3px solid var(--mantequilla); outline-offset: 2px; }
-    .btn.suave { background: var(--papel-2); color: var(--cacao); box-shadow: 0 3px 0 #DCCBB5; }
+    .btn.suave { background: var(--papel-2); color: var(--cacao); box-shadow: 0 3px 0 #1E1730; }
 
     .tarjeta-sala {
       border-radius: 16px; padding: 14px; text-align: center;
-      background: #fff; border: 1.5px dashed var(--terracota-claro);
+      background: #1E1730; border: 1.5px dashed var(--terracota-claro);
     }
     .tarjeta-sala small { display: block; font-size: 11px; font-weight: 700; color: var(--cacao-suave); text-transform: uppercase; letter-spacing: 1px; }
     .codigo { font: 800 26px/1.2 ui-monospace, monospace; letter-spacing: 5px; color: var(--terracota); }
 
     .ayuda { font-size: 12px; color: var(--cacao-suave); text-align: center; }
-    .error { font-size: 12px; color: var(--terracota); text-align: center; min-height: 1em; }
+    .error { font-size: 12px; color: var(--mantequilla); text-align: center; min-height: 1em; }
     .plataformas { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; list-style: none; }
     .plataformas li { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--papel-2); color: var(--cacao-suave); }
     [hidden] { display: none !important; }
@@ -73,9 +73,11 @@
 <body>
   <header>
     <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
-      <rect x="4" y="10" width="40" height="28" rx="9" fill="#E07A5F" />
-      <path d="M24 31c-6-4-9-7-9-10.5a4.5 4.5 0 0 1 9-1 4.5 4.5 0 0 1 9 1C33 24 30 27 24 31z" fill="#FBF5EC" />
-      <rect x="16" y="40" width="16" height="3" rx="1.5" fill="#3B2F2A" />
+      <path d="M18 5l6 7 6-7" fill="none" stroke="#FFC965" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+      <rect x="4" y="12" width="40" height="31" rx="10" fill="#FFC965" />
+      <rect x="9" y="17" width="30" height="21" rx="6" fill="#261D3A" />
+      <circle cx="20" cy="26" r="4" fill="#FFC965" /><circle cx="28" cy="26" r="4" fill="#FFC965" opacity=".55" />
+      <path d="M13 38c1.6-4 4-5.5 7-5.5s5.4 1.5 7 5.5z" fill="#FFC965" /><path d="M21 38c1.6-4 4-5.5 7-5.5s5.4 1.5 7 5.5z" fill="#FFC965" opacity=".55" />
     </svg>
     <div>
       <h1>Togetherly Sync</h1>

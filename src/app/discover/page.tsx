@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LogoMark } from "@/components/ui/Logo";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Heart, Users, Play, RefreshCw, Globe } from "lucide-react";
+import { Users, Play, RefreshCw, Globe } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { Button } from "@/components/ui/Button";
@@ -46,18 +47,16 @@ export default function DiscoverPage() {
     <div className="min-h-screen bg-day-50 dark:bg-night-950">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full animate-blob-drift"
-          style={{ background: "radial-gradient(circle, rgba(192,132,252,0.10) 0%, transparent 70%)" }} />
+          style={{ background: "radial-gradient(circle, rgba(255,201,101,0.10) 0%, transparent 70%)" }} />
         <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full animate-blob-drift-reverse"
-          style={{ background: "radial-gradient(circle, rgba(244,114,182,0.08) 0%, transparent 70%)" }} />
+          style={{ background: "radial-gradient(circle, rgba(242,167,176,0.08) 0%, transparent 70%)" }} />
       </div>
 
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-night-900/80 backdrop-blur-md">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
-            <Heart className="w-4 h-4 text-white fill-white" />
-          </div>
-          <span className="font-bold gradient-text">Togetherly</span>
+          <LogoMark className="text-neon-purple" />
+          <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
         </Link>
         <div className="flex items-center gap-2">
           <LanguageToggle />

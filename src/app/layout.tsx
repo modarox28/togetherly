@@ -1,18 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { LanguageProvider } from "@/components/providers/LanguageProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
+// Fuentes servidas desde el propio sitio (licencia OFL): sin peticiones a terceros.
+const bricolage = localFont({
+  src: "./fonts/BricolageGrotesque.woff2",
+  variable: "--font-bricolage",
+  weight: "200 800",
+  display: "swap",
+});
+const nunito = localFont({
+  src: "./fonts/Nunito.woff2",
+  variable: "--font-nunito",
+  weight: "200 1000",
+  display: "swap",
+});
 
 const APP_URL = "https://togetherly-weld.vercel.app";
 const DESCRIPTION =
-  "Synchronized streaming, live chat, reactions and video calls — for couples and friends at a distance. Supports YouTube, Twitch, Vimeo and Spotify.";
+  "Watch Netflix, Prime Video, HBO Max, Disney+ and YouTube in sync with the people you love, wherever they are. Chat, reactions and video calls included.";
 
 export const viewport: Viewport = {
-  themeColor: "#a855f7",
+  themeColor: "#2A2140",
   width: "device-width",
   initialScale: 1,
 };
@@ -51,7 +63,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={geist.variable} suppressHydrationWarning>
+    <html lang="es" className={`${bricolage.variable} ${nunito.variable}`} suppressHydrationWarning>
       <body className="min-h-screen antialiased">
         <SessionProvider>
           <ThemeProvider>

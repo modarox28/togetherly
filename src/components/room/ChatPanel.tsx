@@ -225,7 +225,7 @@ export function ChatPanel({
             exit={{ opacity: 0, y: 8 }}
             onClick={scrollToBottom}
             className="absolute bottom-16 right-3 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full
-              bg-neon-purple text-white text-xs font-medium shadow-lg hover:bg-neon-purple/90 transition-colors"
+              bg-neon-purple text-on-accent text-xs font-medium shadow-lg hover:bg-neon-purple/90 transition-colors"
           >
             <ArrowDown className="w-3 h-3" />
             {unread > 0 ? `${unread} nuevo${unread === 1 ? "" : "s"}` : "Bajar"}
@@ -284,7 +284,7 @@ export function ChatPanel({
           onClick={handleSend}
           disabled={!input.trim()}
           className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl
-            bg-gradient-to-br from-neon-purple to-neon-pink text-white
+            bg-neon-purple text-on-accent
             disabled:opacity-30 hover:opacity-90 transition-all hover:scale-105 active:scale-95"
         >
           <Send className="w-3.5 h-3.5" />

@@ -50,7 +50,7 @@ export function VideoCallPanel({
               bg-night-900/95 border border-neon-purple/30 shadow-2xl backdrop-blur-sm w-64"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center flex-shrink-0 animate-pulse">
+              <div className="w-10 h-10 rounded-full bg-neon-purple flex items-center justify-center flex-shrink-0 animate-pulse">
                 <PhoneIncoming className="w-5 h-5 text-white" />
               </div>
               <div>

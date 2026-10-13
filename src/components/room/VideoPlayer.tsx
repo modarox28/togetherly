@@ -279,7 +279,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             className="flex-1 px-4 py-2.5 rounded-xl bg-night-800 border border-night-600 text-white placeholder:text-white/30 text-sm outline-none focus:border-neon-purple transition-all"
           />
           <button onClick={handleLoadUrl}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-neon-purple to-neon-pink text-white text-sm font-medium hover:opacity-90 transition-opacity">
+            className="px-4 py-2.5 rounded-xl bg-neon-purple text-on-accent text-sm font-medium hover:opacity-90 transition-opacity">
             {t.watchRoom.loadVideo}
           </button>
         </div>
@@ -364,7 +364,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
               className="absolute inset-0 flex items-center justify-center z-30 bg-black/40">
               <button onClick={handleTapToSync}
                 className="flex flex-col items-center gap-3 px-8 py-5 rounded-2xl bg-night-900/95 border border-neon-purple/40 text-white shadow-2xl">
-                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full bg-neon-purple flex items-center justify-center">
                   <Play className="w-6 h-6 fill-white text-white ml-1" />
                 </div>
                 <div className="text-center">
@@ -397,7 +397,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
             />
             <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-neon-purple to-neon-pink rounded-full"
+              <div className="h-full bg-neon-purple rounded-full"
                 style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%", transition: isDragging ? "none" : "width 0.5s linear" }} />
             </div>
           </div>
@@ -442,7 +442,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
               onKeyDown={(e) => { if (e.key === "Enter") { handleLoadUrl(); setShowUrlBar(false); } if (e.key === "Escape") setShowUrlBar(false); }}
               className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm outline-none focus:border-neon-purple transition-all" />
             <button onClick={() => { handleLoadUrl(); setShowUrlBar(false); }}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-neon-purple to-neon-pink text-white text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap">
+              className="px-4 py-2 rounded-xl bg-neon-purple text-on-accent text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap">
               Load
             </button>
           </motion.div>

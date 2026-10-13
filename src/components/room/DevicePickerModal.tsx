@@ -153,7 +153,7 @@ export function DevicePickerModal({ onConfirm, onCancel }: Props) {
                 Cancelar
               </button>
               <button onClick={handleConfirm}
-                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-neon-purple to-neon-pink text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                className="flex-1 py-2 rounded-xl bg-neon-purple text-on-accent text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
                 <Phone className="w-3.5 h-3.5" /> Llamar
               </button>
             </div>

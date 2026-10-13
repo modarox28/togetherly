@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // Pruebas de la extensión: npm run test:extension
 const { defineConfig } = require("@playwright/test");
 

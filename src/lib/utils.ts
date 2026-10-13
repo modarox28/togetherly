@@ -36,7 +36,7 @@ export function formatTime(seconds: number): string {
 }
 
 export const AVATAR_COLORS = [
-  "#C084FC", "#F472B6", "#60A5FA", "#34D399", "#FBBF24", "#F87171", "#A78BFA",
+  "#FFC965", "#F2A7B0", "#9BC4A0", "#A6A1D6", "#E9A06B", "#7FB7BE", "#D9A6C9",
 ];
 
 export function getAvatarColor(index: number): string {

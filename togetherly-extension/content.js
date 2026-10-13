@@ -195,13 +195,13 @@
     estilo.textContent = `
       .caja{position:fixed;left:50%;bottom:28px;z-index:2147483647;display:flex;align-items:center;gap:10px;
         transform:translate(-50%,14px) scale(.96);opacity:0;pointer-events:none;
-        padding:10px 18px 10px 12px;border-radius:999px;background:#FBF5EC;color:#3B2F2A;
-        font:600 14px/1.2 ui-rounded,"Nunito","Segoe UI",system-ui,sans-serif;
-        box-shadow:0 10px 30px rgba(43,26,18,.28),inset 0 -2px 0 rgba(59,47,42,.08);
+        padding:10px 18px 10px 12px;border-radius:999px;background:#2A2140;color:#F6EFF7;
+        font:700 14px/1.2 "Nunito",ui-rounded,"Segoe UI",system-ui,sans-serif;
+        box-shadow:0 10px 30px rgba(15,10,25,.45),inset 0 0 0 1.5px rgba(255,201,101,.35);
         transition:opacity .35s ease,transform .45s cubic-bezier(.34,1.56,.64,1)}
       .caja.ver{opacity:1;transform:translate(-50%,0) scale(1)}
-      .punto{width:22px;height:22px;border-radius:50%;background:#E07A5F;display:grid;place-items:center;flex-shrink:0}
-      .punto::after{content:"";width:8px;height:8px;border-radius:50%;background:#FBF5EC;animation:latido 1.6s ease-in-out infinite}
+      .punto{width:22px;height:22px;border-radius:50%;background:#FFC965;display:grid;place-items:center;flex-shrink:0}
+      .punto::after{content:"";width:8px;height:8px;border-radius:50%;background:#2A2140;animation:latido 1.6s ease-in-out infinite}
       @keyframes latido{50%{transform:scale(1.35)}}
       @media (prefers-reduced-motion:reduce){.caja{transition:opacity .2s}.punto::after{animation:none}}`;
     caja = document.createElement("div");

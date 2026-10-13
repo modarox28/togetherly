@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { stripe, PLANS } from "@/lib/stripe";
+import { stripe, PREMIUM_PRICE_ID } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 
 export async function POST() {
@@ -34,7 +34,7 @@ export async function POST() {
     customer: customerId,
     mode: "subscription",
     payment_method_types: ["card"],
-    line_items: [{ price: PLANS.premium.priceId, quantity: 1 }],
+    line_items: [{ price: PREMIUM_PRICE_ID, quantity: 1 }],
     success_url: `${appUrl}/pricing?success=true`,
     cancel_url: `${appUrl}/pricing?canceled=true`,
     metadata: { userId: user.id },

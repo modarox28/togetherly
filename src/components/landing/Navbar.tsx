@@ -1,71 +1,60 @@
 "use client";
 
-import { motion, useScroll, useMotionValueEvent } from "framer-motion";
 import { useState } from "react";
 import Link from "next/link";
+import { useScroll, useMotionValueEvent } from "framer-motion";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
-import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/Logo";
 import { useLanguage } from "@/components/providers/LanguageProvider";
-import { Heart } from "lucide-react";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const { scrollY } = useScroll();
   const { t } = useLanguage();
 
-  useMotionValueEvent(scrollY, "change", (v) => setScrolled(v > 20));
+  useMotionValueEvent(scrollY, "change", (v) => setScrolled(v > 24));
+
+  const enlaces = [
+    { label: t.nav.howItWorks, href: "#como-funciona" },
+    { label: t.nav.platforms, href: "#plataformas" },
+    { label: t.nav.discover, href: "/discover" },
+    { label: t.nav.pricing, href: "/pricing" },
+  ];
 
   return (
-    <motion.nav
-      initial={{ y: -80, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
-      className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 pt-4"
-    >
-      <div className={`
-        w-full max-w-5xl flex items-center justify-between
-        px-5 py-3 rounded-2xl transition-all duration-300
-        ${scrolled
-          ? "glass border shadow-2xl bg-white/85 dark:bg-night-900/90 border-black/5 dark:border-white/10"
-          : "bg-transparent"
-        }
-      `}>
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-neon-purple to-neon-pink flex items-center justify-center shadow-lg">
-            <Heart className="w-4 h-4 text-white fill-white" />
-          </div>
-          <span className="font-bold text-base gradient-text">Togetherly</span>
-        </Link>
-
-        {/* Nav links */}
-        <div className="hidden md:flex items-center gap-6">
-          {[
-            { label: t.nav.features, href: "#features" },
-            { label: t.nav.howItWorks, href: "#how-it-works" },
-            { label: t.nav.discover, href: "/discover" },
-          { label: "Pricing", href: "/pricing" },
-          ].map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="text-sm text-day-900/60 dark:text-white/60 hover:text-day-900 dark:hover:text-white transition-colors"
-            >
-              {item.label}
-            </a>
+    <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3">
+      <nav
+        className={`mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-full px-4 py-2 transition-colors duration-300 ${
+          scrolled
+            ? "glass bg-day-50/90 shadow-[0_10px_30px_-18px_rgba(30,23,48,0.6)] dark:bg-night-900/90"
+            : "bg-transparent"
+        }`}
+      >
+        <Logo />
+        <ul className="hidden items-center gap-6 md:flex">
+          {enlaces.map((e) => (
+            <li key={e.href}>
+              <Link
+                href={e.href}
+                className="text-sm font-semibold text-day-900/70 transition-colors hover:text-day-900 dark:text-white/70 dark:hover:text-white"
+              >
+                {e.label}
+              </Link>
+            </li>
           ))}
-        </div>
-
-        {/* Actions */}
+        </ul>
         <div className="flex items-center gap-2">
           <LanguageToggle />
           <ThemeToggle />
-          <Button size="sm" onClick={() => window.location.href = "/room"}>
+          <Link
+            href="/room"
+            className="hidden rounded-full bg-neon-purple px-4 py-2 text-sm font-bold text-on-accent sm:inline-block"
+          >
             {t.nav.startWatching}
-          </Button>
+          </Link>
         </div>
-      </div>
-    </motion.nav>
+      </nav>
+    </header>
   );
 }

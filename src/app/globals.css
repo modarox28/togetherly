@@ -2,99 +2,60 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+  Identidad "sala de estar de noche": paredes ciruela, luz de lámpara, cobija rosa.
+  Los nombres viejos (night/day/neon) se conservan para no tocar cada pantalla,
+  pero ahora apuntan a la paleta nueva. El acento cambia según el tema para que
+  siempre sea legible: luz de lámpara de noche, ciruela oscuro de día.
+*/
+:root {
+  --acento: #7A3B69;        /* día: ciruela */
+  --acento-2: #A9475F;      /* día: cobija oscura */
+  --sobre-acento: #FFFFFF;  /* texto encima del acento */
+  --papel: #F6F1F8;
+  --tinta: #2A2140;
+}
+
+.dark {
+  --acento: #FFC965;        /* noche: luz de lámpara */
+  --acento-2: #F2A7B0;      /* noche: cobija rosa */
+  --sobre-acento: #2A2140;
+  --papel: #1E1730;
+  --tinta: #F6EFF7;
+}
+
 @theme {
-  --color-night-950: #0D0D1A;
-  --color-night-900: #131325;
-  --color-night-800: #1A1A30;
-  --color-night-700: #252545;
-  --color-night-600: #2D2D58;
-  --color-night-500: #3D3D70;
+  /* Noche: ciruelas cálidas, nunca negro puro */
+  --color-night-950: #1E1730;
+  --color-night-900: #261D3A;
+  --color-night-800: #2F2547;
+  --color-night-700: #3A2E55;
+  --color-night-600: #4A3C68;
+  --color-night-500: #5E4F80;
 
-  --color-day-50: #FAF5FF;
-  --color-day-100: #F3E8FF;
-  --color-day-200: #E9D5FF;
-  --color-day-300: #D8B4FE;
-  --color-day-900: #1A0533;
+  /* Día: algodón lila */
+  --color-day-50: #F6F1F8;
+  --color-day-100: #EEE6F2;
+  --color-day-200: #E0D3E8;
+  --color-day-300: #CBB8D8;
+  --color-day-900: #2A2140;
 
-  --color-neon-purple: #C084FC;
-  --color-neon-pink: #F472B6;
-  --color-neon-purple-dim: #A855F7;
-  --color-neon-pink-dim: #EC4899;
+  /* Acentos (nombres heredados) */
+  --color-neon-purple: var(--acento);
+  --color-neon-pink: var(--acento-2);
+  --color-neon-purple-dim: var(--acento);
+  --color-neon-pink-dim: var(--acento-2);
+  --color-on-accent: var(--sobre-acento);
 
-  --font-sans: var(--font-geist-sans);
-}
+  /* Paleta con nombre propio, para lo nuevo */
+  --color-lampara: #FFC965;
+  --color-cobija: #F2A7B0;
+  --color-salvia: #9BC4A0;
+  --color-ciruela: #2A2140;
+  --color-algodon: #F6F1F8;
 
-@keyframes blob-drift {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(40px, -60px) scale(1.08); }
-  66% { transform: translate(-30px, 30px) scale(0.92); }
-}
-
-@keyframes blob-drift-reverse {
-  0%, 100% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(-50px, 40px) scale(1.05); }
-  66% { transform: translate(40px, -30px) scale(0.95); }
-}
-
-@keyframes float-y {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-16px); }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@keyframes particle-rise {
-  0% { transform: translateY(0) scale(1); opacity: 0.8; }
-  100% { transform: translateY(-120px) scale(0); opacity: 0; }
-}
-
-.animate-blob-drift {
-  animation: blob-drift 12s ease-in-out infinite;
-}
-
-.animate-blob-drift-reverse {
-  animation: blob-drift-reverse 15s ease-in-out infinite;
-}
-
-.animate-float-y {
-  animation: float-y 4s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  background-size: 200% 100%;
-  animation: shimmer 3s linear infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2.5s ease-in-out infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 20s linear infinite;
-}
-
-::-webkit-scrollbar {
-  width: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #C084FC, #F472B6);
-  border-radius: 999px;
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-bricolage);
 }
 
 * {
@@ -102,52 +63,96 @@
 }
 
 body {
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-nunito), ui-rounded, system-ui, sans-serif;
+  background-color: var(--papel);
+  color: var(--tinta);
 }
 
-html.dark body {
-  background-color: #0D0D1A;
-  color: #F0F0FF;
+h1, h2, h3 {
+  font-family: var(--font-bricolage), var(--font-nunito), system-ui, sans-serif;
+  text-wrap: balance;
 }
 
-html:not(.dark) body {
-  background-color: #FAF5FF;
-  color: #1A0533;
+p {
+  text-wrap: pretty;
+}
+
+:focus-visible {
+  outline: 3px solid var(--acento);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--acento);
+  color: var(--sobre-acento);
+}
+
+/* ── Utilidades heredadas, ahora sobrias ───────────────────────────────── */
+.gradient-text {
+  color: var(--acento);
 }
 
 .glass {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.gradient-text {
-  background: linear-gradient(135deg, #C084FC 0%, #F472B6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .gradient-border {
-  position: relative;
+  border: 1.5px solid color-mix(in oklab, var(--acento) 45%, transparent);
 }
 
-.gradient-border::before {
-  content: '';
+.glow-purple,
+.glow-pink {
+  box-shadow: 0 18px 40px -18px color-mix(in oklab, var(--acento) 55%, transparent);
+}
+
+/* Animaciones que todavía usan algunas pantallas: más lentas y discretas */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-float-y { animation: float-y 6s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-spin-slow { animation: spin-slow 30s linear infinite; }
+/* Las manchas difusas de fondo se retiraron del diseño */
+.animate-blob-drift,
+.animate-blob-drift-reverse,
+.animate-shimmer { display: none; }
+
+/* Grano de papel muy suave: da calidez a las superficies planas */
+.grano {
+  position: relative;
+  isolation: isolate;
+}
+.grano::after {
+  content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, #C084FC, #F472B6);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  z-index: -1;
   pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-.glow-purple {
-  box-shadow: 0 0 30px rgba(192, 132, 252, 0.25), 0 0 60px rgba(192, 132, 252, 0.1);
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--tinta) 22%, transparent);
+  border-radius: 999px;
 }
 
-.glow-pink {
-  box-shadow: 0 0 30px rgba(244, 114, 182, 0.25), 0 0 60px rgba(244, 114, 182, 0.1);
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
