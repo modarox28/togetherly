@@ -1,29 +1,33 @@
-// Puente entre la web de Togetherly y la extensión.
+// Puente entre la web de Togetherly y la extensión (se inyecta solo en el dominio de Togetherly).
 // Solo acepta mensajes de la propia página y solo los tipos que la web necesita.
 (() => {
-  const ORIGEN = window.location.origin;
-  const PERMITIDOS = new Set(["JOIN_ROOM", "LEAVE_ROOM", "PING"]);
+  const ORIGIN = window.location.origin;
+  const ALLOWED_TYPES = new Set(["JOIN_ROOM", "LEAVE_ROOM", "PING"]);
 
-  const aWeb = (datos) => window.postMessage({ ...datos, source: "togetherly-ext" }, ORIGEN);
+  const postToPage = (data) => window.postMessage({ ...data, source: "togetherly-ext" }, ORIGIN);
 
-  aWeb({ type: "EXT_READY" });
+  postToPage({ type: "EXT_READY" });
 
-  window.addEventListener("message", (e) => {
-    if (e.source !== window || e.origin !== ORIGEN) return;
-    const d = e.data;
-    if (!d || d.source !== "togetherly-web" || !PERMITIDOS.has(d.type)) return;
+  // Web → extensión
+  window.addEventListener("message", (event) => {
+    if (event.source !== window || event.origin !== ORIGIN) return;
+    const data = event.data;
+    if (!data || data.source !== "togetherly-web" || !ALLOWED_TYPES.has(data.type)) return;
     try {
       chrome.runtime.sendMessage(
-        { type: d.type, roomId: d.roomId, username: d.username, avatar: d.avatar },
-        (r) => {
-          if (chrome.runtime.lastError || !r) return;
-          aWeb(r);
+        { type: data.type, roomId: data.roomId, username: data.username, avatar: data.avatar },
+        (reply) => {
+          if (chrome.runtime.lastError || !reply) return;
+          postToPage(reply);
         }
       );
     } catch {}
   });
 
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg?.type === "EXT_STATUS") aWeb({ type: "EXT_STATUS", connected: !!msg.connected, roomId: msg.roomId ?? null });
+  // Extensión → web (solo el estado de conexión)
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === "EXT_STATUS") {
+      postToPage({ type: "EXT_STATUS", connected: !!message.connected, roomId: message.roomId ?? null });
+    }
   });
 })();

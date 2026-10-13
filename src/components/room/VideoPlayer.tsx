@@ -262,8 +262,8 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 bg-night-900">
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-neon-purple/10 border border-neon-purple/20 flex items-center justify-center mb-4">
-            <Play className="w-7 h-7 text-neon-purple" />
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-4">
+            <Play className="w-7 h-7 text-accent" />
           </div>
           <h3 className="text-white font-semibold text-lg">{t.watchRoom.addVideo}</h3>
           <p className="text-white/40 text-sm">{t.watchRoom.pasteToStart}</p>
@@ -276,10 +276,10 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             onChange={(e) => setUrlInput(e.target.value)}
             placeholder={t.watchRoom.videoPaste}
             onKeyDown={(e) => e.key === "Enter" && handleLoadUrl()}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-night-800 border border-night-600 text-white placeholder:text-white/30 text-sm outline-none focus:border-neon-purple transition-all"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-night-800 border border-night-600 text-white placeholder:text-white/30 text-sm outline-none focus:border-accent transition-all"
           />
           <button onClick={handleLoadUrl}
-            className="px-4 py-2.5 rounded-xl bg-neon-purple text-on-accent text-sm font-medium hover:opacity-90 transition-opacity">
+            className="px-4 py-2.5 rounded-xl bg-accent text-on-accent text-sm font-medium hover:opacity-90 transition-opacity">
             {t.watchRoom.loadVideo}
           </button>
         </div>
@@ -350,7 +350,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         <AnimatePresence>
           {syncIndicator && !isCompanion && (
             <motion.div initial={{ opacity: 0, scale: 0.8, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }}
-              className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-night-800/90 border border-neon-purple/30 text-neon-purple text-xs font-medium z-20">
+              className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-night-800/90 border border-accent/30 text-accent text-xs font-medium z-20">
               <CheckCircle2 className="w-3.5 h-3.5" />
               {t.watchRoom.syncedWith}
             </motion.div>
@@ -363,8 +363,8 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
               className="absolute inset-0 flex items-center justify-center z-30 bg-black/40">
               <button onClick={handleTapToSync}
-                className="flex flex-col items-center gap-3 px-8 py-5 rounded-2xl bg-night-900/95 border border-neon-purple/40 text-white shadow-2xl">
-                <div className="w-14 h-14 rounded-full bg-neon-purple flex items-center justify-center">
+                className="flex flex-col items-center gap-3 px-8 py-5 rounded-2xl bg-night-900/95 border border-accent/40 text-white shadow-2xl">
+                <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center">
                   <Play className="w-6 h-6 fill-white text-white ml-1" />
                 </div>
                 <div className="text-center">
@@ -397,14 +397,14 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
             />
             <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
-              <div className="h-full bg-neon-purple rounded-full"
+              <div className="h-full bg-accent rounded-full"
                 style={{ width: duration ? `${(currentTime / duration) * 100}%` : "0%", transition: isDragging ? "none" : "width 0.5s linear" }} />
             </div>
           </div>
 
           {/* Controls row */}
           <div className="flex items-center gap-2">
-            <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center text-white hover:text-neon-purple transition-colors">
+            <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center text-white hover:text-accent transition-colors">
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
             </button>
             <button onClick={toggleMute} className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0">
@@ -412,7 +412,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             </button>
             <input type="range" min={0} max={100} value={isMuted ? 0 : volume}
               onChange={handleVolumeChange}
-              className="w-16 sm:w-20 cursor-pointer accent-neon-purple" />
+              className="w-16 sm:w-20 cursor-pointer accent-accent" />
             <span className="text-white/60 text-xs font-mono tabular-nums">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
@@ -440,9 +440,9 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             <input autoFocus value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
               placeholder="YouTube, Netflix, Disney+, Twitch, Vimeo..."
               onKeyDown={(e) => { if (e.key === "Enter") { handleLoadUrl(); setShowUrlBar(false); } if (e.key === "Escape") setShowUrlBar(false); }}
-              className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm outline-none focus:border-neon-purple transition-all" />
+              className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm outline-none focus:border-accent transition-all" />
             <button onClick={() => { handleLoadUrl(); setShowUrlBar(false); }}
-              className="px-4 py-2 rounded-xl bg-neon-purple text-on-accent text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap">
+              className="px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap">
               Load
             </button>
           </motion.div>

@@ -80,8 +80,8 @@ function PricingContent() {
     <div className="min-h-screen bg-night-950 text-white overflow-hidden">
       {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-neon-purple/10 blur-[120px] animate-[blob-drift_8s_ease-in-out_infinite]" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-neon-pink/10 blur-[100px] animate-[blob-drift-reverse_10s_ease-in-out_infinite]" />
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-accent/10 blur-[120px] animate-[blob-drift_8s_ease-in-out_infinite]" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-accent-2/10 blur-[100px] animate-[blob-drift-reverse_10s_ease-in-out_infinite]" />
       </div>
 
       {/* Toast */}
@@ -103,7 +103,7 @@ function PricingContent() {
       <div className="relative z-10 max-w-5xl mx-auto px-4 py-20">
         {/* Back */}
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white/80 transition-colors mb-12">
-          <LogoMark className="w-6 h-6 text-neon-purple" />
+          <LogoMark className="w-6 h-6 text-accent" />
           Togetherly
         </Link>
 
@@ -114,7 +114,7 @@ function PricingContent() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-neon-purple/10 border border-neon-purple/30 text-neon-purple text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent/10 border border-accent/30 text-accent text-sm font-medium mb-6">
             <Sparkles className="w-4 h-4" />
             Planes simples y transparentes
           </div>
@@ -169,20 +169,20 @@ function PricingContent() {
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="relative rounded-2xl border border-neon-purple/40 bg-day-100 dark:bg-night-800 p-8 shadow-[0_24px_50px_-28px_rgba(42,33,64,0.6)]"
+            className="relative rounded-2xl border border-accent/40 bg-day-100 dark:bg-night-800 p-8 shadow-[0_24px_50px_-28px_rgba(42,33,64,0.6)]"
           >
             {/* Popular badge */}
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-neon-purple text-xs font-semibold text-on-accent shadow-lg">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-accent text-xs font-semibold text-on-accent shadow-lg">
               Para grupos
             </div>
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-neon-purple flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-lg">
                 <Crown className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="font-bold text-lg">Premium</h2>
-                <p className="text-neon-purple/80 text-sm">Para ver en grupo</p>
+                <p className="text-accent/80 text-sm">Para ver en grupo</p>
               </div>
             </div>
 
@@ -195,7 +195,7 @@ function PricingContent() {
             <ul className="space-y-3 mb-8">
               {PREMIUM_FEATURES.map((f) => (
                 <li key={f} className="flex items-center gap-3 text-sm text-white/80">
-                  <Check className="w-4 h-4 text-neon-purple flex-shrink-0" />
+                  <Check className="w-4 h-4 text-accent flex-shrink-0" />
                   {f}
                 </li>
               ))}

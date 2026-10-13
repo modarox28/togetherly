@@ -32,7 +32,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               "border-day-200 dark:border-night-600",
               "text-day-900 dark:text-white",
               "placeholder:text-day-900/35 dark:placeholder:text-white/30",
-              "focus:border-neon-purple focus:ring-2 focus:ring-neon-purple/20",
+              "focus:border-accent focus:ring-2 focus:ring-accent/20",
               icon && "pl-10",
               error && "border-red-400 dark:border-red-500/60 focus:border-red-500 focus:ring-red-500/20",
               className

@@ -16,8 +16,8 @@ export function Navbar() {
   useMotionValueEvent(scrollY, "change", (v) => setScrolled(v > 24));
 
   const enlaces = [
-    { label: t.nav.howItWorks, href: "#como-funciona" },
-    { label: t.nav.platforms, href: "#plataformas" },
+    { label: t.nav.howItWorks, href: "#how-it-works" },
+    { label: t.nav.platforms, href: "#platforms" },
     { label: t.nav.discover, href: "/discover" },
     { label: t.nav.pricing, href: "/pricing" },
   ];
@@ -49,7 +49,7 @@ export function Navbar() {
           <ThemeToggle />
           <Link
             href="/room"
-            className="hidden rounded-full bg-neon-purple px-4 py-2 text-sm font-bold text-on-accent sm:inline-block"
+            className="hidden rounded-full bg-accent px-4 py-2 text-sm font-bold text-on-accent sm:inline-block"
           >
             {t.nav.startWatching}
           </Link>

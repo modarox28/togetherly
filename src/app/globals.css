@@ -4,24 +4,27 @@
 
 /*
   Identidad "sala de estar de noche": paredes ciruela, luz de lámpara, cobija rosa.
-  Los nombres viejos (night/day/neon) se conservan para no tocar cada pantalla,
-  pero ahora apuntan a la paleta nueva. El acento cambia según el tema para que
-  siempre sea legible: luz de lámpara de noche, ciruela oscuro de día.
+
+  Cómo cambiar los colores:
+  - Acento (botones, enlaces, números): --accent en :root (día) y en .dark (noche).
+  - Fondos y superficies: la escala night-* (tema oscuro) y day-* (tema claro) en @theme.
+  En los componentes se usan como clases de Tailwind: bg-accent, text-on-accent,
+  bg-night-900, text-day-900/70, etc.
 */
 :root {
-  --acento: #7A3B69;        /* día: ciruela */
-  --acento-2: #A9475F;      /* día: cobija oscura */
-  --sobre-acento: #FFFFFF;  /* texto encima del acento */
-  --papel: #F6F1F8;
-  --tinta: #2A2140;
+  --accent: #7A3B69;     /* día: ciruela */
+  --accent-2: #A9475F;   /* día: cobija oscura */
+  --on-accent: #FFFFFF;  /* texto encima del acento */
+  --page: #F6F1F8;       /* fondo de la página */
+  --ink: #2A2140;        /* texto principal */
 }
 
 .dark {
-  --acento: #FFC965;        /* noche: luz de lámpara */
-  --acento-2: #F2A7B0;      /* noche: cobija rosa */
-  --sobre-acento: #2A2140;
-  --papel: #1E1730;
-  --tinta: #F6EFF7;
+  --accent: #FFC965;     /* noche: luz de lámpara */
+  --accent-2: #F2A7B0;   /* noche: cobija rosa */
+  --on-accent: #2A2140;
+  --page: #1E1730;
+  --ink: #F6EFF7;
 }
 
 @theme {
@@ -40,19 +43,17 @@
   --color-day-300: #CBB8D8;
   --color-day-900: #2A2140;
 
-  /* Acentos (nombres heredados) */
-  --color-neon-purple: var(--acento);
-  --color-neon-pink: var(--acento-2);
-  --color-neon-purple-dim: var(--acento);
-  --color-neon-pink-dim: var(--acento-2);
-  --color-on-accent: var(--sobre-acento);
+  /* Acento: cambia según el tema (ver :root y .dark) */
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-on-accent: var(--on-accent);
 
-  /* Paleta con nombre propio, para lo nuevo */
-  --color-lampara: #FFC965;
-  --color-cobija: #F2A7B0;
-  --color-salvia: #9BC4A0;
-  --color-ciruela: #2A2140;
-  --color-algodon: #F6F1F8;
+  /* Paleta fija, para ilustraciones */
+  --color-lamp: #FFC965;
+  --color-blanket: #F2A7B0;
+  --color-sage: #9BC4A0;
+  --color-plum: #2A2140;
+  --color-cotton: #F6F1F8;
 
   --font-sans: var(--font-nunito);
   --font-display: var(--font-bricolage);
@@ -64,8 +65,8 @@
 
 body {
   font-family: var(--font-nunito), ui-rounded, system-ui, sans-serif;
-  background-color: var(--papel);
-  color: var(--tinta);
+  background-color: var(--page);
+  color: var(--ink);
 }
 
 h1, h2, h3 {
@@ -78,18 +79,18 @@ p {
 }
 
 :focus-visible {
-  outline: 3px solid var(--acento);
+  outline: 3px solid var(--accent);
   outline-offset: 3px;
 }
 
 ::selection {
-  background: var(--acento);
-  color: var(--sobre-acento);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 /* ── Utilidades heredadas, ahora sobrias ───────────────────────────────── */
 .gradient-text {
-  color: var(--acento);
+  color: var(--accent);
 }
 
 .glass {
@@ -98,12 +99,12 @@ p {
 }
 
 .gradient-border {
-  border: 1.5px solid color-mix(in oklab, var(--acento) 45%, transparent);
+  border: 1.5px solid color-mix(in oklab, var(--accent) 45%, transparent);
 }
 
 .glow-purple,
 .glow-pink {
-  box-shadow: 0 18px 40px -18px color-mix(in oklab, var(--acento) 55%, transparent);
+  box-shadow: 0 18px 40px -18px color-mix(in oklab, var(--accent) 55%, transparent);
 }
 
 /* Animaciones que todavía usan algunas pantallas: más lentas y discretas */
@@ -127,11 +128,11 @@ p {
 .animate-shimmer { display: none; }
 
 /* Grano de papel muy suave: da calidez a las superficies planas */
-.grano {
+.grain {
   position: relative;
   isolation: isolate;
 }
-.grano::after {
+.grain::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -144,7 +145,7 @@ p {
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--tinta) 22%, transparent);
+  background: color-mix(in oklab, var(--ink) 22%, transparent);
   border-radius: 999px;
 }
 

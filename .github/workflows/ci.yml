@@ -1,0 +1,48 @@
+# Verifica cada push y cada PR: tipos, compilación de producción y pruebas de punta a punta.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, compilación y pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint (informativo mientras se corrige la deuda anterior)
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Compilación de producción (sin secretos, como un despliegue nuevo)
+        run: npx next build
+
+      - name: Preparar navegador y ffmpeg para las pruebas
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Pruebas de la extensión, el servidor y los planes
+        run: npm run test:extension

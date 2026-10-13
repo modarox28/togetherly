@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/Input";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 import { useLanguage } from "@/components/providers/LanguageProvider";
-import { generateRoomId } from "@/lib/utils";
+import { generateRoomId } from "@/lib/room";
 import { CHARACTERS } from "@/lib/characters";
 
 export default function RoomSetupPage() {
@@ -67,7 +67,7 @@ export default function RoomSetupPage() {
 
       <header className="relative z-10 flex items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <LogoMark className="text-neon-purple" />
+          <LogoMark className="text-accent" />
           <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
         </Link>
         <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export default function RoomSetupPage() {
                         onClick={() => { setTab(tabKey); setErrors({}); }}
                         className={`flex-1 py-4 text-sm font-medium transition-colors cursor-pointer ${
                           tab === tabKey
-                            ? "text-neon-purple border-b-2 border-neon-purple bg-neon-purple/5"
+                            ? "text-accent border-b-2 border-accent bg-accent/5"
                             : "text-day-900/40 dark:text-white/40 hover:text-day-900/70 dark:hover:text-white/70"
                         }`}
                       >
@@ -115,13 +115,13 @@ export default function RoomSetupPage() {
 
                   {/* Auth banner */}
                   {session ? (
-                    <div className="flex items-center justify-between px-5 py-3 bg-neon-purple/5 border-b border-black/5 dark:border-white/5">
+                    <div className="flex items-center justify-between px-5 py-3 bg-accent/5 border-b border-black/5 dark:border-white/5">
                       <div className="flex items-center gap-2">
                         {session.user?.image && (
                           <img src={session.user.image} alt="" className="w-6 h-6 rounded-full object-cover" />
                         )}
                         <span className="text-xs text-day-900/60 dark:text-white/50">
-                          Signed in as <strong className="text-neon-purple">{session.user?.name}</strong>
+                          Signed in as <strong className="text-accent">{session.user?.name}</strong>
                         </span>
                       </div>
                       <button
@@ -134,11 +134,11 @@ export default function RoomSetupPage() {
                   ) : (
                     <div className="flex items-center gap-2 px-5 py-3 bg-black/2 dark:bg-white/2 border-b border-black/5 dark:border-white/5">
                       <span className="text-xs text-day-900/40 dark:text-white/30 flex-1">Save your profile across sessions</span>
-                      <Link href="/login" className="flex items-center gap-1 text-xs text-neon-purple font-medium hover:underline">
+                      <Link href="/login" className="flex items-center gap-1 text-xs text-accent font-medium hover:underline">
                         <LogIn className="w-3 h-3" /> Sign in
                       </Link>
                       <span className="text-xs text-day-900/20 dark:text-white/20">·</span>
-                      <Link href="/register" className="flex items-center gap-1 text-xs text-neon-pink font-medium hover:underline">
+                      <Link href="/register" className="flex items-center gap-1 text-xs text-accent-2 font-medium hover:underline">
                         <UserPlus className="w-3 h-3" /> Register
                       </Link>
                     </div>
@@ -167,7 +167,7 @@ export default function RoomSetupPage() {
                           onClick={() => setIsPublic((v) => !v)}
                           className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${
                             isPublic
-                              ? "border-neon-purple bg-neon-purple/5 text-neon-purple"
+                              ? "border-accent bg-accent/5 text-accent"
                               : "border-black/5 dark:border-white/10 text-day-900/50 dark:text-white/40"
                           }`}
                         >
@@ -175,7 +175,7 @@ export default function RoomSetupPage() {
                             <p className="text-sm font-medium">{isPublic ? t.room.publicRoom : t.room.privateRoom}</p>
                             {isPublic && <p className="text-xs opacity-70 mt-0.5">{t.room.publicRoomHint}</p>}
                           </div>
-                          <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${isPublic ? "bg-neon-purple" : "bg-black/10 dark:bg-white/10"}`}>
+                          <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${isPublic ? "bg-accent" : "bg-black/10 dark:bg-white/10"}`}>
                             <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isPublic ? "translate-x-4" : "translate-x-0"}`} />
                           </div>
                         </button>
@@ -239,7 +239,7 @@ export default function RoomSetupPage() {
                           onClick={() => { setSelectedCharacter(char.id); setErrors((p) => ({ ...p, character: undefined })); }}
                           className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all cursor-pointer ${
                             selectedCharacter === char.id
-                              ? "border-neon-purple bg-neon-purple/10 scale-105"
+                              ? "border-accent bg-accent/10 scale-105"
                               : "border-transparent bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5 hover:scale-105"
                           }`}
                         >

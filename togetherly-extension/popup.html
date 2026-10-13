@@ -5,68 +5,74 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
   <title>Togetherly Sync</title>
   <style>
+    /* Mismos colores que la web (src/app/globals.css, tema de noche) */
     :root {
-      --papel: #261D3A;
-      --papel-2: #2F2547;
-      --cacao: #F6EFF7;
-      --cacao-suave: #C9BCD6;
-      --terracota: #FFC965;
-      --terracota-claro: #FFC965;
-      --salvia: #9BC4A0;
-      --mantequilla: #F2A7B0;
-      --borde: rgba(246, 239, 247, 0.16);
+      --surface: #261D3A;
+      --surface-2: #2F2547;
+      --surface-sunken: #1E1730;
+      --text: #F6EFF7;
+      --text-muted: #C9BCD6;
+      --accent: #FFC965;
+      --accent-shadow: #C99A3F;
+      --on-accent: #2A2140;
+      --success: #9BC4A0;
+      --danger: #F2A7B0;
+      --border: rgba(246, 239, 247, 0.16);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       width: 300px;
-      background: var(--papel);
-      color: var(--cacao);
+      background: var(--surface);
+      color: var(--text);
       font: 14px/1.4 "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
     }
     header { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
     .logo { width: 34px; height: 34px; flex-shrink: 0; }
     h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.2px; }
-    .sub { font-size: 12px; color: var(--cacao-suave); }
+    .subtitle { font-size: 12px; color: var(--text-muted); }
 
-    .estado {
+    .status {
       margin: 0 18px; padding: 8px 12px; border-radius: 12px;
-      background: var(--papel-2); display: flex; align-items: center; gap: 8px; font-size: 12.5px;
+      background: var(--surface-2); display: flex; align-items: center; gap: 8px; font-size: 12.5px;
     }
-    .punto { width: 9px; height: 9px; border-radius: 50%; background: #B4A79D; flex-shrink: 0; }
-    .punto.ok { background: var(--salvia); box-shadow: 0 0 0 4px rgba(94, 140, 116, 0.18); }
-    .punto.error { background: var(--terracota); }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #8A7DA3; flex-shrink: 0; }
+    .status-dot.ok { background: var(--success); box-shadow: 0 0 0 4px rgba(155, 196, 160, 0.2); }
+    .status-dot.error { background: var(--danger); }
 
     main { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
-    label { display: block; font-size: 12px; font-weight: 700; color: var(--cacao-suave); margin-bottom: 5px; }
+    .field + .field { margin-top: 10px; }
+    label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; }
     input {
-      width: 100%; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--borde);
-      background: #1E1730; color: var(--cacao); font: inherit; outline: none;
+      width: 100%; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--border);
+      background: var(--surface-sunken); color: var(--text); font: inherit; outline: none;
     }
-    input:focus-visible { border-color: var(--terracota-claro); box-shadow: 0 0 0 3px rgba(255, 201, 101, 0.25); }
+    input:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255, 201, 101, 0.25); }
     #input-room { text-transform: uppercase; letter-spacing: 3px; font-weight: 800; font-family: ui-monospace, monospace; }
 
     .btn {
       width: 100%; padding: 11px; border: none; border-radius: 14px; cursor: pointer;
-      background: var(--terracota); color: #2A2140; font-family: inherit; font-size: 14px; font-weight: 800; line-height: 1;
-      box-shadow: 0 3px 0 #C99A3F; transition: transform 0.12s ease, box-shadow 0.12s ease;
+      background: var(--accent); color: var(--on-accent);
+      font-family: inherit; font-size: 14px; font-weight: 800; line-height: 1;
+      box-shadow: 0 3px 0 var(--accent-shadow); transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
     .btn:hover { transform: translateY(-1px); }
-    .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #C99A3F; }
+    .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--accent-shadow); }
     .btn:disabled { opacity: 0.55; cursor: progress; transform: none; }
-    .btn:focus-visible { outline: 3px solid var(--mantequilla); outline-offset: 2px; }
-    .btn.suave { background: var(--papel-2); color: var(--cacao); box-shadow: 0 3px 0 #1E1730; }
+    .btn:focus-visible { outline: 3px solid var(--danger); outline-offset: 2px; }
+    .btn.secondary { background: var(--surface-2); color: var(--text); box-shadow: 0 3px 0 var(--surface-sunken); }
 
-    .tarjeta-sala {
+    .room-card {
       border-radius: 16px; padding: 14px; text-align: center;
-      background: #1E1730; border: 1.5px dashed var(--terracota-claro);
+      background: var(--surface-sunken); border: 1.5px dashed var(--accent);
     }
-    .tarjeta-sala small { display: block; font-size: 11px; font-weight: 700; color: var(--cacao-suave); text-transform: uppercase; letter-spacing: 1px; }
-    .codigo { font: 800 26px/1.2 ui-monospace, monospace; letter-spacing: 5px; color: var(--terracota); }
+    .room-card small { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+    .room-code { font: 800 26px/1.2 ui-monospace, monospace; letter-spacing: 5px; color: var(--accent); }
 
-    .ayuda { font-size: 12px; color: var(--cacao-suave); text-align: center; }
-    .error { font-size: 12px; color: var(--mantequilla); text-align: center; min-height: 1em; }
-    .plataformas { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; list-style: none; }
-    .plataformas li { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--papel-2); color: var(--cacao-suave); }
+    .hint { font-size: 12px; color: var(--text-muted); text-align: center; }
+    .hint.spaced { margin: 10px 0; }
+    .error { font-size: 12px; color: var(--danger); text-align: center; min-height: 1em; }
+    .platforms { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; list-style: none; }
+    .platforms li { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -81,40 +87,40 @@
     </svg>
     <div>
       <h1>Togetherly Sync</h1>
-      <p class="sub">Como si estuvieran en el mismo sofá</p>
+      <p class="subtitle">Como si estuvieran en el mismo sofá</p>
     </div>
   </header>
 
-  <div class="estado" role="status">
-    <span class="punto" id="punto"></span>
-    <span id="texto-estado">Sin conectar</span>
+  <div class="status" role="status">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Sin conectar</span>
   </div>
 
   <main>
-    <section id="vista-conectar">
-      <div>
+    <section id="view-connect">
+      <div class="field">
         <label for="input-room">Código de la sala</label>
         <input id="input-room" type="text" placeholder="ABC123" maxlength="32" autocomplete="off" spellcheck="false" />
       </div>
-      <div style="margin-top:10px">
+      <div class="field">
         <label for="input-name">Tu nombre</label>
         <input id="input-name" type="text" placeholder="¿Cómo te dicen?" maxlength="24" autocomplete="off" />
       </div>
       <p class="error" id="error" role="alert"></p>
-      <button class="btn" id="btn-conectar">Conectar</button>
-      <p class="ayuda" style="margin-top:10px">Si abres la sala en Togetherly, la extensión se conecta sola.</p>
+      <button class="btn" id="btn-connect">Conectar</button>
+      <p class="hint spaced">Si abres la sala en Togetherly, la extensión se conecta sola.</p>
     </section>
 
-    <section id="vista-conectada" hidden>
-      <div class="tarjeta-sala">
+    <section id="view-connected" hidden>
+      <div class="room-card">
         <small>Sala activa</small>
-        <div class="codigo" id="codigo-sala"></div>
+        <div class="room-code" id="room-code"></div>
       </div>
-      <p class="ayuda" style="margin:10px 0">Abre tu película en cualquiera de estas apps: el play, la pausa y los saltos se sincronizan solos.</p>
-      <button class="btn suave" id="btn-salir">Desconectar</button>
+      <p class="hint spaced">Abre tu película en cualquiera de estas apps: el play, la pausa y los saltos se sincronizan solos.</p>
+      <button class="btn secondary" id="btn-disconnect">Desconectar</button>
     </section>
 
-    <ul class="plataformas" aria-label="Plataformas compatibles">
+    <ul class="platforms" aria-label="Plataformas compatibles">
       <li>Netflix</li><li>Prime Video</li><li>HBO Max</li><li>Disney+</li>
       <li>Apple TV+</li><li>Paramount+</li><li>Crunchyroll</li>
     </ul>

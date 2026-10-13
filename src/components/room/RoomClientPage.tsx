@@ -75,7 +75,7 @@ export function RoomClientPage({ roomId }: Props) {
 
   // Pide un pase Premium (si la persona lo tiene) y entra a la sala.
   // Si falla o no hay sesión, entra igual con el límite del plan gratis.
-  const entrar = async (nombre: string, avatar: string, isPublic = false, roomName = "") => {
+  const joinWithPass = async (name: string, avatar: string, isPublic = false, roomName = "") => {
     let pass: string | null = null;
     try {
       const r = await fetch("/api/rooms/pass", {
@@ -85,7 +85,7 @@ export function RoomClientPage({ roomId }: Props) {
       });
       if (r.ok) pass = (await r.json()).pass ?? null;
     } catch {}
-    actions.joinRoom(roomId, nombre, avatar, isPublic, roomName, pass);
+    actions.joinRoom(roomId, name, avatar, isPublic, roomName, pass);
   };
 
   useEffect(() => {
@@ -96,7 +96,7 @@ export function RoomClientPage({ roomId }: Props) {
       const avatar = character?.emoji ?? "🎮";
       const isPublic = sessionStorage.getItem("togetherly-is-public") === "1";
       const roomName = sessionStorage.getItem("togetherly-room-name") || storedName + "'s room";
-      entrar(storedName, avatar, isPublic, roomName);
+      joinWithPass(storedName, avatar, isPublic, roomName);
       setHasJoined(true);
     }
   }, [roomId]);
@@ -107,7 +107,7 @@ export function RoomClientPage({ roomId }: Props) {
     const avatar = character?.emoji ?? "🎮";
     sessionStorage.setItem("togetherly-username", username.trim());
     sessionStorage.setItem("togetherly-character", selectedCharacter);
-    entrar(username.trim(), avatar);
+    joinWithPass(username.trim(), avatar);
     setHasJoined(true);
   };
 
@@ -129,9 +129,9 @@ export function RoomClientPage({ roomId }: Props) {
 
   if (state.roomFull) {
     return (
-      <div className="grano min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950 px-4">
+      <div className="grain min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950 px-4">
         <div className="max-w-md">
-          <LogoMark className="w-12 h-12 text-neon-purple" />
+          <LogoMark className="w-12 h-12 text-accent" />
           <h1 className="mt-6 font-display text-4xl font-extrabold tracking-tight text-day-900 dark:text-white">
             {t.watchRoom.roomFull}
           </h1>
@@ -141,7 +141,7 @@ export function RoomClientPage({ roomId }: Props) {
           <div className="mt-7 flex flex-wrap gap-3">
             <button
               onClick={() => router.push("/pricing")}
-              className="rounded-full bg-neon-purple px-6 py-3 font-bold text-on-accent"
+              className="rounded-full bg-accent px-6 py-3 font-bold text-on-accent"
             >
               {t.watchRoom.seePlans}
             </button>
@@ -175,7 +175,7 @@ export function RoomClientPage({ roomId }: Props) {
         >
           <div className="glass rounded-3xl p-8 border shadow-2xl bg-white/90 dark:bg-night-800/60 border-black/5 dark:border-white/10">
             <div className="flex items-center gap-2 mb-6">
-              <LogoMark className="text-neon-purple" />
+              <LogoMark className="text-accent" />
               <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
             </div>
 
@@ -209,7 +209,7 @@ export function RoomClientPage({ roomId }: Props) {
                         onClick={() => setSelectedCharacter(char.id)}
                         className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all cursor-pointer ${
                           selectedCharacter === char.id
-                            ? "border-neon-purple bg-neon-purple/10 scale-105"
+                            ? "border-accent bg-accent/10 scale-105"
                             : "border-transparent bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5"
                         }`}
                       >
@@ -236,7 +236,7 @@ export function RoomClientPage({ roomId }: Props) {
       <header className="flex items-center justify-between px-4 py-3 glass border-b flex-shrink-0 z-10
         bg-white/90 dark:bg-night-900/80 border-black/5 dark:border-white/5">
         <div className="flex items-center gap-3">
-          <LogoMark className="w-8 h-8 text-neon-purple" />
+          <LogoMark className="w-8 h-8 text-accent" />
           <div>
             <span className="font-semibold text-day-900 dark:text-white text-sm">
               Room <span className="gradient-text font-mono font-bold">{roomId}</span>

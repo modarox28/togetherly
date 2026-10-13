@@ -2,50 +2,48 @@
 // porque solo desde ahí se puede usar el reproductor interno de Netflix.
 // Si se cambia video.currentTime directamente, Netflix muestra el error M7375,
 // así que play, pausa y salto pasan por su propia API.
-// Comunicación con content.js: eventos del DOM con texto JSON (sin datos sensibles).
+// Recibe "togetherly:command" y responde "togetherly:result" (ver platforms.js).
 (() => {
   if (window.__togetherlyNetflix) return;
   window.__togetherlyNetflix = true;
 
-  function reproductor() {
+  function getPlayer() {
     try {
-      const vp = window.netflix?.appContext?.state?.playerApp?.getAPI?.()?.videoPlayer;
-      if (!vp) return null;
-      const ids = vp.getAllPlayerSessionIds?.() ?? [];
+      const videoPlayer = window.netflix?.appContext?.state?.playerApp?.getAPI?.()?.videoPlayer;
+      if (!videoPlayer) return null;
+      const ids = videoPlayer.getAllPlayerSessionIds?.() ?? [];
       const id = ids.find((i) => String(i).startsWith("watch")) ?? ids[ids.length - 1];
-      return id ? vp.getVideoPlayerBySessionId(id) : null;
+      return id ? videoPlayer.getVideoPlayerBySessionId(id) : null;
     } catch {
       return null;
     }
   }
 
-  function responder(id, ok) {
-    document.dispatchEvent(
-      new CustomEvent("togetherly:respuesta", { detail: JSON.stringify({ id, ok }) })
-    );
+  function reply(id, ok) {
+    document.dispatchEvent(new CustomEvent("togetherly:result", { detail: JSON.stringify({ id, ok }) }));
   }
 
-  document.addEventListener("togetherly:comando", (e) => {
-    let cmd;
+  document.addEventListener("togetherly:command", (e) => {
+    let command;
     try {
-      cmd = JSON.parse(e.detail);
+      command = JSON.parse(e.detail);
     } catch {
       return;
     }
-    if (!cmd || typeof cmd.id !== "number") return;
+    if (!command || typeof command.id !== "number") return;
 
-    const p = reproductor();
-    if (!p) return responder(cmd.id, false);
+    const player = getPlayer();
+    if (!player) return reply(command.id, false);
 
     try {
-      if (cmd.accion === "play") p.play();
-      else if (cmd.accion === "pause") p.pause();
-      else if (cmd.accion === "seek" && Number.isFinite(cmd.tiempo) && cmd.tiempo >= 0) {
-        p.seek(Math.round(cmd.tiempo * 1000));
-      } else return responder(cmd.id, false);
-      responder(cmd.id, true);
+      if (command.action === "play") player.play();
+      else if (command.action === "pause") player.pause();
+      else if (command.action === "seek" && Number.isFinite(command.time) && command.time >= 0) {
+        player.seek(Math.round(command.time * 1000));
+      } else return reply(command.id, false);
+      reply(command.id, true);
     } catch {
-      responder(cmd.id, false);
+      reply(command.id, false);
     }
   });
 })();

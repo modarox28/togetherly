@@ -1,31 +1,37 @@
 // Service worker de la extensión: mantiene la conexión con el servidor de Togetherly
-// y reparte las órdenes entre la web de la sala y las pestañas de streaming.
+// y reparte las órdenes entre la web de la sala, el popup y las pestañas de streaming.
+//
+//   web (bridge.js) / popup ──JOIN_ROOM──▶ background ──socket──▶ servidor (Railway)
+//   pestaña de streaming (content.js) ◀──REMOTE_COMMAND / ROOM_STATE── background
 
-const SERVIDOR_PREDETERMINADO = "https://togetherly-production-44b8.up.railway.app";
-const SALA_VALIDA = /^[a-zA-Z0-9_-]{3,32}$/;
+const DEFAULT_SERVER_URL = "https://togetherly-production-44b8.up.railway.app";
+// Igual que en src/lib/room.ts y server/validation.js
+const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{3,32}$/;
 
 // ── Cliente mínimo de Socket.io (protocolo v4) sobre WebSocket ──────────────
-// "0{...}" apertura · "2" ping · "3" pong · "40" conectar · "42[evento,datos]" mensaje
-class ClienteSocket {
+// Un service worker no puede cargar la librería oficial, así que se habla el
+// protocolo directamente: "0{...}" apertura · "2" ping · "3" pong ·
+// "40" conectar · "42[evento,datos]" mensaje.
+class SocketClient {
   constructor(url) {
     this.url = url;
     this.ws = null;
-    this.manejadores = new Map();
-    this.activo = false;
-    this.espera = 2000;
+    this.handlers = new Map();
+    this.active = false;
+    this.retryDelay = 2000;
   }
 
-  conectar() {
-    this.activo = true;
-    this._abrir();
+  connect() {
+    this.active = true;
+    this.open();
   }
 
-  _abrir() {
+  open() {
     const wsUrl = this.url.replace(/^http/, "ws");
     try {
       this.ws = new WebSocket(`${wsUrl}/socket.io/?EIO=4&transport=websocket`);
     } catch {
-      this._reintentar();
+      this.scheduleRetry();
       return;
     }
     this.ws.onopen = () => this.ws.send("40");
@@ -36,51 +42,52 @@ class ClienteSocket {
         return;
       }
       if (data === "40" || data.startsWith("40{")) {
-        this.espera = 2000;
-        this._disparar("connect");
+        this.retryDelay = 2000;
+        this.fire("connect");
         return;
       }
       if (data.startsWith("42")) {
         try {
-          const [evento, datos] = JSON.parse(data.slice(2));
-          this._disparar(evento, datos ?? {});
+          const [event, payload] = JSON.parse(data.slice(2));
+          this.fire(event, payload ?? {});
         } catch {}
       }
     };
     this.ws.onclose = () => {
-      this._disparar("disconnect");
-      if (this.activo) this._reintentar();
+      this.fire("disconnect");
+      if (this.active) this.scheduleRetry();
     };
     this.ws.onerror = () => {};
   }
 
-  _reintentar() {
+  // Reintenta con espera creciente (2 s, 3 s, 4,5 s… hasta 30 s)
+  scheduleRetry() {
     setTimeout(() => {
-      if (this.activo) this._abrir();
-    }, this.espera);
-    this.espera = Math.min(this.espera * 1.5, 30000);
+      if (this.active) this.open();
+    }, this.retryDelay);
+    this.retryDelay = Math.min(this.retryDelay * 1.5, 30000);
   }
 
-  emit(evento, datos) {
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(`42${JSON.stringify([evento, datos])}`);
+  emit(event, payload) {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(`42${JSON.stringify([event, payload])}`);
   }
 
-  on(evento, fn) {
-    this.manejadores.set(evento, [...(this.manejadores.get(evento) ?? []), fn]);
+  on(event, handler) {
+    this.handlers.set(event, [...(this.handlers.get(event) ?? []), handler]);
     return this;
   }
 
-  _disparar(evento, datos) {
-    (this.manejadores.get(evento) ?? []).forEach((fn) => fn(datos));
+  fire(event, payload) {
+    (this.handlers.get(event) ?? []).forEach((handler) => handler(payload));
   }
 
-  desconectar() {
-    this.activo = false;
+  disconnect() {
+    this.active = false;
     this.ws?.close();
     this.ws = null;
   }
 
-  get abierto() {
+  get isOpen() {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 }
@@ -90,139 +97,136 @@ let socket = null;
 let roomId = null;
 let username = null;
 let avatar = null;
-const pestanasStreaming = new Set();
+const streamingTabs = new Set();
 
-const listo = chrome.storage.session.get(["roomId", "username", "avatar"]).then((g) => {
-  if (g.roomId && SALA_VALIDA.test(g.roomId)) {
-    roomId = g.roomId;
-    username = g.username || "Invitado";
-    avatar = g.avatar || "🍿";
-    conectar();
+// El service worker se duerme y despierta: la sala activa se guarda en storage.session.
+const ready = chrome.storage.session.get(["roomId", "username", "avatar"]).then((saved) => {
+  if (saved.roomId && ROOM_ID_PATTERN.test(saved.roomId)) {
+    roomId = saved.roomId;
+    username = saved.username || "Invitado";
+    avatar = saved.avatar || "🍿";
+    connect();
   }
 });
 
-async function urlServidor() {
+// Para pruebas o servidores propios se puede guardar otra URL en storage.local.serverUrl
+async function getServerUrl() {
   const { serverUrl } = await chrome.storage.local.get("serverUrl");
-  return typeof serverUrl === "string" && /^https?:\/\//.test(serverUrl)
-    ? serverUrl
-    : SERVIDOR_PREDETERMINADO;
+  return typeof serverUrl === "string" && /^https?:\/\//.test(serverUrl) ? serverUrl : DEFAULT_SERVER_URL;
 }
 
-async function conectar() {
-  socket?.desconectar();
-  const cliente = new ClienteSocket(await urlServidor());
-  socket = cliente;
+async function connect() {
+  socket?.disconnect();
+  const client = new SocketClient(await getServerUrl());
+  socket = client;
 
-  cliente.on("connect", () => {
-    cliente.emit("ext-connect", { roomId, username, avatar });
-    insignia(true);
-    avisarEstado(true);
+  client.on("connect", () => {
+    client.emit("ext-connect", { roomId, username, avatar });
+    setBadge(true);
+    broadcastStatus(true);
   });
-  cliente.on("disconnect", () => {
-    insignia(false);
-    avisarEstado(false);
+  client.on("disconnect", () => {
+    setBadge(false);
+    broadcastStatus(false);
   });
 
   // Órdenes de los demás → pestañas de streaming
-  for (const [evento, accion] of [
-    ["video-play", "play"],
-    ["video-pause", "pause"],
-    ["video-seek", "seek"],
-  ]) {
-    cliente.on(evento, ({ currentTime, by }) =>
-      aPestanas({ type: "REMOTO", accion, currentTime, by })
-    );
+  const remoteEvents = { "video-play": "play", "video-pause": "pause", "video-seek": "seek" };
+  for (const [event, action] of Object.entries(remoteEvents)) {
+    client.on(event, ({ currentTime, by }) => sendToStreamingTabs({ type: "REMOTE_COMMAND", action, currentTime, by }));
   }
-  // Dónde va la sala (al entrar tarde o al pedirlo)
-  cliente.on("ext-state", (estado) => {
-    if (estado?.known) aPestanas({ type: "ESTADO", playing: !!estado.playing, currentTime: estado.position });
+  // En qué va la sala (al entrar tarde o al pedirlo)
+  client.on("ext-state", (state) => {
+    if (state?.known) {
+      sendToStreamingTabs({ type: "ROOM_STATE", playing: !!state.playing, currentTime: state.position });
+    }
   });
 
-  cliente.conectar();
+  client.connect();
 }
 
-function insignia(encendida) {
-  chrome.action.setBadgeText({ text: encendida ? "●" : "" });
-  chrome.action.setBadgeBackgroundColor({ color: encendida ? "#FFC965" : "#5E4F80" });
+function setBadge(connected) {
+  chrome.action.setBadgeText({ text: connected ? "●" : "" });
+  chrome.action.setBadgeBackgroundColor({ color: connected ? "#FFC965" : "#5E4F80" });
 }
 
-function avisarEstado(conectado) {
-  const msg = { type: "EXT_STATUS", connected: conectado, roomId: conectado ? roomId : null };
-  chrome.tabs.query({}, (pestanas) => {
-    for (const p of pestanas) chrome.tabs.sendMessage(p.id, msg).catch(() => {});
+function broadcastStatus(connected) {
+  const message = { type: "EXT_STATUS", connected, roomId: connected ? roomId : null };
+  chrome.tabs.query({}, (tabs) => {
+    for (const tab of tabs) chrome.tabs.sendMessage(tab.id, message).catch(() => {});
   });
 }
 
-function aPestanas(msg) {
-  for (const id of pestanasStreaming) {
-    chrome.tabs.sendMessage(id, msg).catch(() => pestanasStreaming.delete(id));
+function sendToStreamingTabs(message) {
+  for (const tabId of streamingTabs) {
+    chrome.tabs.sendMessage(tabId, message).catch(() => streamingTabs.delete(tabId));
   }
 }
 
-chrome.tabs.onRemoved.addListener((id) => pestanasStreaming.delete(id));
+chrome.tabs.onRemoved.addListener((tabId) => streamingTabs.delete(tabId));
 
-function guardarSesion() {
+function saveSession() {
   chrome.storage.session.set({ roomId, username, avatar });
 }
 
-function textoCorto(v, maximo, porDefecto) {
-  return typeof v === "string" && v.trim() ? v.trim().slice(0, maximo) : porDefecto;
+function cleanText(value, maxLength, fallback) {
+  return typeof value === "string" && value.trim() ? value.trim().slice(0, maxLength) : fallback;
 }
 
-function tiempo(t) {
-  return typeof t === "number" && Number.isFinite(t) && t >= 0 && t < 86400 ? t : null;
+function cleanTime(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 86400 ? value : null;
 }
+
+const LOCAL_EVENTS = { VIDEO_PLAY: "video-play", VIDEO_PAUSE: "video-pause", VIDEO_SEEK: "video-seek" };
 
 // ── Mensajes de la web (bridge.js), el popup y las pestañas de streaming ───
-chrome.runtime.onMessage.addListener((msg, sender, responder) => {
-  if (!msg || typeof msg !== "object") return;
-
-  (async () => {
-    await listo;
-    switch (msg.type) {
-      case "JOIN_ROOM": {
-        if (typeof msg.roomId !== "string" || !SALA_VALIDA.test(msg.roomId)) {
-          return responder({ ok: false, error: "Código de sala inválido" });
-        }
-        const misma = msg.roomId === roomId && socket?.abierto;
-        roomId = msg.roomId;
-        username = textoCorto(msg.username, 24, "Invitado");
-        avatar = textoCorto(msg.avatar, 8, "🍿");
-        guardarSesion();
-        if (!misma) await conectar();
-        return responder({ ok: true, roomId });
+async function handleMessage(message, sender) {
+  await ready;
+  switch (message.type) {
+    case "JOIN_ROOM": {
+      if (typeof message.roomId !== "string" || !ROOM_ID_PATTERN.test(message.roomId)) {
+        return { ok: false, error: "Código de sala inválido" };
       }
-      case "LEAVE_ROOM": {
-        roomId = username = avatar = null;
-        chrome.storage.session.remove(["roomId", "username", "avatar"]);
-        socket?.desconectar();
-        socket = null;
-        insignia(false);
-        avisarEstado(false);
-        return responder({ ok: true });
-      }
-      case "PING":
-        return responder({ type: "PONG", connected: socket?.abierto ?? false, roomId, username });
-      case "CONTENT_READY":
-        if (sender.tab?.id != null) pestanasStreaming.add(sender.tab.id);
-        return responder({ roomId, connected: !!roomId && (socket?.abierto ?? false) });
-      case "PEDIR_ESTADO":
-        if (roomId) socket?.emit("ext-state-request", { roomId });
-        return responder({ ok: true });
-      case "VIDEO_PLAY":
-      case "VIDEO_PAUSE":
-      case "VIDEO_SEEK": {
-        if (sender.tab?.id != null) pestanasStreaming.add(sender.tab.id);
-        const t = tiempo(msg.currentTime);
-        if (roomId && t !== null) {
-          const evento = { VIDEO_PLAY: "video-play", VIDEO_PAUSE: "video-pause", VIDEO_SEEK: "video-seek" }[msg.type];
-          socket?.emit(evento, { roomId, currentTime: t });
-        }
-        return responder({ ok: true });
-      }
-      default:
-        return responder({ ok: false });
+      const alreadyConnected = message.roomId === roomId && socket?.isOpen;
+      roomId = message.roomId;
+      username = cleanText(message.username, 24, "Invitado");
+      avatar = cleanText(message.avatar, 8, "🍿");
+      saveSession();
+      if (!alreadyConnected) await connect();
+      return { ok: true, roomId };
     }
-  })();
-  return true; // respuesta asíncrona
+    case "LEAVE_ROOM": {
+      roomId = username = avatar = null;
+      chrome.storage.session.remove(["roomId", "username", "avatar"]);
+      socket?.disconnect();
+      socket = null;
+      setBadge(false);
+      broadcastStatus(false);
+      return { ok: true };
+    }
+    case "PING":
+      return { type: "PONG", connected: socket?.isOpen ?? false, roomId, username };
+    case "CONTENT_READY":
+      if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
+      return { roomId, connected: !!roomId && (socket?.isOpen ?? false) };
+    case "REQUEST_STATE":
+      if (roomId) socket?.emit("ext-state-request", { roomId });
+      return { ok: true };
+    case "VIDEO_PLAY":
+    case "VIDEO_PAUSE":
+    case "VIDEO_SEEK": {
+      if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
+      const time = cleanTime(message.currentTime);
+      if (roomId && time !== null) socket?.emit(LOCAL_EVENTS[message.type], { roomId, currentTime: time });
+      return { ok: true };
+    }
+    default:
+      return { ok: false };
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || typeof message !== "object") return;
+  handleMessage(message, sender).then(sendResponse);
+  return true; // la respuesta llega de forma asíncrona
 });

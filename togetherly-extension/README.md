@@ -28,7 +28,7 @@ Funciona también en Edge, Brave y Opera (todos basados en Chromium).
 |---|---|
 | `manifest.json` | Manifest V3. Solo pide `storage`; se inyecta únicamente en las plataformas de la lista. |
 | `background.js` | Conexión con el servidor de Togetherly (Socket.io sobre WebSocket) y reparto de órdenes. |
-| `plataformas.js` | Un adaptador por plataforma: cómo encontrar el video correcto (shadow DOM, avances de fondo) y cómo controlarlo. |
+| `platforms.js` | Un adaptador por plataforma: cómo encontrar el video correcto (shadow DOM, avances de fondo) y cómo controlarlo. |
 | `content.js` | Motor de sincronización: anti-rebote por evento esperado, cola de órdenes, ponerse al día y aviso flotante. |
 | `netflix-main.js` | Corre dentro de la página de Netflix para usar su reproductor interno; cambiar `currentTime` directo provoca el error M7375. |
 | `bridge.js` | Puente con la web de Togetherly. Solo acepta 3 tipos de mensaje y del mismo origen. |

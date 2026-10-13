@@ -1,24 +1,27 @@
 "use client";
 
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { SectionHeading } from "@/components/landing/SectionHeading";
+import { PLATFORM_LABELS, getPlayerType, type Platform } from "@/lib/platforms";
 
-const DENTRO = ["YouTube", "Twitch", "Vimeo", "Spotify"];
-const CON_EXTENSION = ["Netflix", "Prime Video", "HBO Max", "Disney+", "Apple TV+", "Paramount+", "Crunchyroll"];
-const URL_EXTENSION = "https://github.com/modarox28/togetherly/tree/main/togetherly-extension";
+// Las listas salen de src/lib/platforms.ts: si agregas una plataforma allá, aparece aquí sola.
+const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[];
+const EMBEDDED = ALL_PLATFORMS.filter((p) => getPlayerType(p) === "embeddable");
+const WITH_EXTENSION = ALL_PLATFORMS.filter((p) => getPlayerType(p) === "companion");
 
-function Fichas({ nombres, destacadas = false }: { nombres: string[]; destacadas?: boolean }) {
+const EXTENSION_URL = "https://github.com/modarox28/togetherly/tree/main/togetherly-extension";
+
+function PlatformChips({ platforms, highlighted = false }: { platforms: Platform[]; highlighted?: boolean }) {
   return (
     <ul className="mt-5 flex flex-wrap gap-2">
-      {nombres.map((n) => (
+      {platforms.map((platform) => (
         <li
-          key={n}
+          key={platform}
           className={`rounded-full px-4 py-1.5 font-display text-base font-bold ${
-            destacadas
-              ? "bg-neon-purple text-on-accent"
-              : "bg-day-200 text-day-900 dark:bg-night-700 dark:text-white"
+            highlighted ? "bg-accent text-on-accent" : "bg-day-200 text-day-900 dark:bg-night-700 dark:text-white"
           }`}
         >
-          {n}
+          {PLATFORM_LABELS[platform]}
         </li>
       ))}
     </ul>
@@ -29,26 +32,24 @@ export function Platforms() {
   const { t } = useLanguage();
 
   return (
-    <section id="plataformas" className="grano bg-day-50 px-4 py-24 dark:bg-night-950">
+    <section id="platforms" className="grain bg-day-50 px-4 py-24 dark:bg-night-950">
       <div className="mx-auto max-w-6xl">
-        <h2 className="max-w-xl font-display text-[clamp(2rem,4.5vw,3.25rem)] font-extrabold leading-[1.02] tracking-[-0.03em] text-day-900 dark:text-white">
-          {t.platforms.title}
-        </h2>
+        <SectionHeading>{t.platforms.title}</SectionHeading>
 
         <div className="mt-12 grid gap-12 md:grid-cols-[1fr_1.4fr] md:gap-16">
           <div>
             <h3 className="font-display text-2xl font-bold text-day-900 dark:text-white">{t.platforms.insideTitle}</h3>
             <p className="mt-2 max-w-[38ch] leading-relaxed text-day-900/70 dark:text-white/70">{t.platforms.insideText}</p>
-            <Fichas nombres={DENTRO} />
+            <PlatformChips platforms={EMBEDDED} />
           </div>
 
-          <div className="rounded-[2rem] border-2 border-dashed border-neon-purple/50 p-6 sm:p-8">
+          <div className="rounded-[2rem] border-2 border-dashed border-accent/50 p-6 sm:p-8">
             <h3 className="font-display text-2xl font-bold text-day-900 dark:text-white">{t.platforms.extensionTitle}</h3>
             <p className="mt-2 max-w-[52ch] leading-relaxed text-day-900/70 dark:text-white/70">{t.platforms.extensionText}</p>
-            <Fichas nombres={CON_EXTENSION} destacadas />
+            <PlatformChips platforms={WITH_EXTENSION} highlighted />
             <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
               <a
-                href={URL_EXTENSION}
+                href={EXTENSION_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-full border-2 border-day-900/20 px-5 py-2.5 font-bold text-day-900 transition-colors hover:border-day-900/50 dark:border-white/25 dark:text-white dark:hover:border-white/60"

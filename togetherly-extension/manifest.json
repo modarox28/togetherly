@@ -27,12 +27,12 @@
         "https://tv.apple.com/*",
         "https://www.paramountplus.com/*"
       ],
-      "js": ["plataformas.js", "content.js"],
+      "js": ["platforms.js", "content.js"],
       "run_at": "document_idle"
     },
     {
       "matches": ["https://www.crunchyroll.com/*", "https://static.crunchyroll.com/*"],
-      "js": ["plataformas.js", "content.js"],
+      "js": ["platforms.js", "content.js"],
       "all_frames": true,
       "run_at": "document_idle"
     },

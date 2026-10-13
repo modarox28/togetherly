@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/providers/LanguageProvider";
-import { SalaDoble } from "@/components/landing/SalaDoble";
+import { TwoRoomsScene } from "@/components/landing/TwoRoomsScene";
 
 export function Hero() {
   const { t } = useLanguage();
   const router = useRouter();
 
   return (
-    <section className="grano relative overflow-hidden bg-day-50 dark:bg-night-950 px-4 pt-28 pb-16 lg:pt-32">
+    <section className="grain relative overflow-hidden bg-day-50 dark:bg-night-950 px-4 pt-28 pb-16 lg:pt-32">
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-12">
         <div>
           <h1 className="font-display text-[clamp(2.6rem,6.2vw,4.6rem)] font-extrabold leading-[0.95] tracking-[-0.035em] text-day-900 dark:text-white">
@@ -19,12 +19,12 @@ export function Hero() {
           <div className="mt-7 flex flex-wrap gap-3">
             <button
               onClick={() => router.push("/room")}
-              className="rounded-full bg-neon-purple px-6 py-3 font-bold text-on-accent shadow-[0_4px_0_rgba(0,0,0,0.25)] transition-transform hover:-translate-y-0.5 active:translate-y-0.5"
+              className="rounded-full bg-accent px-6 py-3 font-bold text-on-accent shadow-[0_4px_0_rgba(0,0,0,0.25)] transition-transform hover:-translate-y-0.5 active:translate-y-0.5"
             >
               {t.hero.createRoom}
             </button>
             <a
-              href="#entrar"
+              href="#join"
               className="rounded-full border-2 border-day-900/15 px-6 py-3 font-bold text-day-900 transition-colors hover:border-day-900/40 dark:border-white/20 dark:text-white dark:hover:border-white/50"
             >
               {t.hero.joinRoom}
@@ -34,7 +34,7 @@ export function Hero() {
         </div>
 
         <figure>
-          <SalaDoble etiqueta={t.hero.sceneLabel} />
+          <TwoRoomsScene label={t.hero.sceneLabel} />
           <figcaption className="mt-2 grid grid-cols-2 gap-[8%] px-[2%] text-sm sm:text-base">
             <span>
               <strong className="font-display text-day-900 dark:text-white">{t.hero.leftCity}</strong>{" "}

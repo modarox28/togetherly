@@ -47,10 +47,10 @@ export function VideoCallPanel({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20 }}
             className="absolute bottom-20 left-4 z-40 flex flex-col gap-3 p-4 rounded-2xl
-              bg-night-900/95 border border-neon-purple/30 shadow-2xl backdrop-blur-sm w-64"
+              bg-night-900/95 border border-accent/30 shadow-2xl backdrop-blur-sm w-64"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-neon-purple flex items-center justify-center flex-shrink-0 animate-pulse">
+              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0 animate-pulse">
                 <PhoneIncoming className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -80,9 +80,9 @@ export function VideoCallPanel({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="absolute bottom-20 left-4 z-40 flex items-center gap-3 px-4 py-3 rounded-2xl
-              bg-night-900/95 border border-neon-purple/30 shadow-xl backdrop-blur-sm"
+              bg-night-900/95 border border-accent/30 shadow-xl backdrop-blur-sm"
           >
-            <div className="w-2 h-2 rounded-full bg-neon-purple animate-pulse" />
+            <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
             <span className="text-white/80 text-sm">Llamando...</span>
             <button onClick={onEnd}
               className="ml-2 px-2.5 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors">
@@ -104,7 +104,7 @@ export function VideoCallPanel({
             onClick={handleStartClick}
             className="absolute bottom-4 left-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl
               bg-night-800/90 border border-white/10 text-white/60 hover:text-white
-              hover:border-neon-purple/40 hover:bg-neon-purple/10 transition-all shadow-lg backdrop-blur-sm text-sm"
+              hover:border-accent/40 hover:bg-accent/10 transition-all shadow-lg backdrop-blur-sm text-sm"
           >
             <Phone className="w-4 h-4" />
             <span>Videollamada</span>

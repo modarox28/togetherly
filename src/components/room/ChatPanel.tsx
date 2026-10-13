@@ -128,10 +128,10 @@ export function ChatPanel({
           }
           className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
             permission === "granted"
-              ? "text-neon-purple"
+              ? "text-accent"
               : permission === "denied"
               ? "text-day-900/20 dark:text-white/20 cursor-not-allowed"
-              : "text-day-900/30 dark:text-white/30 hover:text-neon-purple"
+              : "text-day-900/30 dark:text-white/30 hover:text-accent"
           }`}
         >
           {permission === "denied" ? (
@@ -225,7 +225,7 @@ export function ChatPanel({
             exit={{ opacity: 0, y: 8 }}
             onClick={scrollToBottom}
             className="absolute bottom-16 right-3 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full
-              bg-neon-purple text-on-accent text-xs font-medium shadow-lg hover:bg-neon-purple/90 transition-colors"
+              bg-accent text-on-accent text-xs font-medium shadow-lg hover:bg-accent/90 transition-colors"
           >
             <ArrowDown className="w-3 h-3" />
             {unread > 0 ? `${unread} nuevo${unread === 1 ? "" : "s"}` : "Bajar"}
@@ -263,7 +263,7 @@ export function ChatPanel({
           onClick={() => setShowReactions((v) => !v)}
           className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl
             bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10
-            text-day-900/50 dark:text-white/50 hover:text-neon-pink transition-all"
+            text-day-900/50 dark:text-white/50 hover:text-accent-2 transition-all"
         >
           <SmilePlus className="w-4 h-4" />
         </button>
@@ -278,13 +278,13 @@ export function ChatPanel({
             border border-black/5 dark:border-white/5
             text-day-900 dark:text-white
             placeholder:text-day-900/30 dark:placeholder:text-white/25
-            focus:border-neon-purple/50"
+            focus:border-accent/50"
         />
         <button
           onClick={handleSend}
           disabled={!input.trim()}
           className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl
-            bg-neon-purple text-on-accent
+            bg-accent text-on-accent
             disabled:opacity-30 hover:opacity-90 transition-all hover:scale-105 active:scale-95"
         >
           <Send className="w-3.5 h-3.5" />

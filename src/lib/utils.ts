@@ -18,15 +18,6 @@ export function extractYouTubeId(input: string): string | null {
   return null;
 }
 
-export function generateRoomId(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  // Azar criptográfico: los códigos no se pueden adivinar a partir de otros.
-  const bytes = crypto.getRandomValues(new Uint8Array(6));
-  let id = "";
-  for (const b of bytes) id += chars[b % chars.length];
-  return id;
-}
-
 export function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);

@@ -55,7 +55,7 @@ export default function DiscoverPage() {
       {/* Header */}
       <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-night-900/80 backdrop-blur-md">
         <Link href="/" className="flex items-center gap-2">
-          <LogoMark className="text-neon-purple" />
+          <LogoMark className="text-accent" />
           <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
         </Link>
         <div className="flex items-center gap-2">
@@ -111,7 +111,7 @@ export default function DiscoverPage() {
                   className="block p-5 rounded-2xl border transition-all hover:scale-[1.02] hover:shadow-lg cursor-pointer
                     bg-white dark:bg-night-800/60
                     border-black/5 dark:border-white/10
-                    hover:border-neon-purple/30">
+                    hover:border-accent/30">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-day-900 dark:text-white truncate">{room.name}</h3>
@@ -129,7 +129,7 @@ export default function DiscoverPage() {
 
                   {room.videoUrl ? (
                     <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl bg-black/3 dark:bg-white/3">
-                      <Play className="w-3 h-3 text-neon-purple flex-shrink-0" />
+                      <Play className="w-3 h-3 text-accent flex-shrink-0" />
                       <span className="text-xs text-day-900/50 dark:text-white/50 truncate">{room.videoUrl}</span>
                     </div>
                   ) : (
@@ -143,7 +143,7 @@ export default function DiscoverPage() {
                       <Users className="w-3.5 h-3.5" />
                       <span>{room.participants} {room.participants === 1 ? t.discover.person : t.discover.people}</span>
                     </div>
-                    <span className="text-xs font-medium text-neon-purple">{t.discover.joinRoom} →</span>
+                    <span className="text-xs font-medium text-accent">{t.discover.joinRoom} →</span>
                   </div>
                 </Link>
               </motion.div>

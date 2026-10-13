@@ -19,7 +19,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       <header className="relative z-10 flex items-center px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <LogoMark className="text-neon-purple" />
+          <LogoMark className="text-accent" />
           <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
         </Link>
       </header>
