@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe, PAYMENTS_DISABLED } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import type Stripe from "stripe";
 
@@ -10,6 +10,10 @@ function getPeriodEnd(subscription: Stripe.Subscription): Date {
 }
 
 export async function POST(req: Request) {
+  const stripe = getStripe();
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripe || !webhookSecret) return NextResponse.json(PAYMENTS_DISABLED, { status: 503 });
+
   const body = await req.text();
   const signature = req.headers.get("stripe-signature");
 
@@ -20,7 +24,7 @@ export async function POST(req: Request) {
     event = stripe.webhooks.constructEvent(
       body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      webhookSecret
     );
   } catch {
     return NextResponse.json({ error: "Webhook signature invalid" }, { status: 400 });
