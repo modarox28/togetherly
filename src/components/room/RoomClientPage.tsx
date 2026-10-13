@@ -47,13 +47,14 @@ export function RoomClientPage({ roomId }: Props) {
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.source !== "togetherly-ext") return;
-      if (e.data.type === "EXT_READY" || e.data.type === "EXT_STATUS") {
+      if (e.source !== window || e.origin !== window.location.origin) return;
+      if (["EXT_READY", "EXT_STATUS", "PONG"].includes(e.data.type)) {
         setExtensionActive(e.data.connected ?? true);
       }
     };
     window.addEventListener("message", handler);
     // Ping to detect extension on load
-    window.postMessage({ source: "togetherly-web", type: "PING" }, "*");
+    window.postMessage({ source: "togetherly-web", type: "PING" }, window.location.origin);
     return () => window.removeEventListener("message", handler);
   }, []);
 
@@ -65,9 +66,9 @@ export function RoomClientPage({ roomId }: Props) {
       roomId,
       username: state.you.name,
       avatar: state.you.avatar,
-    }, "*");
+    }, window.location.origin);
     return () => {
-      window.postMessage({ source: "togetherly-web", type: "LEAVE_ROOM" }, "*");
+      window.postMessage({ source: "togetherly-web", type: "LEAVE_ROOM" }, window.location.origin);
     };
   }, [state.joined]);
 

@@ -2,233 +2,121 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
   <title>Togetherly Sync</title>
   <style>
+    :root {
+      --papel: #FBF5EC;
+      --papel-2: #F3E8D8;
+      --cacao: #3B2F2A;
+      --cacao-suave: #6E5D55;
+      --terracota: #C2553A;
+      --terracota-claro: #E07A5F;
+      --salvia: #5E8C74;
+      --mantequilla: #F2CC8F;
+      --borde: rgba(59, 47, 42, 0.14);
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      width: 280px;
-      background: #0D0D1A;
-      color: #F3F4F6;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 13px;
+      width: 300px;
+      background: var(--papel);
+      color: var(--cacao);
+      font: 14px/1.4 ui-rounded, "Nunito", "Segoe UI", system-ui, sans-serif;
     }
+    header { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
+    .logo { width: 34px; height: 34px; flex-shrink: 0; }
+    h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.2px; }
+    .sub { font-size: 12px; color: var(--cacao-suave); }
 
-    .header {
-      padding: 16px 16px 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .estado {
+      margin: 0 18px; padding: 8px 12px; border-radius: 12px;
+      background: var(--papel-2); display: flex; align-items: center; gap: 8px; font-size: 12.5px;
     }
+    .punto { width: 9px; height: 9px; border-radius: 50%; background: #B4A79D; flex-shrink: 0; }
+    .punto.ok { background: var(--salvia); box-shadow: 0 0 0 4px rgba(94, 140, 116, 0.18); }
+    .punto.error { background: var(--terracota); }
 
-    .logo {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #C084FC, #F472B6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-
-    .title {
-      font-weight: 700;
-      font-size: 14px;
-      background: linear-gradient(90deg, #C084FC, #F472B6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .subtitle {
-      font-size: 10px;
-      color: rgba(255,255,255,0.3);
-      margin-top: 1px;
-    }
-
-    .status-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      background: rgba(255,255,255,0.03);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #4B5563;
-      flex-shrink: 0;
-      transition: background 0.3s;
-    }
-
-    .status-dot.connected { background: #C084FC; box-shadow: 0 0 6px rgba(192,132,252,0.6); }
-    .status-dot.error { background: #F87171; }
-
-    .status-text { color: rgba(255,255,255,0.45); font-size: 11px; }
-
-    .body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-
-    label {
-      display: block;
-      font-size: 11px;
-      color: rgba(255,255,255,0.4);
-      margin-bottom: 4px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
+    main { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+    label { display: block; font-size: 12px; font-weight: 700; color: var(--cacao-suave); margin-bottom: 5px; }
     input {
-      width: 100%;
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.05);
-      color: #F3F4F6;
-      font-size: 13px;
-      outline: none;
-      transition: border-color 0.2s;
-      font-family: inherit;
+      width: 100%; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--borde);
+      background: #fff; color: var(--cacao); font: inherit; outline: none;
     }
-
-    input:focus { border-color: rgba(192,132,252,0.5); }
-    input::placeholder { color: rgba(255,255,255,0.2); }
+    input:focus-visible { border-color: var(--terracota-claro); box-shadow: 0 0 0 3px rgba(224, 122, 95, 0.2); }
+    #input-room { text-transform: uppercase; letter-spacing: 3px; font-weight: 800; font-family: ui-monospace, monospace; }
 
     .btn {
-      width: 100%;
-      padding: 9px;
-      border-radius: 10px;
-      border: none;
-      background: linear-gradient(135deg, #C084FC, #F472B6);
-      color: white;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.2s, transform 0.1s;
-      font-family: inherit;
+      width: 100%; padding: 11px; border: none; border-radius: 14px; cursor: pointer;
+      background: var(--terracota); color: #fff; font: 700 14px/1 inherit;
+      box-shadow: 0 3px 0 #8E3B27; transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #8E3B27; }
+    .btn:disabled { opacity: 0.55; cursor: progress; transform: none; }
+    .btn:focus-visible { outline: 3px solid var(--mantequilla); outline-offset: 2px; }
+    .btn.suave { background: var(--papel-2); color: var(--cacao); box-shadow: 0 3px 0 #DCCBB5; }
 
-    .btn:hover { opacity: 0.9; }
-    .btn:active { transform: scale(0.98); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-
-    .btn-ghost {
-      background: rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.5);
-      font-weight: 500;
+    .tarjeta-sala {
+      border-radius: 16px; padding: 14px; text-align: center;
+      background: #fff; border: 1.5px dashed var(--terracota-claro);
     }
+    .tarjeta-sala small { display: block; font-size: 11px; font-weight: 700; color: var(--cacao-suave); text-transform: uppercase; letter-spacing: 1px; }
+    .codigo { font: 800 26px/1.2 ui-monospace, monospace; letter-spacing: 5px; color: var(--terracota); }
 
-    .btn-ghost:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
-
-    .connected-info {
-      background: rgba(192,132,252,0.08);
-      border: 1px solid rgba(192,132,252,0.2);
-      border-radius: 12px;
-      padding: 12px;
-      text-align: center;
-    }
-
-    .connected-info .room-code {
-      font-size: 22px;
-      font-weight: 700;
-      background: linear-gradient(90deg, #C084FC, #F472B6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: 2px;
-      font-family: monospace;
-    }
-
-    .connected-info .room-label {
-      font-size: 10px;
-      color: rgba(255,255,255,0.3);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 4px;
-    }
-
-    .hint {
-      font-size: 11px;
-      color: rgba(255,255,255,0.25);
-      text-align: center;
-      line-height: 1.5;
-      padding: 0 4px;
-    }
-
-    .platform-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      justify-content: center;
-    }
-
-    .platform-pill {
-      font-size: 10px;
-      padding: 2px 8px;
-      border-radius: 20px;
-      background: rgba(255,255,255,0.05);
-      color: rgba(255,255,255,0.35);
-    }
-
-    #view-connect, #view-connected { display: flex; flex-direction: column; gap: 10px; }
+    .ayuda { font-size: 12px; color: var(--cacao-suave); text-align: center; }
+    .error { font-size: 12px; color: var(--terracota); text-align: center; min-height: 1em; }
+    .plataformas { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; list-style: none; }
+    .plataformas li { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--papel-2); color: var(--cacao-suave); }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="logo">♥</div>
+  <header>
+    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+      <rect x="4" y="10" width="40" height="28" rx="9" fill="#E07A5F" />
+      <path d="M24 31c-6-4-9-7-9-10.5a4.5 4.5 0 0 1 9-1 4.5 4.5 0 0 1 9 1C33 24 30 27 24 31z" fill="#FBF5EC" />
+      <rect x="16" y="40" width="16" height="3" rx="1.5" fill="#3B2F2A" />
+    </svg>
     <div>
-      <div class="title">Togetherly Sync</div>
-      <div class="subtitle">Extensión de sincronización</div>
+      <h1>Togetherly Sync</h1>
+      <p class="sub">Como si estuvieran en el mismo sofá</p>
     </div>
+  </header>
+
+  <div class="estado" role="status">
+    <span class="punto" id="punto"></span>
+    <span id="texto-estado">Sin conectar</span>
   </div>
 
-  <div class="status-bar">
-    <div class="status-dot" id="status-dot"></div>
-    <span class="status-text" id="status-text">Desconectado</span>
-  </div>
-
-  <div class="body">
-    <!-- View: not connected -->
-    <div id="view-connect">
+  <main>
+    <section id="vista-conectar">
       <div>
-        <label>Código de sala</label>
-        <input id="input-room" type="text" placeholder="ej: abc123" maxlength="12" autocomplete="off" spellcheck="false" />
+        <label for="input-room">Código de la sala</label>
+        <input id="input-room" type="text" placeholder="ABC123" maxlength="32" autocomplete="off" spellcheck="false" />
       </div>
-      <div>
-        <label>Tu nombre</label>
-        <input id="input-name" type="text" placeholder="Tu apodo" maxlength="20" autocomplete="off" />
+      <div style="margin-top:10px">
+        <label for="input-name">Tu nombre</label>
+        <input id="input-name" type="text" placeholder="¿Cómo te dicen?" maxlength="24" autocomplete="off" />
       </div>
-      <button class="btn" id="btn-connect">Conectar</button>
-      <div class="hint">
-        Abre Togetherly en el navegador, únete a una sala y pega el código aquí.
-      </div>
-      <div class="platform-list">
-        <span class="platform-pill">Netflix</span>
-        <span class="platform-pill">Disney+</span>
-        <span class="platform-pill">HBO Max</span>
-        <span class="platform-pill">Prime Video</span>
-        <span class="platform-pill">Apple TV+</span>
-        <span class="platform-pill">Paramount+</span>
-      </div>
-    </div>
+      <p class="error" id="error" role="alert"></p>
+      <button class="btn" id="btn-conectar">Conectar</button>
+      <p class="ayuda" style="margin-top:10px">Si abres la sala en Togetherly, la extensión se conecta sola.</p>
+    </section>
 
-    <!-- View: connected -->
-    <div id="view-connected" style="display:none">
-      <div class="connected-info">
-        <div class="room-label">Sala activa</div>
-        <div class="room-code" id="display-room"></div>
+    <section id="vista-conectada" hidden>
+      <div class="tarjeta-sala">
+        <small>Sala activa</small>
+        <div class="codigo" id="codigo-sala"></div>
       </div>
-      <div class="hint">
-        Abre Netflix, Disney+ o cualquier servicio — el play/pausa se sincroniza automáticamente con tu pareja.
-      </div>
-      <button class="btn btn-ghost" id="btn-disconnect">Desconectar</button>
-    </div>
-  </div>
+      <p class="ayuda" style="margin:10px 0">Abre tu película en cualquiera de estas apps: el play, la pausa y los saltos se sincronizan solos.</p>
+      <button class="btn suave" id="btn-salir">Desconectar</button>
+    </section>
+
+    <ul class="plataformas" aria-label="Plataformas compatibles">
+      <li>Netflix</li><li>Prime Video</li><li>HBO Max</li><li>Disney+</li>
+      <li>Apple TV+</li><li>Paramount+</li><li>Crunchyroll</li>
+    </ul>
+  </main>
 
   <script src="popup.js"></script>
 </body>

@@ -1,211 +1,228 @@
-const SOCKET_URL = "https://togetherly-production-44b8.up.railway.app";
+// Service worker de la extensión: mantiene la conexión con el servidor de Togetherly
+// y reparte las órdenes entre la web de la sala y las pestañas de streaming.
 
-// ── Minimal Socket.io client over raw WebSocket ────────────────────────────
-// Socket.io v4 protocol: packets are text frames prefixed with EIO type.
-// "0{...}" = engine open  "2" = ping  "3" = pong
-// "40"     = namespace connect   "42[event,data]" = message
-class SocketClient {
+const SERVIDOR_PREDETERMINADO = "https://togetherly-production-44b8.up.railway.app";
+const SALA_VALIDA = /^[a-zA-Z0-9_-]{3,32}$/;
+
+// ── Cliente mínimo de Socket.io (protocolo v4) sobre WebSocket ──────────────
+// "0{...}" apertura · "2" ping · "3" pong · "40" conectar · "42[evento,datos]" mensaje
+class ClienteSocket {
   constructor(url) {
     this.url = url;
     this.ws = null;
-    this.handlers = new Map();
-    this.alive = false;
-    this._retryDelay = 2000;
+    this.manejadores = new Map();
+    this.activo = false;
+    this.espera = 2000;
   }
 
-  connect() {
-    this.alive = true;
-    this._open();
+  conectar() {
+    this.activo = true;
+    this._abrir();
   }
 
-  _open() {
+  _abrir() {
     const wsUrl = this.url.replace(/^http/, "ws");
     try {
       this.ws = new WebSocket(`${wsUrl}/socket.io/?EIO=4&transport=websocket`);
     } catch {
-      this._retry();
+      this._reintentar();
       return;
     }
     this.ws.onopen = () => this.ws.send("40");
     this.ws.onmessage = ({ data }) => {
-      if (data === "2") { this.ws.send("3"); return; }
+      if (typeof data !== "string") return;
+      if (data === "2") {
+        this.ws.send("3");
+        return;
+      }
       if (data === "40" || data.startsWith("40{")) {
-        this._retryDelay = 2000;
-        this._fire("connect");
+        this.espera = 2000;
+        this._disparar("connect");
         return;
       }
       if (data.startsWith("42")) {
         try {
-          const [ev, payload] = JSON.parse(data.slice(2));
-          this._fire(ev, payload);
+          const [evento, datos] = JSON.parse(data.slice(2));
+          this._disparar(evento, datos ?? {});
         } catch {}
       }
     };
     this.ws.onclose = () => {
-      this._fire("disconnect");
-      if (this.alive) this._retry();
+      this._disparar("disconnect");
+      if (this.activo) this._reintentar();
     };
     this.ws.onerror = () => {};
   }
 
-  _retry() {
-    setTimeout(() => { if (this.alive) this._open(); }, this._retryDelay);
-    this._retryDelay = Math.min(this._retryDelay * 1.5, 30000);
+  _reintentar() {
+    setTimeout(() => {
+      if (this.activo) this._abrir();
+    }, this.espera);
+    this.espera = Math.min(this.espera * 1.5, 30000);
   }
 
-  emit(event, data) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(`42${JSON.stringify([event, data])}`);
-    }
+  emit(evento, datos) {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(`42${JSON.stringify([evento, datos])}`);
   }
 
-  on(event, fn) {
-    const list = this.handlers.get(event) ?? [];
-    this.handlers.set(event, [...list, fn]);
+  on(evento, fn) {
+    this.manejadores.set(evento, [...(this.manejadores.get(evento) ?? []), fn]);
     return this;
   }
 
-  _fire(event, data) {
-    (this.handlers.get(event) ?? []).forEach((fn) => fn(data));
+  _disparar(evento, datos) {
+    (this.manejadores.get(evento) ?? []).forEach((fn) => fn(datos));
   }
 
-  disconnect() {
-    this.alive = false;
+  desconectar() {
+    this.activo = false;
     this.ws?.close();
     this.ws = null;
   }
 
-  get isOpen() {
+  get abierto() {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
+// ── Estado ─────────────────────────────────────────────────────────────────
 let socket = null;
 let roomId = null;
 let username = null;
 let avatar = null;
-let syncTabId = null; // tab running the streaming service
+const pestanasStreaming = new Set();
 
-// Restore session on service-worker wake
-chrome.storage.session.get(["roomId", "username", "avatar"], (stored) => {
-  if (stored.roomId) {
-    roomId = stored.roomId;
-    username = stored.username || "User";
-    avatar = stored.avatar || "🎮";
-    _connect();
+const listo = chrome.storage.session.get(["roomId", "username", "avatar"]).then((g) => {
+  if (g.roomId && SALA_VALIDA.test(g.roomId)) {
+    roomId = g.roomId;
+    username = g.username || "Invitado";
+    avatar = g.avatar || "🍿";
+    conectar();
   }
 });
 
-// ── Socket connection ──────────────────────────────────────────────────────
-function _connect() {
-  socket?.disconnect();
-  socket = new SocketClient(SOCKET_URL);
-
-  socket.on("connect", () => {
-    socket.emit("ext-connect", { roomId, username, avatar });
-    _badge(true);
-    _broadcastStatus(true);
-  });
-
-  socket.on("disconnect", () => {
-    _badge(false);
-    _broadcastStatus(false);
-  });
-
-  // Remote sync events → send to the streaming tab
-  socket.on("video-play", ({ currentTime }) => {
-    _toSyncTab({ type: "REMOTE_PLAY", currentTime });
-  });
-  socket.on("video-pause", ({ currentTime }) => {
-    _toSyncTab({ type: "REMOTE_PAUSE", currentTime });
-  });
-  socket.on("video-seek", ({ currentTime }) => {
-    _toSyncTab({ type: "REMOTE_SEEK", currentTime });
-  });
-
-  socket.connect();
+async function urlServidor() {
+  const { serverUrl } = await chrome.storage.local.get("serverUrl");
+  return typeof serverUrl === "string" && /^https?:\/\//.test(serverUrl)
+    ? serverUrl
+    : SERVIDOR_PREDETERMINADO;
 }
 
-function _badge(on) {
-  chrome.action.setBadgeText({ text: on ? "●" : "" });
-  chrome.action.setBadgeBackgroundColor({ color: on ? "#C084FC" : "#888" });
+async function conectar() {
+  socket?.desconectar();
+  const cliente = new ClienteSocket(await urlServidor());
+  socket = cliente;
+
+  cliente.on("connect", () => {
+    cliente.emit("ext-connect", { roomId, username, avatar });
+    insignia(true);
+    avisarEstado(true);
+  });
+  cliente.on("disconnect", () => {
+    insignia(false);
+    avisarEstado(false);
+  });
+
+  // Órdenes de los demás → pestañas de streaming
+  for (const [evento, accion] of [
+    ["video-play", "play"],
+    ["video-pause", "pause"],
+    ["video-seek", "seek"],
+  ]) {
+    cliente.on(evento, ({ currentTime, by }) =>
+      aPestanas({ type: "REMOTO", accion, currentTime, by })
+    );
+  }
+  // Dónde va la sala (al entrar tarde o al pedirlo)
+  cliente.on("ext-state", (estado) => {
+    if (estado?.known) aPestanas({ type: "ESTADO", playing: !!estado.playing, currentTime: estado.position });
+  });
+
+  cliente.conectar();
 }
 
-function _broadcastStatus(connected) {
-  chrome.tabs.query({}, (tabs) => {
-    tabs.forEach((tab) => {
-      chrome.tabs.sendMessage(tab.id, {
-        type: "EXT_STATUS",
-        connected,
-        roomId: connected ? roomId : null,
-      }).catch(() => {});
-    });
+function insignia(encendida) {
+  chrome.action.setBadgeText({ text: encendida ? "●" : "" });
+  chrome.action.setBadgeBackgroundColor({ color: encendida ? "#E07A5F" : "#9A8F86" });
+}
+
+function avisarEstado(conectado) {
+  const msg = { type: "EXT_STATUS", connected: conectado, roomId: conectado ? roomId : null };
+  chrome.tabs.query({}, (pestanas) => {
+    for (const p of pestanas) chrome.tabs.sendMessage(p.id, msg).catch(() => {});
   });
 }
 
-function _toSyncTab(msg) {
-  if (!syncTabId) return;
-  chrome.tabs.sendMessage(syncTabId, msg).catch(() => {});
+function aPestanas(msg) {
+  for (const id of pestanasStreaming) {
+    chrome.tabs.sendMessage(id, msg).catch(() => pestanasStreaming.delete(id));
+  }
 }
 
-function _saveSession() {
+chrome.tabs.onRemoved.addListener((id) => pestanasStreaming.delete(id));
+
+function guardarSesion() {
   chrome.storage.session.set({ roomId, username, avatar });
 }
 
-// ── Message router ────────────────────────────────────────────────────────
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // ── From bridge.js or popup (web app tells extension which room) ─────────
-  if (msg.type === "JOIN_ROOM") {
-    roomId = msg.roomId;
-    username = msg.username || "User";
-    avatar = msg.avatar || "🎮";
-    _saveSession();
-    _connect();
-    sendResponse({ ok: true, roomId });
-    return true;
-  }
+function textoCorto(v, maximo, porDefecto) {
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, maximo) : porDefecto;
+}
 
-  if (msg.type === "LEAVE_ROOM") {
-    roomId = null;
-    username = null;
-    avatar = null;
-    syncTabId = null;
-    chrome.storage.session.remove(["roomId", "username", "avatar"]);
-    socket?.disconnect();
-    socket = null;
-    _badge(false);
-    sendResponse({ ok: true });
-    return true;
-  }
+function tiempo(t) {
+  return typeof t === "number" && Number.isFinite(t) && t >= 0 && t < 86400 ? t : null;
+}
 
-  if (msg.type === "PING") {
-    sendResponse({
-      type: "PONG",
-      connected: socket?.isOpen ?? false,
-      roomId,
-      username,
-    });
-    return true;
-  }
+// ── Mensajes de la web (bridge.js), el popup y las pestañas de streaming ───
+chrome.runtime.onMessage.addListener((msg, sender, responder) => {
+  if (!msg || typeof msg !== "object") return;
 
-  // ── From content.js (streaming site) ─────────────────────────────────────
-  if (msg.type === "CONTENT_READY") {
-    syncTabId = sender.tab?.id ?? null;
-    sendResponse({ roomId, username, connected: !!roomId && (socket?.isOpen ?? false) });
-    return true;
-  }
-
-  if (msg.type === "VIDEO_PLAY" && roomId) {
-    socket?.emit("video-play", { roomId, currentTime: msg.currentTime });
-    return;
-  }
-  if (msg.type === "VIDEO_PAUSE" && roomId) {
-    socket?.emit("video-pause", { roomId, currentTime: msg.currentTime });
-    return;
-  }
-  if (msg.type === "VIDEO_SEEK" && roomId) {
-    socket?.emit("video-seek", { roomId, currentTime: msg.currentTime });
-    return;
-  }
+  (async () => {
+    await listo;
+    switch (msg.type) {
+      case "JOIN_ROOM": {
+        if (typeof msg.roomId !== "string" || !SALA_VALIDA.test(msg.roomId)) {
+          return responder({ ok: false, error: "Código de sala inválido" });
+        }
+        const misma = msg.roomId === roomId && socket?.abierto;
+        roomId = msg.roomId;
+        username = textoCorto(msg.username, 24, "Invitado");
+        avatar = textoCorto(msg.avatar, 8, "🍿");
+        guardarSesion();
+        if (!misma) await conectar();
+        return responder({ ok: true, roomId });
+      }
+      case "LEAVE_ROOM": {
+        roomId = username = avatar = null;
+        chrome.storage.session.remove(["roomId", "username", "avatar"]);
+        socket?.desconectar();
+        socket = null;
+        insignia(false);
+        avisarEstado(false);
+        return responder({ ok: true });
+      }
+      case "PING":
+        return responder({ type: "PONG", connected: socket?.abierto ?? false, roomId, username });
+      case "CONTENT_READY":
+        if (sender.tab?.id != null) pestanasStreaming.add(sender.tab.id);
+        return responder({ roomId, connected: !!roomId && (socket?.abierto ?? false) });
+      case "PEDIR_ESTADO":
+        if (roomId) socket?.emit("ext-state-request", { roomId });
+        return responder({ ok: true });
+      case "VIDEO_PLAY":
+      case "VIDEO_PAUSE":
+      case "VIDEO_SEEK": {
+        if (sender.tab?.id != null) pestanasStreaming.add(sender.tab.id);
+        const t = tiempo(msg.currentTime);
+        if (roomId && t !== null) {
+          const evento = { VIDEO_PLAY: "video-play", VIDEO_PAUSE: "video-pause", VIDEO_SEEK: "video-seek" }[msg.type];
+          socket?.emit(evento, { roomId, currentTime: t });
+        }
+        return responder({ ok: true });
+      }
+      default:
+        return responder({ ok: false });
+    }
+  })();
+  return true; // respuesta asíncrona
 });

@@ -9,8 +9,8 @@ interface CompanionEmbedProps {
   url: string;
   platform: Platform;
   extensionActive?: boolean;
-  onPlay: (time: number) => void;
-  onPause: (time: number) => void;
+  onPlay: (time: number | null) => void;
+  onPause: (time: number | null) => void;
   onRemotePlay: (cb: (t: number) => void) => void;
   onRemotePause: (cb: (t: number) => void) => void;
 }
@@ -37,12 +37,12 @@ export function CompanionEmbed({
   const badge = PLATFORM_BADGE[platform];
 
   const handlePlay = () => {
-    onPlay(0);
+    onPlay(null); // sin tiempo: no rebobina a nadie
     setMyState("playing");
   };
 
   const handlePause = () => {
-    onPause(0);
+    onPause(null);
     setMyState("paused");
   };
 

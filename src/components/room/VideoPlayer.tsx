@@ -25,8 +25,8 @@ interface VideoPlayerProps {
   roomId: string;
   isSynced: boolean;
   extensionActive?: boolean;
-  onPlay: (currentTime: number) => void;
-  onPause: (currentTime: number) => void;
+  onPlay: (currentTime: number | null) => void;
+  onPause: (currentTime: number | null) => void;
   onSeek: (currentTime: number) => void;
   onUrlChange: (url: string) => void;
   onRemotePlay: (cb: (t: number) => void) => void;

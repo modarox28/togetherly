@@ -47,9 +47,9 @@ interface RoomState {
 interface RoomActions {
   joinRoom: (roomId: string, username: string, avatar: string, isPublic?: boolean, roomName?: string) => void;
   changeVideoUrl: (roomId: string, url: string) => void;
-  sendPlay: (roomId: string, currentTime: number) => void;
-  sendPause: (roomId: string, currentTime: number) => void;
-  sendSeek: (roomId: string, currentTime: number) => void;
+  sendPlay: (roomId: string, currentTime: number | null) => void;
+  sendPause: (roomId: string, currentTime: number | null) => void;
+  sendSeek: (roomId: string, currentTime: number | null) => void;
   sendMessage: (roomId: string, text: string) => void;
   sendReaction: (roomId: string, emoji: string) => void;
   sendTyping: (roomId: string) => void;
@@ -75,6 +75,7 @@ export function useRoom(): [RoomState, RoomActions] {
   const remotePlayRef = useRef<((t: number) => void) | null>(null);
   const remotePauseRef = useRef<((t: number) => void) | null>(null);
   const remoteSeekRef = useRef<((t: number) => void) | null>(null);
+  const lastTimeRef = useRef(0);
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
@@ -146,17 +147,25 @@ export function useRoom(): [RoomState, RoomActions] {
       setState((s) => ({ ...s, videoUrl: url, videoState: { playing: false, currentTime: 0, updatedAt: Date.now() } }));
     });
 
-    socket.on("video-play", ({ currentTime }) => {
-      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: true, currentTime, updatedAt: Date.now() } }));
-      remotePlayRef.current?.(currentTime);
+    // currentTime llega en null cuando alguien usa "Di Play" sin extensión:
+    // en ese caso se conserva el último tiempo conocido y no se salta.
+    socket.on("video-play", ({ currentTime }: { currentTime: number | null }) => {
+      const t = typeof currentTime === "number" ? currentTime : lastTimeRef.current;
+      lastTimeRef.current = t;
+      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: true, currentTime: t, updatedAt: Date.now() } }));
+      remotePlayRef.current?.(t);
     });
 
-    socket.on("video-pause", ({ currentTime }) => {
-      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: false, currentTime, updatedAt: Date.now() } }));
-      remotePauseRef.current?.(currentTime);
+    socket.on("video-pause", ({ currentTime }: { currentTime: number | null }) => {
+      const t = typeof currentTime === "number" ? currentTime : lastTimeRef.current;
+      lastTimeRef.current = t;
+      setState((s) => ({ ...s, videoState: { ...s.videoState, playing: false, currentTime: t, updatedAt: Date.now() } }));
+      remotePauseRef.current?.(t);
     });
 
-    socket.on("video-seek", ({ currentTime }) => {
+    socket.on("video-seek", ({ currentTime }: { currentTime: number | null }) => {
+      if (typeof currentTime !== "number") return;
+      lastTimeRef.current = currentTime;
       setState((s) => ({ ...s, videoState: { ...s.videoState, currentTime, updatedAt: Date.now() } }));
       remoteSeekRef.current?.(currentTime);
     });

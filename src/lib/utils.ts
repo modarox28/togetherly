@@ -20,10 +20,10 @@ export function extractYouTubeId(input: string): string | null {
 
 export function generateRoomId(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  // Azar criptográfico: los códigos no se pueden adivinar a partir de otros.
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
   let id = "";
-  for (let i = 0; i < 6; i++) {
-    id += chars[Math.floor(Math.random() * chars.length)];
-  }
+  for (const b of bytes) id += chars[b % chars.length];
   return id;
 }
 

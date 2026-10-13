@@ -1,21 +1,29 @@
-// Bridge script — injected on togetherly-weld.vercel.app and localhost:3000
-// Relays messages between the web app (window.postMessage) and the extension background.
+// Puente entre la web de Togetherly y la extensión.
+// Solo acepta mensajes de la propia página y solo los tipos que la web necesita.
+(() => {
+  const ORIGEN = window.location.origin;
+  const PERMITIDOS = new Set(["JOIN_ROOM", "LEAVE_ROOM", "PING"]);
 
-// 1. Announce extension presence to the web app
-window.postMessage({ source: "togetherly-ext", type: "EXT_READY" }, "*");
+  const aWeb = (datos) => window.postMessage({ ...datos, source: "togetherly-ext" }, ORIGEN);
 
-// 2. Web app → background
-window.addEventListener("message", (e) => {
-  if (e.source !== window) return;
-  if (e.data?.source !== "togetherly-web") return;
+  aWeb({ type: "EXT_READY" });
 
-  chrome.runtime.sendMessage(e.data, (resp) => {
-    if (chrome.runtime.lastError) return;
-    if (resp) window.postMessage({ source: "togetherly-ext", ...resp }, "*");
+  window.addEventListener("message", (e) => {
+    if (e.source !== window || e.origin !== ORIGEN) return;
+    const d = e.data;
+    if (!d || d.source !== "togetherly-web" || !PERMITIDOS.has(d.type)) return;
+    try {
+      chrome.runtime.sendMessage(
+        { type: d.type, roomId: d.roomId, username: d.username, avatar: d.avatar },
+        (r) => {
+          if (chrome.runtime.lastError || !r) return;
+          aWeb(r);
+        }
+      );
+    } catch {}
   });
-});
 
-// 3. Background → web app
-chrome.runtime.onMessage.addListener((msg) => {
-  window.postMessage({ source: "togetherly-ext", ...msg }, "*");
-});
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === "EXT_STATUS") aWeb({ type: "EXT_STATUS", connected: !!msg.connected, roomId: msg.roomId ?? null });
+  });
+})();
