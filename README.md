@@ -70,4 +70,4 @@ git push origin main  # → Vercel + Railway auto-deploy
 
 ## Extensión Chrome
 
-Carpeta `togetherly-extension/` — cargar en `chrome://extensions` → "Cargar extensión sin empaquetar".
+Carpeta `togetherly-extension/` — sincroniza Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll. Instalación y arquitectura en [`togetherly-extension/README.md`](togetherly-extension/README.md).
