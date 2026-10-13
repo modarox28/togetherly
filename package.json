@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/build-extension-zip.mjs",
     "dev": "next dev",
     "server": "node socket-server.js",
+    "prebuild": "node scripts/build-extension-zip.mjs",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",

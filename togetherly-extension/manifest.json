@@ -3,14 +3,19 @@
   "name": "Togetherly Sync",
   "version": "2.0.0",
   "description": "Mira Netflix, Prime Video, HBO Max, Disney+ y más en sincronía con quien quieras, estén donde estén.",
-  "minimum_chrome_version": "111",
-
-  "permissions": ["storage"],
-
+  "minimum_chrome_version": "121",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "storage"
+  ],
   "background": {
     "service_worker": "background.js"
   },
-
   "content_scripts": [
     {
       "matches": [
@@ -27,18 +32,31 @@
         "https://tv.apple.com/*",
         "https://www.paramountplus.com/*"
       ],
-      "js": ["platforms.js", "content.js"],
+      "js": [
+        "platforms.js",
+        "content.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.crunchyroll.com/*", "https://static.crunchyroll.com/*"],
-      "js": ["platforms.js", "content.js"],
+      "matches": [
+        "https://www.crunchyroll.com/*",
+        "https://static.crunchyroll.com/*"
+      ],
+      "js": [
+        "platforms.js",
+        "content.js"
+      ],
       "all_frames": true,
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.netflix.com/*"],
-      "js": ["netflix-main.js"],
+      "matches": [
+        "https://www.netflix.com/*"
+      ],
+      "js": [
+        "netflix-main.js"
+      ],
       "world": "MAIN",
       "run_at": "document_idle"
     },
@@ -48,13 +66,19 @@
         "http://localhost:3000/*",
         "http://127.0.0.1:3000/*"
       ],
-      "js": ["bridge.js"],
+      "js": [
+        "bridge.js"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Togetherly Sync"
+    "default_title": "Togetherly Sync",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
   }
 }

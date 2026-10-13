@@ -1,37 +1,45 @@
 # Togetherly Sync
 
-Extensión de Chrome que sincroniza el play, la pausa y los saltos de **Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll** entre las personas de una sala de Togetherly.
+Extensión que sincroniza el play, la pausa y los saltos de **Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll** entre las personas de una sala de Togetherly.
 
 Cada persona ve la película con **su propia cuenta**: la extensión no comparte ni transmite video, solo avisa "play en el minuto 42:10" a los demás.
 
-## Instalarla (2 minutos)
+## Instalarla
 
-Todavía no está en la Chrome Web Store, así que se instala en modo desarrollador:
+La guía para usuarios, con capturas y video, está en **[togetherly-weld.vercel.app/extension](https://togetherly-weld.vercel.app/extension)**. Desde ahí se descarga el .zip correcto para cada navegador.
 
-1. Descarga el repositorio: botón verde **Code → Download ZIP** en [github.com/modarox28/togetherly](https://github.com/modarox28/togetherly) y descomprímelo.
-2. En Chrome abre `chrome://extensions`.
-3. Activa **Modo de desarrollador** (arriba a la derecha).
-4. Pulsa **Cargar extensión sin empaquetar** y elige la carpeta `togetherly-extension`.
-5. Fija el ícono de la tele en la barra de Chrome.
+| Navegador | Descarga | Dónde se carga |
+|---|---|---|
+| Chrome, Edge, Brave, Opera, Vivaldi | `togetherly-sync-chromium.zip` | `chrome://extensions` (o `edge://`, `brave://`, `opera://`) → Modo de desarrollador → Cargar extensión sin empaquetar |
+| Firefox 128 o más nuevo | `togetherly-sync-firefox.zip` | `about:debugging#/runtime/this-firefox` → Cargar complemento temporal → `manifest.json` |
+| Safari | No disponible | Requiere cuenta de Apple Developer (USD 99/año) |
 
-Funciona también en Edge, Brave y Opera (todos basados en Chromium).
+Los .zip se generan desde esta carpeta con `node scripts/build-extension-zip.mjs` (se ejecuta solo antes de `npm run dev` y `npm run build`). La versión de Firefox cambia únicamente el manifest: proceso de fondo como *event page*, id propio y declaración de que no recolecta datos.
 
-## Usarla
+## Publicar en tiendas (pendiente, lo hace el dueño de la cuenta)
 
-1. Entra a tu sala en Togetherly: la extensión se conecta sola. También puedes escribir el código en el popup.
-2. Abre la película en tu app de streaming. Cuando aparezca el aviso "Sincronizado con la sala…", listo.
-3. Si uno da play, pausa o adelanta, a los demás les pasa lo mismo. Quien entra tarde se pone al día solo.
+| Tienda | Costo | Qué subir |
+|---|---|---|
+| Firefox Add-ons (addons.mozilla.org) | Gratis | `togetherly-sync-firefox.zip` |
+| Microsoft Edge Add-ons | Gratis | `togetherly-sync-chromium.zip` |
+| Opera Add-ons | Gratis | `togetherly-sync-chromium.zip` |
+| Chrome Web Store | USD 5, pago único | `togetherly-sync-chromium.zip` |
+
+Antes de publicar, valida la versión de Firefox con `npx web-ext lint --source-dir <carpeta descomprimida>` (hoy: 0 errores, 0 advertencias).
 
 ## Cómo está hecha
 
 | Archivo | Qué hace |
 |---|---|
-| `manifest.json` | Manifest V3. Solo pide `storage`; se inyecta únicamente en las plataformas de la lista. |
+| `manifest.json` | Manifest V3 para navegadores Chromium. Solo pide `storage`; se inyecta únicamente en las plataformas de la lista. |
 | `background.js` | Conexión con el servidor de Togetherly (Socket.io sobre WebSocket) y reparto de órdenes. |
-| `platforms.js` | Un adaptador por plataforma: cómo encontrar el video correcto (shadow DOM, avances de fondo) y cómo controlarlo. |
+| `platforms.js` | Un adaptador por plataforma: cómo encontrar el video correcto (shadow DOM, avances de fondo) y cómo controlarlo. Instrucciones para agregar otra al inicio del archivo. |
 | `content.js` | Motor de sincronización: anti-rebote por evento esperado, cola de órdenes, ponerse al día y aviso flotante. |
 | `netflix-main.js` | Corre dentro de la página de Netflix para usar su reproductor interno; cambiar `currentTime` directo provoca el error M7375. |
 | `bridge.js` | Puente con la web de Togetherly. Solo acepta 3 tipos de mensaje y del mismo origen. |
 | `popup.html/js` | Conectarse a mano con un código. |
+| `icons/` | Ícono en 16, 32, 48 y 128 px. |
 
 Pruebas de punta a punta (dos navegadores con la extensión y páginas que imitan Netflix, Prime y Disney+): `npm run test:extension` desde la raíz del repo.
+
+Capturas y video de la guía: `node scripts/capture-extension-guide.mjs` (solo si Chrome cambia su diseño).

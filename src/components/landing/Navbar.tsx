@@ -16,8 +16,8 @@ export function Navbar() {
   useMotionValueEvent(scrollY, "change", (v) => setScrolled(v > 24));
 
   const enlaces = [
-    { label: t.nav.howItWorks, href: "#how-it-works" },
-    { label: t.nav.platforms, href: "#platforms" },
+    { label: t.nav.howItWorks, href: "/#how-it-works" },
+    { label: t.nav.platforms, href: "/#platforms" },
     { label: t.nav.discover, href: "/discover" },
     { label: t.nav.pricing, href: "/pricing" },
   ];

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { SectionHeading } from "@/components/landing/SectionHeading";
 import { PLATFORM_LABELS, getPlayerType, type Platform } from "@/lib/platforms";
@@ -8,8 +9,6 @@ import { PLATFORM_LABELS, getPlayerType, type Platform } from "@/lib/platforms";
 const ALL_PLATFORMS = Object.keys(PLATFORM_LABELS) as Platform[];
 const EMBEDDED = ALL_PLATFORMS.filter((p) => getPlayerType(p) === "embeddable");
 const WITH_EXTENSION = ALL_PLATFORMS.filter((p) => getPlayerType(p) === "companion");
-
-const EXTENSION_URL = "https://github.com/modarox28/togetherly/tree/main/togetherly-extension";
 
 function PlatformChips({ platforms, highlighted = false }: { platforms: Platform[]; highlighted?: boolean }) {
   return (
@@ -48,14 +47,12 @@ export function Platforms() {
             <p className="mt-2 max-w-[52ch] leading-relaxed text-day-900/70 dark:text-white/70">{t.platforms.extensionText}</p>
             <PlatformChips platforms={WITH_EXTENSION} highlighted />
             <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3">
-              <a
-                href={EXTENSION_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full border-2 border-day-900/20 px-5 py-2.5 font-bold text-day-900 transition-colors hover:border-day-900/50 dark:border-white/25 dark:text-white dark:hover:border-white/60"
+              <Link
+                href="/extension"
+                className="rounded-full bg-accent px-5 py-2.5 font-bold text-on-accent shadow-[0_3px_0_rgba(0,0,0,0.25)] transition-transform hover:-translate-y-0.5"
               >
                 {t.platforms.extensionButton}
-              </a>
+              </Link>
               <p className="max-w-[36ch] text-sm text-day-900/60 dark:text-white/60">{t.platforms.extensionNote}</p>
             </div>
           </div>

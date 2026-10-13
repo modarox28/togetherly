@@ -112,9 +112,14 @@ export function CompanionEmbed({
               Di Pause
             </button>
           </div>
-          <p className="text-white/20 text-[11px] text-center">
-            O instala la extensión para sincronización automática
-          </p>
+          <a
+            href="/extension"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[12px] font-semibold text-center text-accent underline underline-offset-4"
+          >
+            Instala la extensión para que se sincronice solo
+          </a>
         </div>
       )}
 

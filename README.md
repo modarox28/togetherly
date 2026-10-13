@@ -7,7 +7,7 @@ Para ver películas y series en sincronía con quien quieras, aunque estén en c
 ## Qué hace
 
 - **Dentro de la sala:** YouTube, Twitch, Vimeo y Spotify se reproducen sincronizados para todos.
-- **Con la extensión de Chrome:** Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll. Cada quien usa su propia cuenta y la extensión sincroniza el play, la pausa y los saltos ([guía de la extensión](togetherly-extension/README.md)).
+- **Con la extensión** (Chrome, Edge, Brave, Opera y Firefox): Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll. Cada quien usa su propia cuenta y la extensión sincroniza el play, la pausa y los saltos. Guía para usuarios en [/extension](https://togetherly-weld.vercel.app/extension); detalles técnicos en [togetherly-extension/README.md](togetherly-extension/README.md).
 - Chat, reacciones flotantes, videollamada (WebRTC), salas públicas, modo claro/oscuro, español/inglés, PWA instalable.
 - **Planes:** gratis para 2 personas por sala; Premium (USD 3.99/mes, Stripe) hasta 8.
 
@@ -38,7 +38,9 @@ Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
 | `src/lib/platforms.ts` | Plataformas soportadas y cómo se reconocen sus enlaces. |
 | `src/lib/stripe.ts`, `roomPass.ts` | Solo servidor: Stripe y la firma de pases Premium. |
 | `socket-server.js` + `server/` | Servidor de salas: `validation.js`, `rooms.js`, `room-pass.js`, `connection.js`. |
-| `togetherly-extension/` | Extensión de Chrome. |
+| `togetherly-extension/` | Extensión (Chrome, Edge, Brave, Opera, Firefox). |
+| `src/app/extension/` + `src/components/extension/` | Página de instalación con descarga, pasos, capturas y video. Navegadores en `src/lib/browsers.ts`. |
+| `scripts/` | `build-extension-zip.mjs` arma las descargas de la extensión; `capture-extension-guide.mjs` regenera capturas y video de la guía. |
 | `tests/extension/` | Pruebas de punta a punta (extensión, servidor y planes). |
 | `prisma/schema.prisma` | Tablas de la base de datos (usuarios, sesiones, suscripción). |
 | `mobile/` | App móvil con Expo (experimental). |
@@ -54,6 +56,7 @@ Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
 | Cambiar las fuentes | Archivos en `src/app/fonts/` y `localFont(...)` en `src/app/layout.tsx`. |
 | Cambiar precios o beneficios | `src/lib/plans.ts` (textos) y el precio real en el panel de Stripe. El límite de personas lo aplica `server/connection.js`. |
 | Agregar una plataforma a la extensión | `togetherly-extension/platforms.js` (un objeto en `PLATFORMS`) y su dominio en `manifest.json`. Pasos en el propio archivo. |
+| Cambiar la guía de instalación | Textos en `translations.ts` → `extensionPage`; navegadores en `src/lib/browsers.ts`; capturas y video con `node scripts/capture-extension-guide.mjs`. |
 | Agregar una plataforma dentro de la sala | `src/lib/platforms.ts` y un componente en `src/components/room/players/`. |
 | Cambiar la animación del hero | `src/components/landing/TwoRoomsScene.tsx` (tiempos en `TIMING`, colores en `COLORS`). |
 | Cambiar reglas del servidor de salas | `server/connection.js` (eventos) y `server/validation.js` (validaciones). |

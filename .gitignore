@@ -16,3 +16,6 @@ tsconfig.tsbuildinfo
 # Pruebas de Playwright
 /test-results
 /playwright-report
+
+# Descargas de la extensión: se generan al compilar (scripts/build-extension-zip.mjs)
+/public/downloads
