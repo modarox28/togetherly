@@ -16,7 +16,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { CHARACTERS } from "@/lib/characters";
+import { CHARACTERS, DEFAULT_AVATAR } from "@/lib/characters";
 
 interface Props { roomId: string }
 
@@ -93,7 +93,7 @@ export function RoomClientPage({ roomId }: Props) {
     const storedCharId = sessionStorage.getItem("togetherly-character");
     if (storedName && storedCharId) {
       const character = CHARACTERS.find((c) => c.id === storedCharId);
-      const avatar = character?.emoji ?? "🎮";
+      const avatar = character?.emoji ?? DEFAULT_AVATAR;
       const isPublic = sessionStorage.getItem("togetherly-is-public") === "1";
       const roomName = sessionStorage.getItem("togetherly-room-name") || storedName + "'s room";
       joinWithPass(storedName, avatar, isPublic, roomName);
@@ -104,7 +104,7 @@ export function RoomClientPage({ roomId }: Props) {
   const handleJoinWithForm = () => {
     if (!username.trim() || !selectedCharacter) return;
     const character = CHARACTERS.find((c) => c.id === selectedCharacter);
-    const avatar = character?.emoji ?? "🎮";
+    const avatar = character?.emoji ?? DEFAULT_AVATAR;
     sessionStorage.setItem("togetherly-username", username.trim());
     sessionStorage.setItem("togetherly-character", selectedCharacter);
     joinWithPass(username.trim(), avatar);

@@ -2,14 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { getSocket } from "@/lib/socket";
+import { fetchIceServers } from "@/lib/iceServers";
 
-const ICE_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-  ],
-};
+// Si la conexión se cae (p. ej. cambio de wifi a datos), se espera un momento y se intenta
+// reconectar (ICE restart) antes de colgar.
+const RECONNECT_GRACE_MS = 5000;
+const GIVE_UP_MS = 15000;
 
 export type CallState = "idle" | "calling" | "incoming" | "connected";
 
@@ -32,6 +30,15 @@ export function useWebRTC(roomId: string) {
   const localStreamRef = useRef<MediaStream | null>(null);
   const videoDeviceIdRef = useRef<string | undefined>(undefined);
   const audioDeviceIdRef = useRef<string | undefined>(undefined);
+  const isCallerRef = useRef(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const giveUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimers = () => {
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+    if (giveUpTimerRef.current) clearTimeout(giveUpTimerRef.current);
+    reconnectTimerRef.current = giveUpTimerRef.current = null;
+  };
 
   const getMedia = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -47,8 +54,34 @@ export function useWebRTC(roomId: string) {
     return stream;
   };
 
-  const createPC = useCallback((stream: MediaStream) => {
-    const pc = new RTCPeerConnection(ICE_CONFIG);
+  const cleanup = useCallback(() => {
+    clearTimers();
+    pcRef.current?.close();
+    pcRef.current = null;
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current = null;
+    setLocalStream(null);
+    setRemoteStream(null);
+    setCallState("idle");
+    setIncomingCall(null);
+    remoteIdRef.current = null;
+    pendingCandidates.current = [];
+    isCallerRef.current = false;
+  }, []);
+
+  // Quien inició la llamada vuelve a negociar con iceRestart para recuperar la conexión.
+  const restartIce = useCallback(async () => {
+    const pc = pcRef.current;
+    if (!pc || !isCallerRef.current || !remoteIdRef.current) return;
+    try {
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      getSocket().emit("call-offer", { roomId, offer, targetId: remoteIdRef.current });
+    } catch {}
+  }, [roomId]);
+
+  const createPC = useCallback(async (stream: MediaStream) => {
+    const pc = new RTCPeerConnection({ iceServers: await fetchIceServers() });
     pcRef.current = pc;
 
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
@@ -68,29 +101,23 @@ export function useWebRTC(roomId: string) {
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === "failed" || pc.connectionState === "disconnected") {
-        cleanup();
-      }
+      if (pc !== pcRef.current) return;
       if (pc.connectionState === "connected") {
+        clearTimers();
         setCallState("connected");
+        return;
+      }
+      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        // "disconnected" suele ser pasajero: primero se espera, luego se reintenta y al final se cuelga.
+        if (!reconnectTimerRef.current) {
+          reconnectTimerRef.current = setTimeout(restartIce, pc.connectionState === "failed" ? 0 : RECONNECT_GRACE_MS);
+        }
+        if (!giveUpTimerRef.current) giveUpTimerRef.current = setTimeout(cleanup, GIVE_UP_MS);
       }
     };
 
     return pc;
-  }, [roomId]);
-
-  const cleanup = useCallback(() => {
-    pcRef.current?.close();
-    pcRef.current = null;
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    localStreamRef.current = null;
-    setLocalStream(null);
-    setRemoteStream(null);
-    setCallState("idle");
-    setIncomingCall(null);
-    remoteIdRef.current = null;
-    pendingCandidates.current = [];
-  }, []);
+  }, [roomId, cleanup, restartIce]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -103,9 +130,10 @@ export function useWebRTC(roomId: string) {
 
     socket.on("call-accepted", async ({ fromId }: { fromId: string }) => {
       remoteIdRef.current = fromId;
+      isCallerRef.current = true;
       try {
         const stream = await getMedia();
-        const pc = createPC(stream);
+        const pc = await createPC(stream);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit("call-offer", { roomId, offer, targetId: fromId });
@@ -115,10 +143,21 @@ export function useWebRTC(roomId: string) {
     });
 
     socket.on("call-offer", async ({ offer, fromId }: { offer: RTCSessionDescriptionInit; fromId: string }) => {
+      // Oferta nueva de la misma persona durante la llamada = reconexión (ICE restart).
+      if (pcRef.current && remoteIdRef.current === fromId) {
+        try {
+          await pcRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+          const answer = await pcRef.current.createAnswer();
+          await pcRef.current.setLocalDescription(answer);
+          socket.emit("call-answer", { roomId, answer, targetId: fromId });
+        } catch {}
+        return;
+      }
+      if (pcRef.current) return; // ya hay otra llamada en curso
       remoteIdRef.current = fromId;
       try {
         const stream = await getMedia();
-        const pc = createPC(stream);
+        const pc = await createPC(stream);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         for (const c of pendingCandidates.current) {
           await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});

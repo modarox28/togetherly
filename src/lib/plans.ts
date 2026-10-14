@@ -29,3 +29,10 @@ export const PLANS = {
 } as const;
 
 export type PlanId = keyof typeof PLANS;
+
+/**
+ * ¿Se puede comprar Premium? Apagado mientras no haya una pasarela de pagos que funcione
+ * en Colombia ni un plan de Vercel que permita uso comercial (ver docs/monetizacion.md).
+ * Para activarlo: NEXT_PUBLIC_PAYMENTS_ENABLED=true en Vercel y redesplegar.
+ */
+export const PAYMENTS_ENABLED = process.env.NEXT_PUBLIC_PAYMENTS_ENABLED === "true";

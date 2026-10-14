@@ -73,6 +73,22 @@
     .error { font-size: 12px; color: var(--danger); text-align: center; min-height: 1em; }
     .platforms { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; list-style: none; }
     .platforms li { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--text-muted); }
+    .divider { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-muted); margin: 14px 0 10px; }
+    .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+    .join-row { display: flex; gap: 8px; }
+    .join-row input { flex: 1; min-width: 0; }
+    .join-row .btn { width: auto; padding: 0 14px; }
+    .copy-row { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
+    .chip {
+      border: 1.5px solid var(--border); background: var(--surface-2); color: var(--text);
+      font-family: inherit; font-size: 12px; font-weight: 700; line-height: 1; padding: 7px 10px; border-radius: 999px; cursor: pointer;
+    }
+    .chip:hover { border-color: var(--accent); }
+    .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .copied { font-size: 11.5px; color: var(--success); min-height: 1em; margin-top: 6px; }
+    .steps { margin: 12px 0; padding-left: 20px; font-size: 12.5px; color: var(--text-muted); display: grid; gap: 4px; }
+    .steps b { color: var(--text); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -99,25 +115,37 @@
   <main>
     <section id="view-connect">
       <div class="field">
-        <label for="input-room">Código de la sala</label>
-        <input id="input-room" type="text" placeholder="ABC123" maxlength="32" autocomplete="off" spellcheck="false" />
-      </div>
-      <div class="field">
         <label for="input-name">Tu nombre</label>
         <input id="input-name" type="text" placeholder="¿Cómo te dicen?" maxlength="24" autocomplete="off" />
       </div>
       <p class="error" id="error" role="alert"></p>
-      <button class="btn" id="btn-connect">Conectar</button>
-      <p class="hint spaced">Si abres la sala en Togetherly, la extensión se conecta sola.</p>
+      <button class="btn" id="btn-create">Crear sala nueva</button>
+
+      <p class="divider"><span>o únete a la de alguien</span></p>
+
+      <div class="join-row">
+        <label class="sr-only" for="input-room">Código de la sala</label>
+        <input id="input-room" type="text" placeholder="CÓDIGO" maxlength="32" autocomplete="off" spellcheck="false" />
+        <button class="btn secondary" id="btn-connect">Unirme</button>
+      </div>
     </section>
 
     <section id="view-connected" hidden>
       <div class="room-card">
-        <small>Sala activa</small>
+        <small>Tu sala</small>
         <div class="room-code" id="room-code"></div>
+        <div class="copy-row">
+          <button class="chip" id="btn-copy-code">Copiar código</button>
+          <button class="chip" id="btn-copy-link">Copiar enlace</button>
+        </div>
+        <p class="copied" id="copied" role="status"></p>
       </div>
-      <p class="hint spaced">Abre tu película en cualquiera de estas apps: el play, la pausa y los saltos se sincronizan solos.</p>
-      <button class="btn secondary" id="btn-disconnect">Desconectar</button>
+      <ol class="steps">
+        <li>Mándale el código (o el enlace) a quien va a ver contigo.</li>
+        <li>Esa persona lo pega en su extensión y toca <b>Unirme</b>.</li>
+        <li>Abran la misma película: play, pausa y saltos van sincronizados.</li>
+      </ol>
+      <button class="btn secondary" id="btn-disconnect">Salir de la sala</button>
     </section>
 
     <ul class="platforms" aria-label="Plataformas compatibles">

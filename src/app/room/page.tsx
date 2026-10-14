@@ -260,7 +260,7 @@ export default function RoomSetupPage() {
                         className="text-xs text-center text-day-900/40 dark:text-white/30 mb-4"
                       >
                         {CHARACTERS.find(c => c.id === selectedCharacter)?.emoji}{" "}
-                        {CHARACTERS.find(c => c.id === selectedCharacter)?.name} · {CHARACTERS.find(c => c.id === selectedCharacter)?.from}
+                        {CHARACTERS.find(c => c.id === selectedCharacter)?.name}: {CHARACTERS.find(c => c.id === selectedCharacter)?.tagline}
                       </motion.p>
                     )}
 
