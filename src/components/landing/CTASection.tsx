@@ -18,7 +18,7 @@ export function CTASection() {
   };
 
   return (
-    <section id="join" className="grain bg-day-50 px-4 py-24 dark:bg-night-950">
+    <section id="join" className="grain bg-day-50 px-4 py-16 sm:py-24 dark:bg-night-950">
       <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-2 md:items-end">
         <div>
           <h2 className="font-display text-[clamp(2.4rem,6vw,4.25rem)] font-extrabold leading-[0.98] tracking-[-0.035em] text-day-900 dark:text-white">

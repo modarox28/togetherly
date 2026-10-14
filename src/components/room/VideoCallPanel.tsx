@@ -1,114 +1,72 @@
 "use client";
 
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, PhoneIncoming } from "lucide-react";
 import { DevicePickerModal } from "@/components/room/DevicePickerModal";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 import type { CallState, IncomingCall } from "@/hooks/useWebRTC";
 
 interface Props {
   callState: CallState;
   incomingCall: IncomingCall | null;
-  onStart: (videoDeviceId?: string, audioDeviceId?: string) => void;
+  showPicker: boolean;
+  onPickerConfirm: (videoDeviceId?: string, audioDeviceId?: string) => void;
+  onPickerCancel: () => void;
   onAnswer: () => void;
   onDecline: () => void;
   onEnd: () => void;
-  participantCount: number;
 }
 
+// Avisos de la videollamada (entrante / llamando) y la ventana para elegir dispositivos.
+// El botón para empezar la llamada vive en la barra de la sala (RoomClientPage).
 export function VideoCallPanel({
-  callState, incomingCall,
-  onStart, onAnswer, onDecline, onEnd,
-  participantCount,
+  callState, incomingCall, showPicker,
+  onPickerConfirm, onPickerCancel, onAnswer, onDecline, onEnd,
 }: Props) {
-  const [showPicker, setShowPicker] = useState(false);
-
-  const handleStartClick = () => setShowPicker(true);
-  const handlePickerConfirm = (videoId?: string, audioId?: string) => {
-    setShowPicker(false);
-    onStart(videoId, audioId);
-  };
-  const handlePickerCancel = () => setShowPicker(false);
+  const { t } = useLanguage();
+  const toastClass =
+    "fixed inset-x-3 bottom-3 z-40 rounded-2xl bg-plum/95 p-4 text-white shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-4 sm:left-4 sm:w-72";
 
   return (
     <>
-      {/* Device picker overlay */}
       <AnimatePresence>
-        {showPicker && (
-          <DevicePickerModal onConfirm={handlePickerConfirm} onCancel={handlePickerCancel} />
-        )}
+        {showPicker && <DevicePickerModal onConfirm={onPickerConfirm} onCancel={onPickerCancel} />}
       </AnimatePresence>
 
-      {/* Incoming call notification */}
       <AnimatePresence>
         {callState === "incoming" && incomingCall && !showPicker && (
-          <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-20 left-4 z-40 flex flex-col gap-3 p-4 rounded-2xl
-              bg-night-900/95 border border-accent/30 shadow-2xl backdrop-blur-sm w-64"
-          >
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+            className={toastClass} role="alertdialog" aria-label={`${incomingCall.from} ${t.roomUi.incomingCall}`}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0 animate-pulse">
-                <PhoneIncoming className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-white font-semibold text-sm">{incomingCall.from}</p>
-                <p className="text-white/50 text-xs">quiere hacer videollamada</p>
-              </div>
+              <span className="flex h-10 w-10 flex-shrink-0 animate-pulse items-center justify-center rounded-full bg-lamp">
+                <PhoneIncoming className="h-5 w-5 text-plum" aria-hidden="true" />
+              </span>
+              <p className="text-sm"><strong>{incomingCall.from}</strong> {t.roomUi.incomingCall}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="mt-3 flex gap-2">
               <button onClick={onDecline}
-                className="flex-1 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/30 transition-colors flex items-center justify-center gap-1.5">
-                <PhoneOff className="w-4 h-4" /> Rechazar
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-white/10 py-2.5 text-sm font-semibold hover:bg-white/15">
+                <PhoneOff className="h-4 w-4" aria-hidden="true" /> {t.roomUi.decline}
               </button>
               <button onClick={onAnswer}
-                className="flex-1 py-2 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium hover:bg-green-500/30 transition-colors flex items-center justify-center gap-1.5">
-                <Phone className="w-4 h-4" /> Contestar
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-sage py-2.5 text-sm font-bold text-plum">
+                <Phone className="h-4 w-4" aria-hidden="true" /> {t.roomUi.answer}
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Calling indicator */}
       <AnimatePresence>
         {callState === "calling" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-20 left-4 z-40 flex items-center gap-3 px-4 py-3 rounded-2xl
-              bg-night-900/95 border border-accent/30 shadow-xl backdrop-blur-sm"
-          >
-            <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            <span className="text-white/80 text-sm">Llamando...</span>
-            <button onClick={onEnd}
-              className="ml-2 px-2.5 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/30 transition-colors">
-              Cancelar
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+            className={`${toastClass} flex items-center gap-3`} role="status">
+            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-lamp" aria-hidden="true" />
+            <span className="flex-1 text-sm">{t.roomUi.calling}</span>
+            <button onClick={onEnd} className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/15">
+              {t.roomUi.cancel}
             </button>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Idle call button */}
-      <AnimatePresence>
-        {callState === "idle" && participantCount >= 2 && !showPicker && (
-          <motion.button
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleStartClick}
-            className="absolute bottom-4 left-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl
-              bg-night-800/90 border border-white/10 text-white/60 hover:text-white
-              hover:border-accent/40 hover:bg-accent/10 transition-all shadow-lg backdrop-blur-sm text-sm"
-          >
-            <Phone className="w-4 h-4" />
-            <span>Videollamada</span>
-          </motion.button>
         )}
       </AnimatePresence>
     </>

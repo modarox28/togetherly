@@ -16,7 +16,11 @@ export interface ChatMessage {
   username: string;
   color: string;
   timestamp: number;
-  isSystem?: boolean;
+  /** socket de quien lo escribió (para saber cuáles son "míos") */
+  senderId?: string;
+  avatar?: string;
+  /** Mensajes del sistema: el texto se traduce al mostrarlo (ver ChatPanel). */
+  system?: "you-joined" | "joined" | "left";
 }
 
 export interface VideoState {
@@ -26,9 +30,11 @@ export interface VideoState {
 }
 
 export interface Reaction {
-  id: number;
+  id: string;
   emoji: string;
   username: string;
+  /** Posición horizontal (0–100 %) donde sube la reacción */
+  x: number;
 }
 
 interface RoomState {
@@ -44,6 +50,10 @@ interface RoomState {
   typingUsers: string[];
   /** Máximo de personas si la sala está llena; null si se pudo entrar. */
   roomFull: number | null;
+  /** Cupo de la sala (2 gratis; más con Premium). */
+  maxParticipants: number;
+  /** La sala la abrió alguien con Premium (pase válido). */
+  premium: boolean;
 }
 
 interface RoomActions {
@@ -65,11 +75,13 @@ export function useRoom(): [RoomState, RoomActions] {
     connected: false,
     joined: false,
     roomFull: null,
+    maxParticipants: 2,
+    premium: false,
     participants: [],
     you: null,
     isHost: false,
     videoUrl: null,
-    videoState: { playing: false, currentTime: 0, updatedAt: Date.now() },
+    videoState: { playing: false, currentTime: 0, updatedAt: 0 },
     messages: [],
     reactions: [],
     typingUsers: [],
@@ -92,7 +104,7 @@ export function useRoom(): [RoomState, RoomActions] {
       setState((s) => ({ ...s, roomFull: max }));
     });
 
-    socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you }) => {
+    socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you, maxParticipants, premium }) => {
       setState((s) => ({
         ...s,
         joined: true,
@@ -101,52 +113,25 @@ export function useRoom(): [RoomState, RoomActions] {
         videoState,
         isHost,
         you,
-        messages: [
-          {
-            id: "system-join",
-            text: "You joined the room",
-            username: "System",
-            color: "#FFC965",
-            timestamp: Date.now(),
-            isSystem: true,
-          },
-        ],
+        maxParticipants: typeof maxParticipants === "number" ? maxParticipants : s.maxParticipants,
+        premium: premium === true,
+        messages: [systemMessage("you-joined", "", "#FFC965")],
       }));
     });
 
-    socket.on("participant-joined", ({ participant }) => {
+    socket.on("participant-joined", ({ participant }: { participant: Participant }) => {
       setState((s) => ({
         ...s,
         participants: [...s.participants.filter((p) => p.id !== participant.id), participant],
-        messages: [
-          ...s.messages,
-          {
-            id: `sys-${Date.now()}`,
-            text: `${participant.name} joined`,
-            username: "System",
-            color: participant.color,
-            timestamp: Date.now(),
-            isSystem: true,
-          },
-        ],
+        messages: [...s.messages, systemMessage("joined", participant.name, participant.color)],
       }));
     });
 
-    socket.on("participant-left", ({ participantId, name }) => {
+    socket.on("participant-left", ({ participantId, name }: { participantId: string; name: string }) => {
       setState((s) => ({
         ...s,
         participants: s.participants.filter((p) => p.id !== participantId),
-        messages: [
-          ...s.messages,
-          {
-            id: `sys-${Date.now()}`,
-            text: `${name} left the room`,
-            username: "System",
-            color: "#888",
-            timestamp: Date.now(),
-            isSystem: true,
-          },
-        ],
+        messages: [...s.messages, systemMessage("left", name, "#888")],
       }));
     });
 
@@ -178,7 +163,8 @@ export function useRoom(): [RoomState, RoomActions] {
     });
 
     socket.on("chat-message", (message: ChatMessage) => {
-      setState((s) => ({ ...s, messages: [...s.messages, message] }));
+      // Se guardan los últimos 300 mensajes para no llenar la memoria en sesiones largas.
+      setState((s) => ({ ...s, messages: [...s.messages, message].slice(-300) }));
     });
 
     socket.on("typing", ({ username }: { username: string }) => {
@@ -195,11 +181,9 @@ export function useRoom(): [RoomState, RoomActions] {
       typingTimeoutsRef.current.set(username, timeout);
     });
 
-    socket.on("reaction", (reaction: Reaction) => {
-      setState((s) => {
-        const reactions = [...s.reactions, reaction];
-        return { ...s, reactions: reactions.slice(-20) };
-      });
+    socket.on("reaction", ({ emoji, username }: { emoji: string; username: string }) => {
+      const reaction: Reaction = { id: crypto.randomUUID(), emoji, username, x: 10 + Math.random() * 80 };
+      setState((s) => ({ ...s, reactions: [...s.reactions, reaction].slice(-20) }));
       setTimeout(() => {
         setState((s) => ({ ...s, reactions: s.reactions.filter((r) => r.id !== reaction.id) }));
       }, 3000);
@@ -254,4 +238,10 @@ export function useRoom(): [RoomState, RoomActions] {
   };
 
   return [state, actions];
+}
+
+let systemCounter = 0;
+function systemMessage(kind: NonNullable<ChatMessage["system"]>, name: string, color: string): ChatMessage {
+  systemCounter += 1;
+  return { id: `sys-${systemCounter}-${kind}`, text: "", username: name, color, timestamp: Date.now(), system: kind };
 }

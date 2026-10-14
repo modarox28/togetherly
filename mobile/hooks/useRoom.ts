@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type RefObject } from "react";
 import { io, Socket } from "socket.io-client";
 import { SOCKET_URL } from "@/lib/constants";
 
@@ -12,6 +12,21 @@ export interface Message {
   id: string;
   userId: string;
   name: string;
+  avatar: string;
+  text: string;
+  timestamp: number;
+}
+
+interface RoomJoinedPayload {
+  participants: Participant[];
+  videoUrl: string | null;
+  you: Participant;
+}
+
+interface ServerChatMessage {
+  id: string;
+  senderId?: string;
+  username: string;
   avatar: string;
   text: string;
   timestamp: number;
@@ -48,22 +63,31 @@ export function useRoom(roomId: string) {
     socketRef.current = socket;
 
     socket.on("connect", () => setState((s) => ({ ...s, connected: true })));
-    socket.on("disconnect", () => setState((s) => ({ ...s, connected: false })));
+    socket.on("disconnect", () => setState((s) => ({ ...s, connected: false, joined: false })));
 
-    socket.on("room-state", ({ participants, videoUrl }: any) => {
-      setState((s) => ({ ...s, participants, videoUrl: videoUrl ?? s.videoUrl }));
+    // Mismo protocolo que la web (ver server/connection.js)
+    socket.on("room-joined", ({ participants, videoUrl, you }: RoomJoinedPayload) => {
+      setState((s) => ({ ...s, joined: true, participants, you, videoUrl: videoUrl ?? s.videoUrl }));
     });
 
-    socket.on("user-joined", (p: Participant) => {
-      setState((s) => ({ ...s, participants: [...s.participants.filter((x) => x.id !== p.id), p] }));
+    socket.on("participant-joined", ({ participant }: { participant: Participant }) => {
+      setState((s) => ({ ...s, participants: [...s.participants.filter((x) => x.id !== participant.id), participant] }));
     });
 
-    socket.on("user-left", ({ userId }: { userId: string }) => {
-      setState((s) => ({ ...s, participants: s.participants.filter((p) => p.id !== userId) }));
+    socket.on("participant-left", ({ participantId }: { participantId: string }) => {
+      setState((s) => ({ ...s, participants: s.participants.filter((p) => p.id !== participantId) }));
     });
 
-    socket.on("chat-message", (msg: Message) => {
-      setState((s) => ({ ...s, messages: [...s.messages, msg] }));
+    socket.on("chat-message", (msg: ServerChatMessage) => {
+      const message: Message = {
+        id: msg.id,
+        userId: msg.senderId ?? "",
+        name: msg.username,
+        avatar: msg.avatar,
+        text: msg.text,
+        timestamp: msg.timestamp,
+      };
+      setState((s) => ({ ...s, messages: [...s.messages, message] }));
     });
 
     socket.on("reaction", ({ emoji }: { emoji: string }) => {
@@ -72,9 +96,14 @@ export function useRoom(roomId: string) {
       setTimeout(() => setState((s) => ({ ...s, reactions: s.reactions.filter((r) => r.id !== id) })), 3000);
     });
 
-    socket.on("video-play", ({ time }: { time: number }) => remotePlayRef.current?.(time));
-    socket.on("video-pause", ({ time }: { time: number }) => remotePauseRef.current?.(time));
-    socket.on("video-seek", ({ time }: { time: number }) => remoteSeekRef.current?.(time));
+    // currentTime puede llegar en null ("Di Play" sin extensión): entonces no se salta.
+    const withTime = (cb: RefObject<((t: number) => void) | null>) =>
+      ({ currentTime }: { currentTime: number | null }) => {
+        if (typeof currentTime === "number") cb.current?.(currentTime);
+      };
+    socket.on("video-play", withTime(remotePlayRef));
+    socket.on("video-pause", withTime(remotePauseRef));
+    socket.on("video-seek", withTime(remoteSeekRef));
 
     socket.on("video-url-changed", ({ url }: { url: string }) => {
       setState((s) => ({ ...s, videoUrl: url }));
@@ -84,9 +113,7 @@ export function useRoom(roomId: string) {
   }, [roomId]);
 
   const joinRoom = useCallback((name: string, avatar: string) => {
-    socketRef.current?.emit("join-room", { roomId, name, avatar, isPublic: false, roomName: `${name}'s room` });
-    const you: Participant = { id: socketRef.current?.id ?? "", name, avatar };
-    setState((s) => ({ ...s, joined: true, you }));
+    socketRef.current?.emit("join-room", { roomId, username: name, avatar, isPublic: false, roomName: name });
   }, [roomId]);
 
   const sendMessage = useCallback((text: string) => {
@@ -98,15 +125,15 @@ export function useRoom(roomId: string) {
   }, [roomId]);
 
   const sendPlay = useCallback((time: number) => {
-    socketRef.current?.emit("video-play", { roomId, time });
+    socketRef.current?.emit("video-play", { roomId, currentTime: time });
   }, [roomId]);
 
   const sendPause = useCallback((time: number) => {
-    socketRef.current?.emit("video-pause", { roomId, time });
+    socketRef.current?.emit("video-pause", { roomId, currentTime: time });
   }, [roomId]);
 
   const sendSeek = useCallback((time: number) => {
-    socketRef.current?.emit("video-seek", { roomId, time });
+    socketRef.current?.emit("video-seek", { roomId, currentTime: time });
   }, [roomId]);
 
   const changeVideoUrl = useCallback((url: string) => {

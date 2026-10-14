@@ -79,7 +79,7 @@ true;
 `;
 
 export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(
-  ({ url, onPlay, onPause, onSeek, onRemotePlay, onRemotePause, onRemoteSeek }, ref) => {
+  function StreamingWebView({ url, onPlay, onPause, onSeek, onRemotePlay, onRemotePause, onRemoteSeek }, ref) {
     const webViewRef = useRef<WebView>(null);
 
     const postMessage = (msg: object) => {

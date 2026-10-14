@@ -31,7 +31,7 @@ export function Platforms() {
   const { t } = useLanguage();
 
   return (
-    <section id="platforms" className="grain bg-day-50 px-4 py-24 dark:bg-night-950">
+    <section id="platforms" className="grain bg-day-50 px-4 py-16 sm:py-24 dark:bg-night-950">
       <div className="mx-auto max-w-6xl">
         <SectionHeading>{t.platforms.title}</SectionHeading>
 

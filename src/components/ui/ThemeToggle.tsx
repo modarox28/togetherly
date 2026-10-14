@@ -3,13 +3,11 @@
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useIsClient } from "@/hooks/useIsClient";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const mounted = useIsClient();
   if (!mounted) return <div className="w-9 h-9" />;
 
   const isDark = theme === "dark";
@@ -24,7 +22,7 @@ export function ThemeToggle() {
         hover:bg-black/10 dark:hover:bg-white/10
         border border-black/10 dark:border-white/10
         transition-colors cursor-pointer"
-      aria-label="Toggle theme"
+      aria-label={isDark ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
     >
       <motion.div
         key={isDark ? "dark" : "light"}

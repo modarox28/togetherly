@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Mic, MicOff, Video, VideoOff, PhoneOff } from "lucide-react";
 import type { CallState } from "@/hooks/useWebRTC";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 
 interface Props {
   callState: CallState;
@@ -28,17 +29,19 @@ export function CallStrip({
   callState, localStream, remoteStream,
   isMicOn, isCameraOn, onToggleMic, onToggleCamera, onEnd,
 }: Props) {
+  const { t } = useLanguage();
+  const roundButton = "flex h-10 w-10 items-center justify-center rounded-full";
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: "auto" }}
       exit={{ opacity: 0, height: 0 }}
-      className="flex-shrink-0 bg-night-950 border-b border-white/5 overflow-hidden"
+      className="flex-shrink-0 overflow-hidden border-b border-day-900/10 dark:border-white/10"
     >
       {/* Face tiles */}
-      <div className="flex gap-1 p-1.5">
+      <div className="flex gap-1.5 p-2">
         {/* Remote */}
-        <div className="flex-1 relative rounded-xl overflow-hidden bg-night-800" style={{ aspectRatio: "4/3" }}>
+        <div className="flex-1 relative rounded-2xl overflow-hidden bg-night-800" style={{ aspectRatio: "4/3" }}>
           {remoteStream ? (
             <StreamVideo stream={remoteStream} className="w-full h-full object-cover" />
           ) : (
@@ -47,17 +50,17 @@ export function CallStrip({
                 <Video className="w-4 h-4 text-accent" />
               </div>
               {callState === "calling" && (
-                <span className="text-white/40 text-[10px]">Llamando...</span>
+                <span className="text-white/50 text-[11px]">{t.roomUi.calling}</span>
               )}
             </div>
           )}
           <div className="absolute bottom-1 left-1.5 text-[9px] text-white/60 bg-black/40 px-1.5 py-0.5 rounded-md">
-            {callState === "calling" ? "Esperando..." : ""}
+            {callState === "calling" ? t.roomUi.waiting : ""}
           </div>
         </div>
 
         {/* Local */}
-        <div className="relative rounded-xl overflow-hidden bg-night-800" style={{ width: "40%", aspectRatio: "4/3" }}>
+        <div className="relative rounded-2xl overflow-hidden bg-night-800" style={{ width: "40%", aspectRatio: "4/3" }}>
           {localStream && isCameraOn ? (
             <StreamVideo stream={localStream} muted className="w-full h-full object-cover scale-x-[-1]" />
           ) : (
@@ -66,23 +69,23 @@ export function CallStrip({
             </div>
           )}
           <div className="absolute bottom-1 left-1.5 text-[9px] text-white/60 bg-black/40 px-1.5 py-0.5 rounded-md">
-            Tú
+            {t.roomUi.you}
           </div>
         </div>
       </div>
 
       {/* Controls */}
       <div className="flex items-center justify-center gap-2 pb-2 px-2">
-        <button onClick={onToggleMic}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors text-xs ${isMicOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500 text-white"}`}>
+        <button onClick={onToggleMic} aria-label={t.roomUi.toggleMic} aria-pressed={isMicOn}
+          className={`${roundButton} ${isMicOn ? "bg-day-900/10 text-day-900 dark:bg-white/10 dark:text-white" : "bg-blanket text-plum"}`}>
           {isMicOn ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
         </button>
-        <button onClick={onToggleCamera}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isCameraOn ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-500 text-white"}`}>
+        <button onClick={onToggleCamera} aria-label={t.roomUi.toggleCamera} aria-pressed={isCameraOn}
+          className={`${roundButton} ${isCameraOn ? "bg-day-900/10 text-day-900 dark:bg-white/10 dark:text-white" : "bg-blanket text-plum"}`}>
           {isCameraOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
         </button>
-        <button onClick={onEnd}
-          className="w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors">
+        <button onClick={onEnd} aria-label={t.roomUi.endCall}
+          className={`${roundButton} bg-red-500 text-white hover:bg-red-600`}>
           <PhoneOff className="w-3.5 h-3.5" />
         </button>
       </div>

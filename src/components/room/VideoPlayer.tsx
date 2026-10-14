@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
 import YouTube, { type YouTubePlayer, type YouTubeEvent } from "react-youtube";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Pause, Volume2, VolumeX, CheckCircle2, Link, Maximize2, Minimize2 } from "lucide-react";
+import { Play, Pause, Volume2, VolumeX, CheckCircle2, Maximize2, Minimize2, X } from "lucide-react";
 import { extractYouTubeId, formatTime } from "@/lib/utils";
 import { detectPlatform, getPlayerType } from "@/lib/platforms";
 import { useLanguage } from "@/components/providers/LanguageProvider";
@@ -12,18 +12,24 @@ import { VimeoEmbed } from "@/components/room/players/VimeoEmbed";
 import { SpotifyEmbed } from "@/components/room/players/SpotifyEmbed";
 import { CompanionEmbed } from "@/components/room/players/CompanionEmbed";
 import type { PlayerHandle } from "@/components/room/players/TwitchEmbed";
+import { EmptyScreen, normalizeVideoInput } from "@/components/room/EmptyScreen";
+
+// Estados del reproductor de YouTube (window.YT.PlayerState)
+const YT_PLAYING = 1;
+const YT_PAUSED = 2;
 
 export interface VideoPlayerHandle {
   togglePlay: () => void;
   toggleFullscreen: () => void;
   seekRelative: (delta: number) => void;
   adjustVolume: (delta: number) => void;
+  /** Abre la barra para pegar otro enlace */
+  openUrlBar: () => void;
 }
 
 interface VideoPlayerProps {
   videoUrl: string | null;
   roomId: string;
-  isSynced: boolean;
   extensionActive?: boolean;
   onPlay: (currentTime: number | null) => void;
   onPause: (currentTime: number | null) => void;
@@ -35,7 +41,7 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer({
-  videoUrl, isSynced, extensionActive = false,
+  videoUrl, extensionActive = false,
   onPlay, onPause, onSeek, onUrlChange,
   onRemotePlay, onRemotePause, onRemoteSeek,
 }, ref) {
@@ -104,7 +110,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
     onRemotePlay((time) => {
       isRemoteAction.current = true;
       playerSeek(time);
-      const result = playerPlay();
+      playerPlay();
       if (isSpotify) { setPendingSync({ time }); pendingSyncRef.current = { time }; }
       setIsPlaying(true);
       showSync();
@@ -122,6 +128,8 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       setCurrentTime(time);
       showSync();
     });
+    // Las funciones del reproductor dependen solo de platform (ya está en la lista).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onRemotePlay, onRemotePause, onRemoteSeek, platform, isCompanion]);
 
   // Progress interval
@@ -133,6 +141,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       }
     }, 500);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, isDragging, platform]);
 
   // YouTube callbacks
@@ -142,14 +151,12 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   }, []);
 
   const handleYTStateChange = useCallback((e: YouTubeEvent) => {
-    const YT = (window as any).YT;
-    if (!YT) return;
-    if (e.data === YT.PlayerState.PLAYING) {
+    if (e.data === YT_PLAYING) {
       setIsPlaying(true);
       setPendingSync(null);
       if (!isRemoteAction.current) onPlay(e.target.getCurrentTime());
       isRemoteAction.current = false;
-    } else if (e.data === YT.PlayerState.PAUSED) {
+    } else if (e.data === YT_PAUSED) {
       setIsPlaying(false);
       if (!isRemoteAction.current) onPause(e.target.getCurrentTime());
       isRemoteAction.current = false;
@@ -214,9 +221,9 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   };
 
   const handleLoadUrl = () => {
-    const clean = urlInput.trim();
-    if (!clean) return;
-    onUrlChange(clean);
+    const url = normalizeVideoInput(urlInput);
+    if (!url) return;
+    onUrlChange(url);
     setUrlInput("");
   };
 
@@ -235,6 +242,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   }, []);
 
   useImperativeHandle(ref, () => ({
+    openUrlBar: () => setShowUrlBar(true),
     togglePlay,
     toggleFullscreen,
     seekRelative: (delta: number) => {
@@ -259,36 +267,11 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   }));
 
   if (!videoUrl || !platform) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 bg-night-900">
-        <div className="text-center space-y-2">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-4">
-            <Play className="w-7 h-7 text-accent" />
-          </div>
-          <h3 className="text-white font-semibold text-lg">{t.watchRoom.addVideo}</h3>
-          <p className="text-white/40 text-sm">{t.watchRoom.pasteToStart}</p>
-          <p className="text-white/25 text-xs mt-1">YouTube · Twitch · Vimeo · Spotify</p>
-          <p className="text-white/15 text-xs mt-0.5">Netflix · Disney+ · HBO Max · Prime Video · y más</p>
-        </div>
-        <div className="w-full max-w-md flex gap-2">
-          <input
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            placeholder={t.watchRoom.videoPaste}
-            onKeyDown={(e) => e.key === "Enter" && handleLoadUrl()}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-night-800 border border-night-600 text-white placeholder:text-white/30 text-sm outline-none focus:border-accent transition-all"
-          />
-          <button onClick={handleLoadUrl}
-            className="px-4 py-2.5 rounded-xl bg-accent text-on-accent text-sm font-medium hover:opacity-90 transition-opacity">
-            {t.watchRoom.loadVideo}
-          </button>
-        </div>
-      </div>
-    );
+    return <EmptyScreen extensionActive={extensionActive} onLoadUrl={onUrlChange} />;
   }
 
   return (
-    <div ref={containerRef} className="flex-1 flex flex-col bg-black relative">
+    <div ref={containerRef} className="group/player relative flex h-full flex-col bg-black">
       {/* Player area — [&_iframe]:pointer-events-none prevents iframes from stealing drag events (volume slider, etc.) */}
       <div className="flex-1 relative [&_iframe]:pointer-events-none">
 
@@ -350,7 +333,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
         <AnimatePresence>
           {syncIndicator && !isCompanion && (
             <motion.div initial={{ opacity: 0, scale: 0.8, y: -10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }}
-              className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-night-800/90 border border-accent/30 text-accent text-xs font-medium z-20">
+              className="absolute top-3 right-3 z-20 flex items-center gap-1.5 rounded-full bg-plum/90 px-3 py-1.5 text-xs font-bold text-lamp">
               <CheckCircle2 className="w-3.5 h-3.5" />
               {t.watchRoom.syncedWith}
             </motion.div>
@@ -363,13 +346,13 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
               className="absolute inset-0 flex items-center justify-center z-30 bg-black/40">
               <button onClick={handleTapToSync}
-                className="flex flex-col items-center gap-3 px-8 py-5 rounded-2xl bg-night-900/95 border border-accent/40 text-white shadow-2xl">
-                <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center">
-                  <Play className="w-6 h-6 fill-white text-white ml-1" />
+                className="flex flex-col items-center gap-3 rounded-2xl bg-plum/95 px-8 py-5 text-white shadow-2xl">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-lamp">
+                  <Play className="ml-1 h-6 w-6 fill-plum text-plum" />
                 </div>
                 <div className="text-center">
-                  <p className="font-semibold text-sm">Tu pareja dio play</p>
-                  <p className="text-white/50 text-xs mt-0.5">Toca para sincronizar</p>
+                  <p className="text-sm font-bold">{t.roomUi.remotePlayed}</p>
+                  <p className="mt-0.5 text-xs text-white/60">{t.roomUi.tapToSync}</p>
                 </div>
               </button>
             </motion.div>
@@ -378,17 +361,18 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
 
         {/* Click overlay (not for Spotify or companion) */}
         {!pendingSync && !isSpotify && !isCompanion && (
-          <div className="absolute inset-0 cursor-pointer z-10" onClick={togglePlay} />
+          <div className="absolute inset-0 cursor-pointer z-10" onClick={togglePlay} aria-hidden="true" />
         )}
       </div>
 
       {/* Controls — hidden for Spotify and companion mode */}
       {!isSpotify && !isCompanion && (
         <div className="bg-gradient-to-t from-black/95 to-transparent pb-3 px-4 pt-8 absolute bottom-0 left-0 right-0 z-20
-          opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200">
+          opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover/player:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
           {/* Progress bar */}
           <div className="mb-3 relative h-4 flex items-center">
             <input type="range" min={0} max={duration || 100} step={0.1} value={currentTime}
+              aria-label={t.roomUi.progress}
               onChange={(e) => setCurrentTime(parseFloat(e.target.value))}
               onMouseDown={() => setIsDragging(true)}
               onMouseUp={(e) => commitSeek(parseFloat((e.target as HTMLInputElement).value))}
@@ -404,27 +388,23 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
 
           {/* Controls row */}
           <div className="flex items-center gap-2">
-            <button onClick={togglePlay} className="w-9 h-9 flex items-center justify-center text-white hover:text-accent transition-colors">
+            <button onClick={togglePlay} aria-label={isPlaying ? t.roomUi.pause : t.roomUi.play} className="flex h-10 w-10 items-center justify-center text-white hover:text-lamp">
               {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
             </button>
-            <button onClick={toggleMute} className="w-8 h-8 flex items-center justify-center text-white/70 hover:text-white transition-colors flex-shrink-0">
+            <button onClick={toggleMute} aria-label={isMuted ? t.roomUi.unmute : t.roomUi.mute} className="flex h-10 w-10 flex-shrink-0 items-center justify-center text-white/75 hover:text-white">
               {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <input type="range" min={0} max={100} value={isMuted ? 0 : volume}
               onChange={handleVolumeChange}
-              className="w-16 sm:w-20 cursor-pointer accent-accent" />
+              aria-label={t.roomUi.volume}
+              className="hidden w-20 cursor-pointer accent-lamp sm:block" />
             <span className="text-white/60 text-xs font-mono tabular-nums">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
             <div className="flex-1" />
-            <button onClick={() => setShowUrlBar((v) => !v)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-colors"
-              title="Change video">
-              <Link className="w-4 h-4" />
-            </button>
             <button onClick={toggleFullscreen}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/60 hover:text-white transition-colors"
-              title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-white/75 hover:bg-white/10 hover:text-white"
+              aria-label={isFullscreen ? t.roomUi.exitFullscreen : t.roomUi.fullscreen}>
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
           </div>
@@ -435,15 +415,20 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
       <AnimatePresence>
         {showUrlBar && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }}
-            className="flex gap-2 px-3 py-2 bg-night-900 border-t border-white/5 z-30 relative"
+            className="absolute inset-x-0 top-0 z-30 flex gap-2 bg-plum/95 p-2.5"
             onClick={(e) => e.stopPropagation()}>
             <input autoFocus value={urlInput} onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="YouTube, Netflix, Disney+, Twitch, Vimeo..."
+              placeholder={t.roomUi.linkPlaceholder}
+              aria-label={t.roomUi.changeVideo}
               onKeyDown={(e) => { if (e.key === "Enter") { handleLoadUrl(); setShowUrlBar(false); } if (e.key === "Escape") setShowUrlBar(false); }}
-              className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-white placeholder:text-white/30 text-sm outline-none focus:border-accent transition-all" />
+              className="min-w-0 flex-1 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-white/40 focus:border-lamp" />
             <button onClick={() => { handleLoadUrl(); setShowUrlBar(false); }}
-              className="px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium hover:opacity-90 transition-opacity whitespace-nowrap">
-              Load
+              className="whitespace-nowrap rounded-xl bg-lamp px-4 py-2 text-sm font-bold text-plum">
+              {t.roomUi.watchHere}
+            </button>
+            <button onClick={() => setShowUrlBar(false)} aria-label={t.roomUi.cancel}
+              className="flex w-10 flex-shrink-0 items-center justify-center rounded-xl text-white/70 hover:bg-white/10 hover:text-white">
+              <X className="h-4 w-4" />
             </button>
           </motion.div>
         )}

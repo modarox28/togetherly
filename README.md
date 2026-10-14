@@ -9,7 +9,8 @@ Para ver películas y series en sincronía con quien quieras, aunque estén en c
 - **Dentro de la sala:** YouTube, Twitch, Vimeo y Spotify se reproducen sincronizados para todos.
 - **Con la extensión** (Chrome, Edge, Brave, Opera y Firefox): Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll. Cada quien usa su propia cuenta y la extensión sincroniza el play, la pausa y los saltos. Guía para usuarios en [/extension](https://togetherly-weld.vercel.app/extension); detalles técnicos en [togetherly-extension/README.md](togetherly-extension/README.md).
 - Chat, reacciones flotantes, videollamada (WebRTC), salas públicas, modo claro/oscuro, español/inglés, PWA instalable.
-- **Planes:** gratis para 2 personas por sala; Premium (USD 3.99/mes, Stripe) hasta 8.
+- **Planes:** gratis para 2 personas por sala; Premium (hasta 8) está en "Próximamente" mientras se elige una pasarela de pagos (ver `docs/monetizacion.md`).
+- **Funciona en celular y tableta** (la sala, el chat y la videollamada); la extensión es solo para computador.
 
 ## Stack
 
@@ -20,7 +21,7 @@ Navegador ──HTTP──▶ Next.js (Vercel)      páginas, inicio de sesión,
     │
     └──WebSocket──▶ socket-server.js (Render)    salas, play/pausa, chat, señalización de llamadas
                           ▲
-Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
+Extensión del navegador ──┘   (Netflix, Prime, etc.; también puede crear la sala sola)
 ```
 
 ## Mapa del proyecto
@@ -29,7 +30,7 @@ Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
 |---|---|
 | `src/app/` | Páginas (rutas de Next.js) y la API (`src/app/api/`). `globals.css` tiene los colores y fuentes. |
 | `src/components/landing/` | Página de inicio. `TwoRoomsScene.tsx` es la ilustración animada del hero. |
-| `src/components/room/` | La sala: reproductor, chat, videollamada. `players/` tiene un componente por plataforma. |
+| `src/components/room/` | La sala: `RoomClientPage` (arma todo), `RoomHeader`, `EmptyScreen` (qué ver), `VideoPlayer`, `ChatPanel`, `CallStrip`/`VideoCallPanel` (videollamada), `JoinRoomCard` y `CharacterPicker`. `players/` tiene un componente por plataforma. |
 | `src/components/ui/` | Piezas reutilizables: botón, campo de texto, logo, cambio de tema e idioma. |
 | `src/hooks/` | Lógica de la sala en el navegador: `useRoom` (sockets), `useWebRTC` (llamada). |
 | `src/lib/translations.ts` | **Todos los textos** de la web en español e inglés. |
@@ -40,10 +41,13 @@ Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
 | `socket-server.js` + `server/` | Servidor de salas: `validation.js`, `rooms.js`, `room-pass.js`, `connection.js`. |
 | `togetherly-extension/` | Extensión (Chrome, Edge, Brave, Opera, Firefox). |
 | `src/app/extension/` + `src/components/extension/` | Página de instalación con descarga, pasos, capturas y video. Navegadores en `src/lib/browsers.ts`. |
-| `scripts/` | `build-extension-zip.mjs` arma las descargas de la extensión; `capture-extension-guide.mjs` regenera capturas y video de la guía. |
+| `scripts/` | `build-extension-zip.mjs` arma las descargas de la extensión (y con `--stores`, los paquetes de las tiendas); `capture-extension-guide.mjs` regenera capturas y video de la guía; `capture-store-assets.mjs`, las imágenes de las tiendas. |
 | `tests/extension/` | Pruebas de punta a punta (extensión, servidor y planes). |
 | `prisma/schema.prisma` | Tablas de la base de datos (usuarios, sesiones, suscripción). |
-| `mobile/` | App móvil con Expo (experimental). |
+| `mobile/` | App móvil con Expo (experimental). Habla el mismo protocolo que la web; la dirección del servidor se cambia con `EXPO_PUBLIC_SOCKET_URL`. |
+| `store-listing/` | Textos, capturas y pasos para publicar la extensión en Firefox y Edge (gratis). |
+| `SECURITY.md` | Revisión de los 20 controles de seguridad. |
+| `src/app/privacidad/` | Política de privacidad (la piden las tiendas). |
 
 **Convención:** el código (archivos, funciones, variables) va en inglés, como el resto del ecosistema; los comentarios y los textos que ve la persona, en español.
 
@@ -62,6 +66,7 @@ Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
 | Agregar o cambiar avatares | `src/lib/characters.ts` (personajes propios, sin marcas). |
 | Encender o apagar los pagos | `NEXT_PUBLIC_PAYMENTS_ENABLED` en Vercel. Antes, leer `docs/monetizacion.md`. |
 | Cambiar el popup de la extensión (crear/unirse a sala) | `togetherly-extension/popup.html` y `popup.js`. |
+| Cambiar cabeceras de seguridad o permitir un dominio nuevo | `next.config.ts` (`FRAME_SOURCES`, `SCRIPT_SOURCES`). |
 | Cambiar reglas del servidor de salas | `server/connection.js` (eventos) y `server/validation.js` (validaciones). |
 
 ## Instalar y correr en tu computador (Windows / CMD)
@@ -97,7 +102,7 @@ npm run test:extension
 
 Abren dos navegadores reales con la extensión, levantan el servidor de salas y comprueban play, pausa, saltos y entrada tardía en páginas que imitan Netflix, Prime y Disney+, además de los permisos del servidor y los límites de cada plan. Necesitan `ffmpeg` instalado (genera el video de prueba).
 
-GitHub Actions corre TypeScript, la compilación y estas pruebas en cada push (`.github/workflows/ci.yml`).
+GitHub Actions corre TypeScript, lint, `npm audit`, la compilación, estas pruebas y gitleaks (claves filtradas) en cada push (`.github/workflows/ci.yml`). Dependabot propone actualizaciones cada semana.
 
 ## Variables de entorno
 
@@ -139,4 +144,6 @@ Sin configurar nada, la videollamada usa STUN y funciona en la mayoría de redes
 
 ## Pendientes conocidos
 
-- 21 avisos del compilador de React 19 en la sala, la videollamada y los reproductores de Twitch y Vimeo (`npm run lint`). No bloquean, pero conviene corregirlos probando cada cambio con una llamada real.
+- Cuentas en producción: faltan la base de datos (Neon) y las claves de Google en Vercel. Sin ellas, /login y /register muestran "Las cuentas llegan pronto" y todo lo demás funciona.
+- Protección contra bots en el registro (Cloudflare Turnstile) si algún día hace falta.
+- La app móvil (`mobile/`) no se ha probado en un teléfono real después del cambio de protocolo.

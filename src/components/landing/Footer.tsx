@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 
@@ -13,7 +14,10 @@ export function Footer() {
         <Logo />
         <p className="text-sm text-day-900/65 dark:text-white/65">{t.footer.tagline}</p>
         <p className="text-sm text-day-900/50 dark:text-white/50">
-          © {year} Togetherly. {t.footer.rights}
+          © {year} Togetherly. {t.footer.rights}{" "}
+          <Link href="/privacidad" className="underline underline-offset-4 hover:text-day-900 dark:hover:text-white">
+            {t.footer.privacy}
+          </Link>
         </p>
       </div>
     </footer>

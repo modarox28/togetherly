@@ -1,26 +1,28 @@
-// Servidor de salas (Render, plan gratis). Si cambia, actualízalo aquí y en NEXT_PUBLIC_SOCKET_URL de Vercel.
-export const SOCKET_URL = "https://togetherly-salas.onrender.com";
-export const API_URL = "https://togetherly-weld.vercel.app";
+// Direcciones del servidor de salas y de la web. Se pueden cambiar sin tocar código con
+// EXPO_PUBLIC_SOCKET_URL y EXPO_PUBLIC_API_URL (archivo mobile/.env o variables de EAS).
+export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "https://togetherly-salas.onrender.com";
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || "https://togetherly-weld.vercel.app";
 
+// Mismos personajes propios que la web (src/lib/characters.ts), sin marcas registradas.
 export const CHARACTERS = [
-  { id: "mario", emoji: "🍄", name: "Mario" },
-  { id: "pikachu", emoji: "⚡", name: "Pikachu" },
-  { id: "link", emoji: "🗡️", name: "Link" },
-  { id: "samus", emoji: "🚀", name: "Samus" },
-  { id: "sonic", emoji: "💨", name: "Sonic" },
-  { id: "kirby", emoji: "🌸", name: "Kirby" },
-  { id: "fox", emoji: "🦊", name: "Fox" },
-  { id: "yoshi", emoji: "🦕", name: "Yoshi" },
-  { id: "peach", emoji: "👑", name: "Peach" },
-  { id: "bowser", emoji: "🐢", name: "Bowser" },
-  { id: "zelda", emoji: "🔮", name: "Zelda" },
-  { id: "ness", emoji: "⚾", name: "Ness" },
+  { id: "palomita", emoji: "🍿", name: "Palomita" },
+  { id: "luna", emoji: "🌙", name: "Luna" },
+  { id: "michi", emoji: "🐈", name: "Michi" },
+  { id: "buho", emoji: "🦉", name: "Búho" },
+  { id: "zorro", emoji: "🦊", name: "Zorro" },
+  { id: "panda", emoji: "🐼", name: "Panda" },
+  { id: "pulpo", emoji: "🐙", name: "Pulpo" },
+  { id: "girasol", emoji: "🌻", name: "Girasol" },
+  { id: "tortuga", emoji: "🐢", name: "Tortuga" },
+  { id: "tinto", emoji: "☕", name: "Tinto" },
+  { id: "arepa", emoji: "🫓", name: "Arepa" },
+  { id: "loro", emoji: "🦜", name: "Loro" },
 ];
 
 export const STREAMING_PLATFORMS = [
   { id: "netflix", name: "Netflix", url: "https://www.netflix.com", color: "#E50914" },
   { id: "disney", name: "Disney+", url: "https://www.disneyplus.com", color: "#113CCF" },
-  { id: "hbo", name: "Max", url: "https://www.max.com", color: "#002BE7" },
+  { id: "hbo", name: "HBO Max", url: "https://www.hbomax.com", color: "#002BE7" },
   { id: "prime", name: "Prime Video", url: "https://www.primevideo.com", color: "#00A8E1" },
   { id: "apple", name: "Apple TV+", url: "https://tv.apple.com", color: "#555555" },
   { id: "paramount", name: "Paramount+", url: "https://www.paramountplus.com", color: "#0064FF" },

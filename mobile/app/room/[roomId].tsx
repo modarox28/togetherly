@@ -102,8 +102,8 @@ export default function RoomScreen() {
         ) : (
           /* Platform picker */
           <View className="flex-1 items-center justify-center px-6 gap-4">
-            <Text className="text-white text-xl font-bold">What do you want to watch?</Text>
-            <Text className="text-white/40 text-sm text-center">Choose a platform — you'll log in with your own account</Text>
+            <Text className="text-white text-xl font-bold">¿Qué quieren ver?</Text>
+            <Text className="text-white/40 text-sm text-center">Elige una plataforma: entras con tu propia cuenta</Text>
 
             <View className="w-full flex-row flex-wrap gap-3 justify-center mt-2">
               {STREAMING_PLATFORMS.map((p) => (

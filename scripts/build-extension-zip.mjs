@@ -4,6 +4,10 @@
 // El código es el mismo; solo cambia el manifest (ver firefoxManifest abajo).
 // Se ejecuta solo antes de `npm run dev` y `npm run build` (ver package.json), así las
 // descargas siempre coinciden con el código. No usa dependencias externas.
+//
+// Con --stores (`npm run package:stores`) genera además los paquetes para subir a las
+// tiendas (Firefox Add-ons y Edge Add-ons) en store-listing/paquetes/: las tiendas piden
+// los archivos en la raíz del .zip, sin la carpeta togetherly-sync/.
 import { readdirSync, readFileSync, statSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -115,12 +119,18 @@ const builds = {
   "togetherly-sync-firefox.zip": firefoxManifest(chromiumManifest),
 };
 
-mkdirSync(OUTPUT_DIR, { recursive: true });
-for (const [zipName, manifest] of Object.entries(builds)) {
-  const entries = files.map(({ relativePath, data }) => ({
-    path: `${FOLDER_IN_ZIP}/${relativePath}`,
-    data: relativePath === "manifest.json" ? Buffer.from(JSON.stringify(manifest, null, 2) + "\n") : data,
-  }));
-  writeFileSync(join(OUTPUT_DIR, zipName), createZip(entries));
-  console.log(`Extensión empaquetada: public/downloads/${zipName} (${entries.length} archivos)`);
+function writeBuilds(outputDir, folderInZip, suffix = "") {
+  mkdirSync(outputDir, { recursive: true });
+  for (const [zipName, manifest] of Object.entries(builds)) {
+    const entries = files.map(({ relativePath, data }) => ({
+      path: folderInZip ? `${folderInZip}/${relativePath}` : relativePath,
+      data: relativePath === "manifest.json" ? Buffer.from(JSON.stringify(manifest, null, 2) + "\n") : data,
+    }));
+    const finalName = zipName.replace(".zip", `${suffix}.zip`);
+    writeFileSync(join(outputDir, finalName), createZip(entries));
+    console.log(`Extensión empaquetada: ${relative(ROOT, join(outputDir, finalName))} (${entries.length} archivos)`);
+  }
 }
+
+writeBuilds(OUTPUT_DIR, FOLDER_IN_ZIP);
+if (process.argv.includes("--stores")) writeBuilds(join(ROOT, "store-listing", "paquetes"), "", "-tienda");

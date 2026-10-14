@@ -1,327 +1,244 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { LogoMark } from "@/components/ui/Logo";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, LogOut, Heart, Wifi, WifiOff, ArrowRight, Share2 } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
+import { Link2, Phone } from "lucide-react";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { VideoCallPanel } from "@/components/room/VideoCallPanel";
 import { CallStrip } from "@/components/room/CallStrip";
+import { RoomHeader } from "@/components/room/RoomHeader";
+import { JoinRoomCard, type JoinProfile } from "@/components/room/JoinRoomCard";
+import { RoomFullScreen } from "@/components/room/RoomFullScreen";
 import { useRoom } from "@/hooks/useRoom";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useWakeLock } from "@/hooks/useWakeLock";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useLanguage } from "@/components/providers/LanguageProvider";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { CHARACTERS, DEFAULT_AVATAR } from "@/lib/characters";
 
 interface Props { roomId: string }
 
+// ── Perfil guardado en sessionStorage (lo deja /room al crear o unirse) ──────
+const PROFILE_KEYS = { name: "togetherly-username", character: "togetherly-character" } as const;
+
+function readSavedProfile(): string | null {
+  try {
+    const name = sessionStorage.getItem(PROFILE_KEYS.name);
+    const character = sessionStorage.getItem(PROFILE_KEYS.character);
+    return name && character ? `${character}|${name}` : null;
+  } catch {
+    return null;
+  }
+}
+
+const noSubscribe = () => () => {};
+
+function parseProfile(saved: string | null): JoinProfile | null {
+  if (!saved) return null;
+  const [characterId, ...nameParts] = saved.split("|");
+  return { name: nameParts.join("|"), characterId };
+}
+
+function saveProfile({ name, characterId }: JoinProfile) {
+  try {
+    sessionStorage.setItem(PROFILE_KEYS.name, name);
+    sessionStorage.setItem(PROFILE_KEYS.character, characterId);
+  } catch {}
+}
+
+/** Pide un pase Premium (si quien entra lo tiene). Sin sesión o con error: null y límite gratis. */
+async function fetchRoomPass(roomId: string): Promise<string | null> {
+  try {
+    const response = await fetch("/api/rooms/pass", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId }),
+    });
+    return response.ok ? ((await response.json()).pass ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
+const postToExtension = (data: Record<string, unknown>) =>
+  window.postMessage({ source: "togetherly-web", ...data }, window.location.origin);
+
 export function RoomClientPage({ roomId }: Props) {
-  const [state, actions] = useRoom();
-  const [copied, setCopied] = useState(false);
-  const [hasJoined, setHasJoined] = useState(false);
-  const [extensionActive, setExtensionActive] = useState(false);
-  const playerRef = useRef<VideoPlayerHandle>(null);
-  useKeyboardShortcuts(playerRef);
-
-  const [username, setUsername] = useState("");
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
-  const [step, setStep] = useState<"name" | "character">("name");
-
   const { t } = useLanguage();
   const router = useRouter();
+  const [state, actions] = useRoom();
+  const playerRef = useRef<VideoPlayerHandle>(null);
+  const [extensionActive, setExtensionActive] = useState(false);
+  const [showDevicePicker, setShowDevicePicker] = useState(false);
 
-  const {
-    callState, localStream, remoteStream, incomingCall,
-    isMicOn, isCameraOn,
-    startCall, answerCall, declineCall, endCall,
-    toggleMic, toggleCamera,
-  } = useWebRTC(roomId);
+  const savedProfile = parseProfile(useSyncExternalStore(noSubscribe, readSavedProfile, () => null));
+  const [formProfile, setFormProfile] = useState<JoinProfile | null>(null);
+  const profile = formProfile ?? savedProfile;
 
-  useWakeLock(hasJoined);
+  const call = useWebRTC(roomId);
+  useKeyboardShortcuts(playerRef);
+  useWakeLock(!!profile);
 
-  // Extension bridge — auto-connect extension when user joins a room
+  // Entrar a la sala en cuanto hay perfil (guardado o recién llenado).
+  const profileKey = profile ? `${profile.characterId}|${profile.name}` : null;
   useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      if (e.data?.source !== "togetherly-ext") return;
-      if (e.source !== window || e.origin !== window.location.origin) return;
-      if (["EXT_READY", "EXT_STATUS", "PONG"].includes(e.data.type)) {
-        setExtensionActive(e.data.connected ?? true);
-      }
+    if (!profileKey) return;
+    const { name, characterId } = parseProfile(profileKey)!;
+    const avatar = CHARACTERS.find((c) => c.id === characterId)?.emoji ?? DEFAULT_AVATAR;
+    let isPublic = false;
+    let roomName = name;
+    try {
+      isPublic = sessionStorage.getItem("togetherly-is-public") === "1";
+      roomName = sessionStorage.getItem("togetherly-room-name") || name;
+    } catch {}
+    fetchRoomPass(roomId).then((pass) => actions.joinRoom(roomId, name, avatar, isPublic, roomName, pass));
+    // actions.joinRoom es estable (useCallback)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileKey, roomId]);
+
+  // La extensión (si está instalada) avisa que existe y si está conectada.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      if (event.data?.source !== "togetherly-ext") return;
+      if (["EXT_READY", "EXT_STATUS", "PONG"].includes(event.data.type)) setExtensionActive(event.data.connected ?? true);
     };
-    window.addEventListener("message", handler);
-    // Ping to detect extension on load
-    window.postMessage({ source: "togetherly-web", type: "PING" }, window.location.origin);
-    return () => window.removeEventListener("message", handler);
+    window.addEventListener("message", onMessage);
+    postToExtension({ type: "PING" });
+    return () => window.removeEventListener("message", onMessage);
   }, []);
 
+  // Al entrar, la extensión se conecta sola a esta misma sala.
+  const youName = state.you?.name;
+  const youAvatar = state.you?.avatar;
   useEffect(() => {
-    if (!state.joined || !state.you) return;
-    window.postMessage({
-      source: "togetherly-web",
-      type: "JOIN_ROOM",
-      roomId,
-      username: state.you.name,
-      avatar: state.you.avatar,
-    }, window.location.origin);
-    return () => {
-      window.postMessage({ source: "togetherly-web", type: "LEAVE_ROOM" }, window.location.origin);
-    };
-  }, [state.joined]);
+    if (!state.joined || !youName) return;
+    postToExtension({ type: "JOIN_ROOM", roomId, username: youName, avatar: youAvatar });
+    return () => postToExtension({ type: "LEAVE_ROOM" });
+  }, [state.joined, roomId, youName, youAvatar]);
 
-  // Pide un pase Premium (si la persona lo tiene) y entra a la sala.
-  // Si falla o no hay sesión, entra igual con el límite del plan gratis.
-  const joinWithPass = async (name: string, avatar: string, isPublic = false, roomName = "") => {
-    let pass: string | null = null;
-    try {
-      const r = await fetch("/api/rooms/pass", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomId }),
-      });
-      if (r.ok) pass = (await r.json()).pass ?? null;
-    } catch {}
-    actions.joinRoom(roomId, name, avatar, isPublic, roomName, pass);
-  };
+  if (state.roomFull) return <RoomFullScreen max={state.roomFull} />;
 
-  useEffect(() => {
-    const storedName = sessionStorage.getItem("togetherly-username");
-    const storedCharId = sessionStorage.getItem("togetherly-character");
-    if (storedName && storedCharId) {
-      const character = CHARACTERS.find((c) => c.id === storedCharId);
-      const avatar = character?.emoji ?? DEFAULT_AVATAR;
-      const isPublic = sessionStorage.getItem("togetherly-is-public") === "1";
-      const roomName = sessionStorage.getItem("togetherly-room-name") || storedName + "'s room";
-      joinWithPass(storedName, avatar, isPublic, roomName);
-      setHasJoined(true);
-    }
-  }, [roomId]);
-
-  const handleJoinWithForm = () => {
-    if (!username.trim() || !selectedCharacter) return;
-    const character = CHARACTERS.find((c) => c.id === selectedCharacter);
-    const avatar = character?.emoji ?? DEFAULT_AVATAR;
-    sessionStorage.setItem("togetherly-username", username.trim());
-    sessionStorage.setItem("togetherly-character", selectedCharacter);
-    joinWithPass(username.trim(), avatar);
-    setHasJoined(true);
-  };
-
-  const handleShareLink = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Togetherly — Room ${roomId}`,
-          text: "¡Únete a ver conmigo!",
-          url: window.location.href,
-        });
-        return;
-      } catch {}
-    }
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (state.roomFull) {
+  if (!profile) {
     return (
-      <div className="grain min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950 px-4">
-        <div className="max-w-md">
-          <LogoMark className="w-12 h-12 text-accent" />
-          <h1 className="mt-6 font-display text-4xl font-extrabold tracking-tight text-day-900 dark:text-white">
-            {t.watchRoom.roomFull}
-          </h1>
-          <p className="mt-3 text-lg leading-relaxed text-day-900/70 dark:text-white/70">
-            {t.watchRoom.roomFullHint.replace("{max}", String(state.roomFull))}
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <button
-              onClick={() => router.push("/pricing")}
-              className="rounded-full bg-accent px-6 py-3 font-bold text-on-accent"
-            >
-              {t.watchRoom.seePlans}
-            </button>
-            <button
-              onClick={() => router.push("/room")}
-              className="rounded-full border-2 border-day-900/15 px-6 py-3 font-bold text-day-900 dark:border-white/20 dark:text-white"
-            >
-              {t.watchRoom.createOwn}
-            </button>
-          </div>
-        </div>
-      </div>
+      <JoinRoomCard
+        roomId={roomId}
+        onJoin={(newProfile) => {
+          saveProfile(newProfile);
+          setFormProfile(newProfile);
+        }}
+      />
     );
   }
 
-  if (!hasJoined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-day-50 dark:bg-night-950 px-4">
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full animate-blob-drift"
-            style={{ background: "radial-gradient(circle, rgba(255,201,101,0.15) 0%, transparent 70%)" }} />
-          <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full animate-blob-drift-reverse"
-            style={{ background: "radial-gradient(circle, rgba(242,167,176,0.12) 0%, transparent 70%)" }} />
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="relative w-full max-w-sm"
-        >
-          <div className="glass rounded-3xl p-8 border shadow-2xl bg-white/90 dark:bg-night-800/60 border-black/5 dark:border-white/10">
-            <div className="flex items-center gap-2 mb-6">
-              <LogoMark className="text-accent" />
-              <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
-            </div>
-
-            <h1 className="text-xl font-bold text-day-900 dark:text-white mb-1">
-              Room <span className="gradient-text font-mono">{roomId}</span>
-            </h1>
-
-            <AnimatePresence mode="wait">
-              {step === "name" ? (
-                <motion.div key="name" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                  <p className="text-sm text-day-900/40 dark:text-white/40 mb-5 mt-1">{t.room.namePlaceholder}</p>
-                  <Input
-                    label={t.room.yourName}
-                    placeholder={t.room.namePlaceholder}
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && username.trim() && setStep("character")}
-                    maxLength={20}
-                  />
-                  <Button className="w-full mt-4" size="lg" onClick={() => setStep("character")} disabled={!username.trim()}>
-                    {t.room.chooseCharacter} <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </motion.div>
-              ) : (
-                <motion.div key="character" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
-                  <p className="text-sm text-day-900/40 dark:text-white/40 mb-4 mt-1">{t.room.chooseCharacter}</p>
-                  <div className="grid grid-cols-4 gap-2 mb-5">
-                    {CHARACTERS.map((char) => (
-                      <button
-                        key={char.id}
-                        onClick={() => setSelectedCharacter(char.id)}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all cursor-pointer ${
-                          selectedCharacter === char.id
-                            ? "border-accent bg-accent/10 scale-105"
-                            : "border-transparent bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5"
-                        }`}
-                      >
-                        <span className="text-xl">{char.emoji}</span>
-                        <span className="text-[9px] font-medium text-day-900/60 dark:text-white/60 leading-tight text-center">{char.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <Button className="w-full" size="lg" onClick={handleJoinWithForm} disabled={!selectedCharacter}>
-                    <Heart className="w-4 h-4" /> {t.room.joinButton}
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+  const inCall = call.callState === "connected" || call.callState === "calling";
+  const canCall = call.callState === "idle" && state.participants.length >= 2;
+  const hasVideo = !!state.videoUrl;
 
   return (
-    <div className="flex flex-col h-screen bg-day-100 dark:bg-night-950 overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 glass border-b flex-shrink-0 z-10
-        bg-white/90 dark:bg-night-900/80 border-black/5 dark:border-white/5">
-        <div className="flex items-center gap-3">
-          <LogoMark className="w-8 h-8 text-accent" />
-          <div>
-            <span className="font-semibold text-day-900 dark:text-white text-sm">
-              Room <span className="gradient-text font-mono font-bold">{roomId}</span>
-            </span>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              {state.connected
-                ? <Wifi className="w-3 h-3 text-green-500" />
-                : <WifiOff className="w-3 h-3 text-red-400" />}
-              <span className="text-[10px] text-day-900/40 dark:text-white/30">
-                {state.participants.length} watching
-              </span>
-            </div>
+    <div className="flex h-dvh flex-col overflow-hidden bg-day-50 dark:bg-night-950">
+      <RoomHeader
+        roomId={roomId}
+        connected={state.connected && state.joined}
+        participants={state.participants}
+        maxParticipants={state.maxParticipants}
+        premium={state.premium}
+        onLeave={() => router.push("/")}
+      />
+
+      <main className="flex min-h-0 flex-1 flex-col lg:flex-row lg:gap-5 lg:px-5 lg:pb-5">
+        {/* La "tele" de la sala */}
+        <div className={`relative flex min-w-0 flex-col ${hasVideo ? "" : "min-h-0 flex-shrink"} lg:flex-1`}>
+          {/* Luz de lámpara detrás de la pantalla (solo pantallas grandes) */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-10 -z-0 hidden opacity-70 lg:block"
+            style={{ background: "radial-gradient(60% 55% at 22% 18%, color-mix(in oklab, var(--color-lamp) 30%, transparent), transparent 70%)" }}
+          />
+          <div
+            className={`relative overflow-hidden bg-[#1a1426] sm:mx-4 sm:rounded-[22px] sm:border-[5px] sm:border-night-700 lg:mx-0 lg:min-h-0 lg:flex-1 lg:rounded-[28px] lg:border-[7px] lg:shadow-[0_30px_80px_-30px_rgba(0,0,0,0.6)] ${
+              hasVideo ? "aspect-video max-h-[42dvh] w-full sm:max-h-[50dvh] lg:aspect-auto lg:max-h-none" : "max-h-[60dvh] overflow-y-auto lg:max-h-none"
+            }`}
+          >
+            <VideoPlayer
+              ref={playerRef}
+              videoUrl={state.videoUrl}
+              roomId={roomId}
+              extensionActive={extensionActive}
+              onPlay={(time) => actions.sendPlay(roomId, time)}
+              onPause={(time) => actions.sendPause(roomId, time)}
+              onSeek={(time) => actions.sendSeek(roomId, time)}
+              onUrlChange={(url) => actions.changeVideoUrl(roomId, url)}
+              onRemotePlay={actions.onRemotePlay}
+              onRemotePause={actions.onRemotePause}
+              onRemoteSeek={actions.onRemoteSeek}
+            />
+            <VideoCallPanel
+              callState={call.callState}
+              incomingCall={call.incomingCall}
+              showPicker={showDevicePicker}
+              onPickerConfirm={(videoId, audioId) => {
+                setShowDevicePicker(false);
+                call.startCall(videoId, audioId);
+              }}
+              onPickerCancel={() => setShowDevicePicker(false)}
+              onAnswer={call.answerCall}
+              onDecline={call.declineCall}
+              onEnd={call.endCall}
+            />
           </div>
+
+          {(hasVideo || canCall) && (
+            <div className="relative flex flex-wrap gap-2 px-3 py-2 sm:px-4 lg:px-0 lg:pb-0 lg:pt-3">
+              {hasVideo && (
+                <button
+                  onClick={() => playerRef.current?.openUrlBar()}
+                  className="flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-day-900/70 ring-1 ring-day-900/15 hover:bg-day-900/5 dark:text-white/75 dark:ring-white/15 dark:hover:bg-white/5"
+                >
+                  <Link2 className="h-4 w-4" aria-hidden="true" /> {t.roomUi.changeVideo}
+                </button>
+              )}
+              {canCall && (
+                <button
+                  onClick={() => setShowDevicePicker(true)}
+                  className="flex h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-day-900/70 ring-1 ring-day-900/15 hover:bg-day-900/5 dark:text-white/75 dark:ring-white/15 dark:hover:bg-white/5"
+                >
+                  <Phone className="h-4 w-4" aria-hidden="true" /> {t.roomUi.videoCall}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={handleShareLink}
-            icon={copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Share2 className="w-3.5 h-3.5" />}>
-            <span className="hidden sm:inline">{copied ? t.watchRoom.linkCopied : t.watchRoom.copyLink}</span>
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => router.push("/")}
-            icon={<LogOut className="w-3.5 h-3.5" />}>
-            <span className="hidden sm:inline">{t.watchRoom.leaveRoom}</span>
-          </Button>
-        </div>
-      </header>
-
-      {/* Main content — stacks vertically on mobile, horizontal on desktop */}
-      <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
-        {/* Video area */}
-        <div className="h-[56vw] max-h-[60vh] md:h-auto md:max-h-none md:flex-1 flex flex-col min-w-0 group relative flex-shrink-0">
-          <VideoCallPanel
-            callState={callState}
-            incomingCall={incomingCall}
-            onStart={startCall}
-            onAnswer={answerCall}
-            onDecline={declineCall}
-            onEnd={endCall}
-            participantCount={state.participants.length}
-          />
-          <VideoPlayer
-            ref={playerRef}
-            videoUrl={state.videoUrl}
-            roomId={roomId}
-            isSynced={state.connected}
-            extensionActive={extensionActive}
-            onPlay={(t) => actions.sendPlay(roomId, t)}
-            onPause={(t) => actions.sendPause(roomId, t)}
-            onSeek={(t) => actions.sendSeek(roomId, t)}
-            onUrlChange={(url) => actions.changeVideoUrl(roomId, url)}
-            onRemotePlay={actions.onRemotePlay}
-            onRemotePause={actions.onRemotePause}
-            onRemoteSeek={actions.onRemoteSeek}
-          />
-        </div>
-
-        {/* Chat column — includes call strip when active */}
-        <div className="flex-1 md:flex-none md:w-72 xl:w-80 flex flex-col min-h-0 border-t md:border-t-0 md:border-l border-black/5 dark:border-white/5 overflow-hidden">
+        {/* Chat: debajo en celular y tableta, al lado en pantallas grandes */}
+        <aside className="relative flex min-h-[260px] flex-1 flex-col overflow-hidden border-t border-day-900/10 bg-day-100 dark:border-white/10 dark:bg-night-900 lg:w-[340px] lg:flex-none lg:rounded-[28px] lg:border-t-0 xl:w-[380px]">
           <AnimatePresence>
-            {(callState === "connected" || callState === "calling") && (
+            {inCall && (
               <CallStrip
-                callState={callState}
-                localStream={localStream}
-                remoteStream={remoteStream}
-                isMicOn={isMicOn}
-                isCameraOn={isCameraOn}
-                onToggleMic={toggleMic}
-                onToggleCamera={toggleCamera}
-                onEnd={endCall}
+                callState={call.callState}
+                localStream={call.localStream}
+                remoteStream={call.remoteStream}
+                isMicOn={call.isMicOn}
+                isCameraOn={call.isCameraOn}
+                onToggleMic={call.toggleMic}
+                onToggleCamera={call.toggleCamera}
+                onEnd={call.endCall}
               />
             )}
           </AnimatePresence>
           <ChatPanel
             messages={state.messages}
             reactions={state.reactions}
-            participants={state.participants}
             youId={state.you?.id ?? null}
-            roomId={roomId}
             typingUsers={state.typingUsers}
             onSendMessage={(text) => actions.sendMessage(roomId, text)}
             onSendReaction={(emoji) => actions.sendReaction(roomId, emoji)}
             onTyping={() => actions.sendTyping(roomId)}
           />
-        </div>
-      </div>
+        </aside>
+      </main>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { loginSchema } from "@/lib/validations";
+import { isRateLimited } from "@/lib/rateLimit";
 import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -20,6 +21,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
+        // Freno contra adivinar contraseñas: 10 intentos cada 15 minutos por correo.
+        if (isRateLimited(`login:${parsed.data.email}`, 10, 15 * 60_000)) return null;
 
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },

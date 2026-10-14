@@ -6,6 +6,7 @@ const { verifyRoomPass } = require("./room-pass");
 const {
   MAX_PARTICIPANTS,
   rooms,
+  canOpenRoom,
   getOrCreateRoom,
   currentPosition,
   stateForExtension,
@@ -48,7 +49,7 @@ function handleConnection(io, socket, plans) {
   // ── Extensión: entra a la sala sin aparecer como participante ───────────
   socket.on("ext-connect", (data) => {
     const roomId = data?.roomId;
-    if (!isRoomId(roomId)) return;
+    if (!isRoomId(roomId) || !canOpenRoom(roomId)) return;
     if (currentRoomId && currentRoomId !== roomId) socket.leave(currentRoomId);
     currentRoomId = roomId;
     currentUsername = cleanText(data.username, 24) || "Invitado";
@@ -68,12 +69,17 @@ function handleConnection(io, socket, plans) {
     const roomId = data?.roomId;
     const username = cleanText(data?.username, 24);
     if (!isRoomId(roomId) || !username) return;
+    if (!canOpenRoom(roomId)) {
+      socket.emit("server-busy");
+      return;
+    }
 
     const room = newRoom(roomId, { isPublic: data.isPublic, name: data.roomName });
     const passLimit = verifyRoomPass(plans.passSecret, data.pass, roomId);
     if (passLimit) {
       const allowed = Math.min(Math.max(passLimit, plans.freeLimit), MAX_PARTICIPANTS);
       room.maxParticipants = Math.max(room.maxParticipants, allowed);
+      room.premium = true;
     }
     if (room.participants.size === 0) {
       // La sala pudo nacer desde la extensión: la primera persona en la web define sus datos.
@@ -106,6 +112,7 @@ function handleConnection(io, socket, plans) {
       isHost: room.host === socket.id,
       you: participant,
       maxParticipants: room.maxParticipants,
+      premium: room.premium === true,
     });
     socket.to(roomId).emit("participant-joined", { participant });
   });
@@ -155,6 +162,7 @@ function handleConnection(io, socket, plans) {
     if (!participant) return;
     io.to(data.roomId).emit("chat-message", {
       id: `${Date.now()}-${socket.id}`,
+      senderId: socket.id,
       text,
       username: participant.name,
       color: participant.color,

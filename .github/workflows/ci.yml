@@ -32,9 +32,13 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
 
-      - name: Lint (informativo mientras se corrige la deuda anterior)
+      - name: Lint
         run: npm run lint
-        continue-on-error: true
+
+      # Falla si aparece una vulnerabilidad crítica en las dependencias que llegan a producción.
+      # (Las "altas" que quedan son del CLI de Prisma, que solo corre al compilar; ver SECURITY.md.)
+      - name: Revisar dependencias
+        run: npm audit --omit=dev --audit-level=critical
 
       - name: Compilación de producción (sin secretos, como un despliegue nuevo)
         run: npx next build
@@ -46,3 +50,14 @@ jobs:
 
       - name: Pruebas de la extensión, el servidor y los planes
         run: npm run test:extension
+
+  secretos:
+    name: Buscar claves filtradas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

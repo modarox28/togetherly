@@ -26,7 +26,7 @@ export const VimeoEmbed = forwardRef<PlayerHandle, Props>(function VimeoEmbed(
   ref
 ) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const vimeoRef = useRef<any>(null);
+  const vimeoRef = useRef<VimeoPlayer | null>(null);
   const cachedTime = useRef(0);
   const cachedDuration = useRef(0);
   const mountedRef = useRef(true);
@@ -50,7 +50,7 @@ export const VimeoEmbed = forwardRef<PlayerHandle, Props>(function VimeoEmbed(
 
     const initPlayer = () => {
       if (!mountedRef.current || !iframeRef.current) return;
-      const VimeoLib = (window as any).Vimeo;
+      const VimeoLib = window.Vimeo;
       if (!VimeoLib?.Player) return;
 
       const player = new VimeoLib.Player(iframeRef.current);
@@ -85,7 +85,7 @@ export const VimeoEmbed = forwardRef<PlayerHandle, Props>(function VimeoEmbed(
 
     // Small delay to ensure iframe is fully mounted in DOM
     const timer = setTimeout(() => {
-      if ((window as any).Vimeo?.Player) {
+      if (window.Vimeo?.Player) {
         initPlayer();
       } else {
         const existing = document.querySelector('script[src*="player.vimeo.com"]');
@@ -106,6 +106,8 @@ export const VimeoEmbed = forwardRef<PlayerHandle, Props>(function VimeoEmbed(
       vimeoRef.current?.destroy?.().catch(() => {});
       vimeoRef.current = null;
     };
+    // El reproductor se crea una sola vez por enlace; los callbacks nuevos no lo recrean.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
   if (!videoId) return null;
