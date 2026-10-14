@@ -1,85 +1,81 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, SmilePlus, ArrowDown, Bell, BellOff } from "lucide-react";
-import type { ChatMessage, Participant, Reaction } from "@/hooks/useRoom";
+import { Send, ArrowDown, Bell, BellOff, BellRing } from "lucide-react";
+import type { ChatMessage, Reaction } from "@/hooks/useRoom";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { useNotifications } from "@/hooks/useNotifications";
 
-const REACTIONS = ["❤️", "😂", "😮", "😭", "🔥", "👏", "😍", "💀", "🤣", "🥰"];
+export const REACTIONS = ["❤️", "😂", "😮", "😭", "🔥", "👏"];
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   reactions: Reaction[];
-  participants: Participant[];
   youId: string | null;
-  roomId: string;
   typingUsers: string[];
   onSendMessage: (text: string) => void;
   onSendReaction: (emoji: string) => void;
   onTyping: () => void;
 }
 
+const NEAR_BOTTOM_PX = 80;
+
 export function ChatPanel({
-  messages, reactions, participants, youId,
+  messages, reactions, youId,
   typingUsers, onSendMessage, onSendReaction, onTyping,
 }: ChatPanelProps) {
-  const [input, setInput] = useState("");
-  const [showReactions, setShowReactions] = useState(false);
-  const [atBottom, setAtBottom] = useState(true);
-  const [unread, setUnread] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const lastTypingRef = useRef(0);
-  const prevMsgCountRef = useRef(0);
   const { t } = useLanguage();
-  const myName = participants.find((p) => p.id === youId)?.name;
-  const { permission, request: requestNotif, notify } = useNotifications();
+  const [input, setInput] = useState("");
+  const [atBottom, setAtBottom] = useState(true);
+  // Cuántos mensajes había cuando la persona dejó de estar al final (para contar los nuevos)
+  const [seenCount, setSeenCount] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastTypingRef = useRef(0);
+  const notifiedCountRef = useRef(0);
+  const { permission, request: requestNotifications, notify } = useNotifications();
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    setUnread(0);
-    setAtBottom(true);
-  }, []);
+  const isMine = (msg: ChatMessage) => !!youId && msg.senderId === youId;
+  const unread = atBottom ? 0 : messages.slice(seenCount).filter((m) => !m.system && !isMine(m)).length;
+
+  // Mensajes nuevos: avisar si la pestaña está oculta.
+  useEffect(() => {
+    for (const msg of messages.slice(notifiedCountRef.current)) {
+      if (!msg.system && youId && msg.senderId !== youId) notify(msg.username, msg.text);
+    }
+    notifiedCountRef.current = messages.length;
+  }, [messages, youId, notify]);
+
+  // Si la persona estaba al final, se queda al final cuando llega algo.
+  const messageCount = messages.length;
+  useEffect(() => {
+    const el = containerRef.current;
+    if (el && atBottom) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messageCount, typingUsers.length, atBottom]);
 
   const handleScroll = () => {
     const el = containerRef.current;
     if (!el) return;
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    setAtBottom(isNearBottom);
-    if (isNearBottom) setUnread(0);
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
+    if (nearBottom !== atBottom) {
+      setAtBottom(nearBottom);
+      if (!nearBottom) setSeenCount(messages.length);
+    }
   };
 
-  useEffect(() => {
-    const count = messages.length;
-    if (count > prevMsgCountRef.current && myName) {
-      const newMsgs = messages.slice(prevMsgCountRef.current);
-      newMsgs.forEach((msg) => {
-        if (!msg.isSystem && msg.username !== myName) {
-          notify(msg.username, msg.text);
-        }
-      });
-    }
-    prevMsgCountRef.current = count;
-
+  const scrollToBottom = () => {
     const el = containerRef.current;
-    if (!el) return;
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (isNearBottom || atBottom) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-      setUnread(0);
-    } else {
-      const last = messages[messages.length - 1];
-      if (last && !last.isSystem) setUnread((c) => c + 1);
-    }
-  }, [messages]);
+    el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    setAtBottom(true);
+  };
 
-  const handleSend = () => {
+  const handleSend = (event: React.FormEvent) => {
+    event.preventDefault();
     const text = input.trim();
     if (!text) return;
     onSendMessage(text);
     setInput("");
+    scrollToBottom();
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,132 +87,92 @@ export function ChatPanel({
     }
   };
 
+  const systemText = (msg: ChatMessage) => {
+    if (msg.system === "you-joined") return t.roomUi.youJoined;
+    if (msg.system === "joined") return t.roomUi.joined.replace("{name}", msg.username);
+    return t.roomUi.left.replace("{name}", msg.username);
+  };
+
+  const notificationLabel =
+    permission === "granted" ? t.roomUi.notificationsOn
+      : permission === "denied" ? t.roomUi.notificationsDenied
+        : t.roomUi.notificationsOff;
+
+  const typingText = typingUsers.length === 1
+    ? t.roomUi.typingOne.replace("{name}", typingUsers[0])
+    : t.roomUi.typingMany.replace("{names}", typingUsers.slice(0, 2).join(", "));
+
+  const hasChat = messages.some((m) => !m.system);
+
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-day-50 dark:bg-night-900 relative overflow-hidden">
-      {/* Floating reactions overlay */}
-      <div className="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+    <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden" aria-label={t.roomUi.chat}>
+      {/* Reacciones que suben flotando */}
+      <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden="true">
         <AnimatePresence>
-          {reactions.map((r) => <FloatingReaction key={r.id} reaction={r} />)}
+          {reactions.map((r) => (
+            <motion.span
+              key={r.id}
+              className="absolute bottom-20 text-3xl"
+              style={{ left: `${r.x}%` }}
+              initial={{ y: 0, opacity: 1, scale: 1 }}
+              animate={{ y: -180, opacity: 0, scale: 1.4 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2.5, ease: "easeOut" }}
+            >
+              {r.emoji}
+            </motion.span>
+          ))}
         </AnimatePresence>
       </div>
 
-      {/* Participants bar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b bg-day-100/80 dark:bg-night-800/50 border-black/5 dark:border-white/5 flex-shrink-0">
-        <span className="text-xs text-day-900/40 dark:text-white/40">{t.watchRoom.participants}</span>
-        <div className="flex items-center gap-1">
-          {participants.map((p, i) => (
-            <div
-              key={p.id}
-              title={p.name}
-              className="w-6 h-6 rounded-full text-xs flex items-center justify-center border-2 -ml-1 first:ml-0 border-day-50 dark:border-night-900"
-              style={{ background: p.color, zIndex: participants.length - i }}
-            >
-              {p.avatar ?? p.name[0].toUpperCase()}
-            </div>
-          ))}
-        </div>
-        <span className="text-xs text-day-900/30 dark:text-white/30 ml-auto">{participants.length} online</span>
+      <div className="flex flex-shrink-0 items-center justify-between px-4 pb-2 pt-3">
+        <h2 className="font-display text-base font-bold text-day-900 dark:text-white">{t.roomUi.chat}</h2>
         <button
-          onClick={requestNotif}
-          disabled={permission === "denied"}
-          title={
-            permission === "granted"
-              ? "Notificaciones activas"
-              : permission === "denied"
-              ? "Permisos denegados en el navegador"
-              : "Activar notificaciones de chat"
-          }
-          className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
-            permission === "granted"
-              ? "text-accent"
-              : permission === "denied"
-              ? "text-day-900/20 dark:text-white/20 cursor-not-allowed"
-              : "text-day-900/30 dark:text-white/30 hover:text-accent"
-          }`}
+          onClick={requestNotifications}
+          disabled={permission !== "default"}
+          title={notificationLabel}
+          aria-label={notificationLabel}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-day-900/50 hover:bg-day-900/5 hover:text-accent disabled:cursor-default disabled:hover:bg-transparent dark:text-white/50 dark:hover:bg-white/5"
         >
-          {permission === "denied" ? (
-            <BellOff className="w-3.5 h-3.5" />
-          ) : (
-            <Bell className="w-3.5 h-3.5" />
-          )}
+          {permission === "granted" ? <BellRing className="h-4 w-4 text-accent" />
+            : permission === "denied" ? <BellOff className="h-4 w-4" />
+              : <Bell className="h-4 w-4" />}
         </button>
       </div>
 
-      {/* Messages */}
+      {/* Mensajes */}
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2 min-h-0"
+        className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 pb-3"
+        aria-live="polite"
       >
         {messages.map((msg) =>
-          msg.isSystem ? (
-            <div key={msg.id} className="text-center my-1">
-              <span className="text-[11px] text-day-900/30 dark:text-white/30 px-3 py-1 rounded-full bg-black/3 dark:bg-white/3">
-                {msg.text}
-              </span>
-            </div>
+          msg.system ? (
+            <p key={msg.id} className="text-center text-xs text-day-900/45 dark:text-white/40">
+              {systemText(msg)}
+            </p>
           ) : (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.2 }}
-              className={`flex gap-2 items-start ${msg.username === myName ? "flex-row-reverse" : ""}`}
-            >
-              <div
-                className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-xs mt-0.5"
-                style={{ background: msg.color }}
-              >
-                {(msg as any).avatar ?? msg.username[0].toUpperCase()}
-              </div>
-              <div className={`max-w-[80%] flex flex-col gap-0.5 ${msg.username === myName ? "items-end" : "items-start"}`}>
-                <span className="text-[10px] font-medium px-1" style={{ color: msg.color }}>{msg.username}</span>
-                <div
-                  className="px-3 py-2 rounded-2xl text-sm leading-relaxed break-words text-day-900 dark:text-white/85"
-                  style={{
-                    background: msg.username === myName ? `${msg.color}18` : "rgba(0,0,0,0.04)",
-                    borderWidth: "1px",
-                    borderStyle: "solid",
-                    borderColor: msg.username === myName ? `${msg.color}33` : "transparent",
-                  }}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            </motion.div>
+            <ChatBubble key={msg.id} msg={msg} mine={isMine(msg)} youLabel={t.roomUi.you} />
           )
         )}
 
-        {/* Typing indicator */}
-        <AnimatePresence>
-          {typingUsers.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 4 }}
-              className="flex items-center gap-2 px-1 py-1"
-            >
-              <div className="flex gap-0.5">
-                {[0, 1, 2].map((i) => (
-                  <motion.span
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full bg-day-900/30 dark:bg-white/30"
-                    animate={{ y: [0, -4, 0] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
-                  />
-                ))}
-              </div>
-              <span className="text-[11px] text-day-900/40 dark:text-white/40">
-                {typingUsers.slice(0, 2).join(", ")} {typingUsers.length === 1 ? "está escribiendo" : "están escribiendo"}
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {!hasChat && (
+          <p className="mt-6 text-center text-sm text-day-900/45 dark:text-white/40">{t.roomUi.emptyChat}</p>
+        )}
 
-        <div ref={bottomRef} />
+        {typingUsers.length > 0 && (
+          <p className="flex items-center gap-2 text-xs text-day-900/50 dark:text-white/45">
+            <span className="flex gap-0.5" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" style={{ animationDelay: `${i * 150}ms` }} />
+              ))}
+            </span>
+            {typingText}
+          </p>
+        )}
       </div>
 
-      {/* Scroll to bottom button */}
       <AnimatePresence>
         {!atBottom && (
           <motion.button
@@ -224,88 +180,78 @@ export function ChatPanel({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             onClick={scrollToBottom}
-            className="absolute bottom-16 right-3 z-30 flex items-center gap-1.5 px-3 py-1.5 rounded-full
-              bg-accent text-on-accent text-xs font-medium shadow-lg hover:bg-accent/90 transition-colors"
+            className="absolute bottom-[120px] right-4 z-30 flex items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-bold text-on-accent shadow-lg"
           >
-            <ArrowDown className="w-3 h-3" />
-            {unread > 0 ? `${unread} nuevo${unread === 1 ? "" : "s"}` : "Bajar"}
+            <ArrowDown className="h-3 w-3" aria-hidden="true" />
+            {unread > 0 ? t.roomUi.newMessages.replace("{n}", String(unread)) : t.roomUi.scrollDown}
           </motion.button>
         )}
       </AnimatePresence>
 
-      {/* Reaction picker */}
-      <AnimatePresence>
-        {showReactions && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="px-3 pb-2 flex-shrink-0"
+      {/* Reacciones rápidas + caja de texto */}
+      <div className="flex-shrink-0 border-t border-day-900/10 px-3 pb-3 pt-2 dark:border-white/10">
+        <div className="mb-2 flex justify-between gap-1" role="group" aria-label={t.roomUi.reactions}>
+          {REACTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => onSendReaction(emoji)}
+              aria-label={`${t.roomUi.reactions}: ${emoji}`}
+              className="flex h-10 flex-1 items-center justify-center rounded-xl text-xl hover:bg-day-900/5 active:scale-90 dark:hover:bg-white/5"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+        <form onSubmit={handleSend} className="flex items-center gap-2">
+          <label htmlFor="chat-input" className="sr-only">{t.watchRoom.typeMessage}</label>
+          <input
+            id="chat-input"
+            value={input}
+            onChange={handleInputChange}
+            placeholder={t.watchRoom.typeMessage}
+            maxLength={500}
+            autoComplete="off"
+            enterKeyHint="send"
+            className="min-w-0 flex-1 rounded-full border border-day-900/10 bg-white px-4 py-2.5 text-base text-day-900 outline-none placeholder:text-day-900/40 focus:border-accent sm:text-sm dark:border-white/10 dark:bg-night-800 dark:text-white dark:placeholder:text-white/35"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim()}
+            aria-label={t.watchRoom.send}
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent text-on-accent disabled:opacity-35"
           >
-            <div className="flex flex-wrap gap-1.5 p-2 rounded-xl bg-day-100 dark:bg-night-800 border border-black/5 dark:border-white/5">
-              {REACTIONS.map((emoji) => (
-                <button
-                  key={emoji}
-                  onClick={() => { onSendReaction(emoji); setShowReactions(false); }}
-                  className="w-8 h-8 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 flex items-center justify-center text-lg transition-all hover:scale-125 active:scale-95"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Input */}
-      <div className="px-3 pb-3 pt-2 border-t border-black/5 dark:border-white/5 flex gap-2 items-center flex-shrink-0">
-        <button
-          onClick={() => setShowReactions((v) => !v)}
-          className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl
-            bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10
-            text-day-900/50 dark:text-white/50 hover:text-accent-2 transition-all"
-        >
-          <SmilePlus className="w-4 h-4" />
-        </button>
-        <input
-          value={input}
-          onChange={handleInputChange}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder={t.watchRoom.typeMessage}
-          maxLength={500}
-          className="flex-1 px-3 py-2 rounded-xl text-sm outline-none transition-all
-            bg-day-100 dark:bg-night-800
-            border border-black/5 dark:border-white/5
-            text-day-900 dark:text-white
-            placeholder:text-day-900/30 dark:placeholder:text-white/25
-            focus:border-accent/50"
-        />
-        <button
-          onClick={handleSend}
-          disabled={!input.trim()}
-          className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-xl
-            bg-accent text-on-accent
-            disabled:opacity-30 hover:opacity-90 transition-all hover:scale-105 active:scale-95"
-        >
-          <Send className="w-3.5 h-3.5" />
-        </button>
+            <Send className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </form>
       </div>
-    </div>
+    </section>
   );
 }
 
-function FloatingReaction({ reaction }: { reaction: Reaction }) {
-  const x = Math.random() * 80 + 10;
+function ChatBubble({ msg, mine, youLabel }: { msg: ChatMessage; mine: boolean; youLabel: string }) {
   return (
-    <motion.div
-      className="absolute text-2xl pointer-events-none"
-      style={{ left: `${x}%`, bottom: "80px" }}
-      initial={{ y: 0, opacity: 1, scale: 1 }}
-      animate={{ y: -150, opacity: 0, scale: 1.5 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 2.5, ease: "easeOut" }}
-    >
-      {reaction.emoji}
-    </motion.div>
+    <div className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}>
+      <span
+        className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-sm"
+        style={{ background: msg.color }}
+        aria-hidden="true"
+      >
+        {msg.avatar ?? msg.username.charAt(0).toUpperCase()}
+      </span>
+      <div className={`flex max-w-[78%] flex-col gap-0.5 ${mine ? "items-end" : "items-start"}`}>
+        <span className="px-1 text-[11px] font-bold" style={{ color: msg.color }}>
+          {mine ? youLabel : msg.username}
+        </span>
+        <p
+          className={`break-words rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+            mine
+              ? "rounded-br-md bg-accent text-on-accent"
+              : "rounded-bl-md bg-white text-day-900 dark:bg-night-800 dark:text-white/90"
+          }`}
+        >
+          {msg.text}
+        </p>
+      </div>
+    </div>
   );
 }

@@ -1,77 +1,70 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LogoMark } from "@/components/ui/Logo";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ArrowRight, Users, ChevronLeft, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
-import { wakeSocketServer } from "@/lib/socket";
+import { Puzzle } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { LogoMark } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
+import { CharacterPicker } from "@/components/room/CharacterPicker";
 import { useLanguage } from "@/components/providers/LanguageProvider";
-import { generateRoomId } from "@/lib/room";
+import { useFeatures } from "@/components/providers/FeaturesProvider";
+import { wakeSocketServer } from "@/lib/socket";
+import { generateRoomId, normalizeRoomCode, ROOM_CODE_PATTERN } from "@/lib/room";
 import { CHARACTERS } from "@/lib/characters";
 
+type Mode = "create" | "join";
+
+const inputClass =
+  "mt-2 w-full rounded-xl border border-day-200 bg-day-50 px-4 py-3 text-base text-day-900 outline-none placeholder:text-day-900/40 focus:border-accent dark:border-night-600 dark:bg-night-800 dark:text-white dark:placeholder:text-white/35";
+
+// /room: crear una sala nueva o entrar a una con su código.
 export default function RoomSetupPage() {
   const router = useRouter();
+  const { t } = useLanguage();
+  const { authEnabled } = useFeatures();
+  const { data: session } = useSession();
 
   // Despierta el servidor de salas mientras la persona llena el formulario.
   useEffect(() => wakeSocketServer(), []);
-  const { t } = useLanguage();
-  const { data: session } = useSession();
-  const [step, setStep] = useState<"info" | "character">("info");
-  const [username, setUsername] = useState("");
+
+  const [mode, setMode] = useState<Mode>("create");
+  // null = la persona no ha escrito: se propone el nombre de su cuenta, si tiene.
+  const [typedName, setTypedName] = useState<string | null>(null);
+  const username = typedName ?? session?.user?.name ?? "";
   const [roomName, setRoomName] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [joinCode, setJoinCode] = useState("");
-  const [tab, setTab] = useState<"create" | "join">("create");
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
-  const [errors, setErrors] = useState<{ username?: string; joinCode?: string; character?: string }>({});
+  const [characterId, setCharacterId] = useState(CHARACTERS[0].id);
+  const [errors, setErrors] = useState<{ name?: string; code?: string }>({});
 
-  useEffect(() => {
-    if (session?.user?.name && !username) setUsername(session.user.name);
-  }, [session?.user?.name]);
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = username.trim();
+    const code = normalizeRoomCode(joinCode);
+    const nextErrors = {
+      name: name ? undefined : t.room.nameRequired,
+      code: mode === "join" && !ROOM_CODE_PATTERN.test(code) ? t.room.invalidCode : undefined,
+    };
+    setErrors(nextErrors);
+    if (nextErrors.name || nextErrors.code) return;
 
-  const handleNextStep = () => {
-    if (!username.trim()) { setErrors({ username: t.room.nameRequired }); return; }
-    if (tab === "join") {
-      const code = joinCode.trim().toUpperCase();
-      if (code.length !== 6) { setErrors({ joinCode: t.room.invalidCode }); return; }
-    }
-    setErrors({});
-    setStep("character");
-  };
-
-  const handleFinish = () => {
-    if (!selectedCharacter) { setErrors({ character: t.room.characterRequired }); return; }
-    sessionStorage.setItem("togetherly-username", username.trim());
-    sessionStorage.setItem("togetherly-character", selectedCharacter);
-    sessionStorage.setItem("togetherly-is-public", isPublic ? "1" : "0");
-    sessionStorage.setItem("togetherly-room-name", roomName.trim() || username.trim() + "'s room");
-    if (tab === "create") {
-      const roomId = generateRoomId();
-      router.push(`/room/${roomId}`);
-    } else {
-      router.push(`/room/${joinCode.trim().toUpperCase()}`);
-    }
+    try {
+      sessionStorage.setItem("togetherly-username", name);
+      sessionStorage.setItem("togetherly-character", characterId);
+      sessionStorage.setItem("togetherly-is-public", isPublic ? "1" : "0");
+      sessionStorage.setItem("togetherly-room-name", roomName.trim() || name);
+    } catch {}
+    router.push(`/room/${mode === "create" ? generateRoomId() : code}`);
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-day-50 dark:bg-night-950">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full animate-blob-drift"
-          style={{ background: "radial-gradient(circle, rgba(255,201,101,0.12) 0%, transparent 70%)" }} />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full animate-blob-drift-reverse"
-          style={{ background: "radial-gradient(circle, rgba(242,167,176,0.10) 0%, transparent 70%)" }} />
-      </div>
-
-      <header className="relative z-10 flex items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
-          <LogoMark className="text-accent" />
+    <div className="grain flex min-h-dvh flex-col bg-day-50 dark:bg-night-950">
+      <header className="flex items-center justify-between px-4 py-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2 text-accent">
+          <LogoMark />
           <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
         </Link>
         <div className="flex items-center gap-2">
@@ -80,207 +73,143 @@ export default function RoomSetupPage() {
         </div>
       </header>
 
-      <div className="relative z-10 flex flex-1 items-center justify-center px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="w-full max-w-md"
-        >
-          <div className="glass rounded-3xl border shadow-2xl overflow-hidden
-            bg-white/90 dark:bg-night-800/60
-            border-black/5 dark:border-white/10">
+      <main className="flex flex-1 items-start justify-center px-4 pb-12 pt-2 sm:items-center sm:pt-0">
+        <div className="w-full max-w-md">
+          <h1 className="font-display text-3xl font-extrabold tracking-tight text-day-900 sm:text-4xl dark:text-white">
+            {t.roomUi.setupTitle}
+          </h1>
 
-            <AnimatePresence mode="wait">
-              {step === "info" ? (
-                <motion.div
-                  key="info"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
+          <form onSubmit={submit} className="mt-6 rounded-[28px] bg-white p-6 shadow-xl shadow-plum/5 sm:p-8 dark:bg-night-900">
+            {/* Crear o unirse */}
+            <div className="grid grid-cols-2 gap-1 rounded-full bg-day-100 p-1 dark:bg-night-800" role="tablist">
+              {(["create", "join"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === option}
+                  onClick={() => {
+                    setMode(option);
+                    setErrors({});
+                  }}
+                  className={`rounded-full py-2.5 text-sm font-bold transition-colors ${
+                    mode === option ? "bg-accent text-on-accent" : "text-day-900/60 hover:text-day-900 dark:text-white/60 dark:hover:text-white"
+                  }`}
                 >
-                  {/* Tab bar */}
-                  <div className="flex border-b border-black/5 dark:border-white/5">
-                    {(["create", "join"] as const).map((tabKey) => (
-                      <button
-                        key={tabKey}
-                        onClick={() => { setTab(tabKey); setErrors({}); }}
-                        className={`flex-1 py-4 text-sm font-medium transition-colors cursor-pointer ${
-                          tab === tabKey
-                            ? "text-accent border-b-2 border-accent bg-accent/5"
-                            : "text-day-900/40 dark:text-white/40 hover:text-day-900/70 dark:hover:text-white/70"
-                        }`}
-                      >
-                        {tabKey === "create" ? t.room.createButton : t.room.joinButton}
-                      </button>
-                    ))}
-                  </div>
+                  {option === "create" ? t.roomUi.setupCreate : t.roomUi.setupJoin}
+                </button>
+              ))}
+            </div>
 
-                  {/* Auth banner */}
-                  {session ? (
-                    <div className="flex items-center justify-between px-5 py-3 bg-accent/5 border-b border-black/5 dark:border-white/5">
-                      <div className="flex items-center gap-2">
-                        {session.user?.image && (
-                          <img src={session.user.image} alt="" className="w-6 h-6 rounded-full object-cover" />
-                        )}
-                        <span className="text-xs text-day-900/60 dark:text-white/50">
-                          Signed in as <strong className="text-accent">{session.user?.name}</strong>
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => signOut({ callbackUrl: "/room" })}
-                        className="text-xs text-day-900/30 dark:text-white/30 hover:text-red-400 transition-colors"
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 px-5 py-3 bg-black/2 dark:bg-white/2 border-b border-black/5 dark:border-white/5">
-                      <span className="text-xs text-day-900/40 dark:text-white/30 flex-1">Save your profile across sessions</span>
-                      <Link href="/login" className="flex items-center gap-1 text-xs text-accent font-medium hover:underline">
-                        <LogIn className="w-3 h-3" /> Sign in
-                      </Link>
-                      <span className="text-xs text-day-900/20 dark:text-white/20">·</span>
-                      <Link href="/register" className="flex items-center gap-1 text-xs text-accent-2 font-medium hover:underline">
-                        <UserPlus className="w-3 h-3" /> Register
-                      </Link>
-                    </div>
-                  )}
+            {mode === "join" && (
+              <>
+                <label htmlFor="room-code" className="mt-6 block text-sm font-bold text-day-900 dark:text-white">
+                  {t.room.roomCode}
+                </label>
+                <input
+                  id="room-code"
+                  value={joinCode}
+                  onChange={(e) => {
+                    setJoinCode(normalizeRoomCode(e.target.value));
+                    setErrors((prev) => ({ ...prev, code: undefined }));
+                  }}
+                  placeholder="ABC234"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  aria-invalid={!!errors.code}
+                  className={`${inputClass} text-center font-display text-2xl font-extrabold tracking-[0.3em]`}
+                />
+                {errors.code && <p role="alert" className="mt-1.5 text-sm text-red-500 dark:text-blanket">{errors.code}</p>}
+              </>
+            )}
 
-                  <div className="p-8 flex flex-col gap-5">
-                    <Input
-                      label={t.room.yourName}
-                      placeholder={t.room.namePlaceholder}
-                      value={username}
-                      onChange={(e) => { setUsername(e.target.value); setErrors((p) => ({ ...p, username: undefined })); }}
-                      error={errors.username}
-                      maxLength={20}
-                    />
+            <label htmlFor="your-name" className="mt-6 block text-sm font-bold text-day-900 dark:text-white">
+              {t.room.yourName}
+            </label>
+            <input
+              id="your-name"
+              value={username}
+              onChange={(e) => {
+                setTypedName(e.target.value);
+                setErrors((prev) => ({ ...prev, name: undefined }));
+              }}
+              placeholder={t.room.namePlaceholder}
+              maxLength={20}
+              autoComplete="nickname"
+              aria-invalid={!!errors.name}
+              className={inputClass}
+            />
+            {errors.name && <p role="alert" className="mt-1.5 text-sm text-red-500 dark:text-blanket">{errors.name}</p>}
 
-                    {tab === "create" ? (
-                      <>
-                        <Input
-                          label={t.room.roomName}
-                          placeholder={t.room.roomNamePlaceholder}
-                          value={roomName}
-                          onChange={(e) => setRoomName(e.target.value)}
-                          maxLength={30}
-                        />
-                        <button
-                          onClick={() => setIsPublic((v) => !v)}
-                          className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${
-                            isPublic
-                              ? "border-accent bg-accent/5 text-accent"
-                              : "border-black/5 dark:border-white/10 text-day-900/50 dark:text-white/40"
-                          }`}
-                        >
-                          <div className="text-left">
-                            <p className="text-sm font-medium">{isPublic ? t.room.publicRoom : t.room.privateRoom}</p>
-                            {isPublic && <p className="text-xs opacity-70 mt-0.5">{t.room.publicRoomHint}</p>}
-                          </div>
-                          <div className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${isPublic ? "bg-accent" : "bg-black/10 dark:bg-white/10"}`}>
-                            <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isPublic ? "translate-x-4" : "translate-x-0"}`} />
-                          </div>
-                        </button>
-                        <Button size="lg" className="w-full" onClick={handleNextStep} disabled={!username.trim()}>
-                          {t.room.createButton}
-                          <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Input
-                          label={t.room.roomCode}
-                          placeholder={t.room.roomCodePlaceholder}
-                          value={joinCode}
-                          onChange={(e) => { setJoinCode(e.target.value.toUpperCase().slice(0, 6)); setErrors((p) => ({ ...p, joinCode: undefined })); }}
-                          error={errors.joinCode}
-                          maxLength={6}
-                          className="font-mono tracking-widest text-center text-lg uppercase"
-                        />
-                        <Button size="lg" className="w-full" onClick={handleNextStep} disabled={!username.trim() || joinCode.length !== 6}>
-                          <Users className="w-4 h-4" />
-                          {t.room.joinButton}
-                          <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </motion.div>
+            {mode === "create" && (
+              <>
+                <label htmlFor="room-name" className="mt-5 block text-sm font-bold text-day-900 dark:text-white">
+                  {t.roomUi.roomNameOptional}
+                </label>
+                <input
+                  id="room-name"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  placeholder={t.room.roomNamePlaceholder}
+                  maxLength={30}
+                  className={inputClass}
+                />
+                <label className="mt-5 flex cursor-pointer items-center justify-between gap-4">
+                  <span>
+                    <span className="block text-sm font-bold text-day-900 dark:text-white">{t.room.publicRoom}</span>
+                    <span className="block text-xs text-day-900/55 dark:text-white/50">{t.room.publicRoomHint}</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="h-6 w-6 flex-shrink-0 accent-[var(--accent)]"
+                  />
+                </label>
+              </>
+            )}
+
+            <div className="mt-6">
+              <CharacterPicker value={characterId} onChange={setCharacterId} />
+            </div>
+
+            <button type="submit" className="mt-7 w-full rounded-full bg-accent py-3.5 text-base font-bold text-on-accent">
+              {mode === "create" ? t.room.createButton : t.room.joinButton}
+            </button>
+          </form>
+
+          <p className="mt-5 flex items-start gap-2 px-2 text-sm text-day-900/60 pointer-coarse:hidden dark:text-white/55">
+            <Puzzle className="mt-0.5 h-4 w-4 flex-shrink-0 text-accent" aria-hidden="true" />
+            <span>
+              {t.roomUi.extensionTip}{" "}
+              <Link href="/extension" className="font-bold text-accent underline underline-offset-4">
+                {t.roomUi.extInstall}
+              </Link>
+            </span>
+          </p>
+
+          {authEnabled && (
+            <p className="mt-3 px-2 text-sm text-day-900/60 dark:text-white/55">
+              {session?.user ? (
+                <>
+                  {t.roomUi.signedInAs.replace("{name}", session.user.name ?? "")}{" · "}
+                  <button onClick={() => signOut({ callbackUrl: "/room" })} className="font-bold text-accent underline underline-offset-4">
+                    {t.roomUi.signOut}
+                  </button>
+                </>
               ) : (
-                <motion.div
-                  key="character"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="p-8">
-                    <button
-                      onClick={() => setStep("info")}
-                      className="flex items-center gap-1.5 text-sm text-day-900/40 dark:text-white/40 hover:text-day-900/70 dark:hover:text-white/70 mb-5 transition-colors"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      {t.room.back}
-                    </button>
-
-                    <h2 className="text-lg font-bold text-day-900 dark:text-white mb-1">
-                      {t.room.chooseCharacter}
-                    </h2>
-                    <p className="text-sm text-day-900/40 dark:text-white/40 mb-5">
-                      {t.room.characterSubtitle}
-                    </p>
-
-                    {errors.character && (
-                      <p className="text-xs text-red-400 mb-3">{errors.character}</p>
-                    )}
-
-                    <div className="grid grid-cols-4 gap-2 mb-6">
-                      {CHARACTERS.map((char) => (
-                        <button
-                          key={char.id}
-                          onClick={() => { setSelectedCharacter(char.id); setErrors((p) => ({ ...p, character: undefined })); }}
-                          className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all cursor-pointer ${
-                            selectedCharacter === char.id
-                              ? "border-accent bg-accent/10 scale-105"
-                              : "border-transparent bg-black/3 dark:bg-white/3 hover:bg-black/5 dark:hover:bg-white/5 hover:scale-105"
-                          }`}
-                        >
-                          <span className="text-2xl">{char.emoji}</span>
-                          <span className="text-[10px] font-medium text-day-900/70 dark:text-white/70 leading-tight text-center">{char.name}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    {selectedCharacter && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-xs text-center text-day-900/40 dark:text-white/30 mb-4"
-                      >
-                        {CHARACTERS.find(c => c.id === selectedCharacter)?.emoji}{" "}
-                        {CHARACTERS.find(c => c.id === selectedCharacter)?.name}: {CHARACTERS.find(c => c.id === selectedCharacter)?.tagline}
-                      </motion.p>
-                    )}
-
-                    <Button
-                      size="lg"
-                      className="w-full"
-                      onClick={handleFinish}
-                      disabled={!selectedCharacter}
-                    >
-                      <Heart className="w-4 h-4" />
-                      {tab === "create" ? t.room.enterRoom : t.room.joinButton}
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </motion.div>
+                <>
+                  {t.roomUi.accountPrompt}{" "}
+                  <Link href="/login" className="font-bold text-accent underline underline-offset-4">{t.roomUi.signIn}</Link>
+                  {" · "}
+                  <Link href="/register" className="font-bold text-accent underline underline-offset-4">{t.roomUi.signUp}</Link>
+                </>
               )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      </div>
+            </p>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

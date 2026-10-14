@@ -19,3 +19,6 @@ tsconfig.tsbuildinfo
 
 # Descargas de la extensión: se generan al compilar (scripts/build-extension-zip.mjs)
 /public/downloads
+
+# Paquetes para las tiendas de extensiones (npm run package:stores)
+/store-listing/paquetes

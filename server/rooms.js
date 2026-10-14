@@ -5,6 +5,8 @@ const { cleanText } = require("./validation");
 
 /** Tope técnico absoluto de personas por sala. */
 const MAX_PARTICIPANTS = 20;
+/** Tope de salas abiertas a la vez: protege la memoria del servidor gratis. */
+const MAX_ROOMS = 2000;
 
 const AVATAR_COLORS = ["#FFC965", "#F2A7B0", "#9BC4A0", "#A6A1D6", "#E9A06B", "#7FB7BE", "#D9A6C9"];
 
@@ -24,6 +26,11 @@ const rooms = new Map();
  * @property {number} createdAt
  * @property {number} maxParticipants
  */
+
+/** ¿Se puede abrir esta sala? (ya existe, o todavía hay cupo para salas nuevas) */
+function canOpenRoom(roomId) {
+  return rooms.has(roomId) || rooms.size < MAX_ROOMS;
+}
 
 function getOrCreateRoom(roomId, { isPublic = false, name = null, maxParticipants } = {}) {
   if (!rooms.has(roomId)) {
@@ -79,6 +86,8 @@ function listPublicRooms(limit = 100) {
 
 module.exports = {
   MAX_PARTICIPANTS,
+  MAX_ROOMS,
+  canOpenRoom,
   rooms,
   getOrCreateRoom,
   currentPosition,

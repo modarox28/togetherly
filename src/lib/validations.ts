@@ -1,14 +1,15 @@
 import { z } from "zod";
 
+// Reglas de los formularios de cuenta. Se usan en el navegador y en el servidor.
 export const loginSchema = z.object({
-  email: z.string().email("Invalid email"),
-  password: z.string().min(1, "Password required"),
+  email: z.string().trim().toLowerCase().email("Escribe un correo válido."),
+  password: z.string().min(1, "Escribe tu contraseña.").max(200),
 });
 
 export const registerSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters").max(50),
-  email: z.string().email("Invalid email"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  name: z.string().trim().min(2, "El nombre debe tener al menos 2 letras.").max(50, "El nombre es muy largo."),
+  email: z.string().trim().toLowerCase().email("Escribe un correo válido."),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(200, "La contraseña es muy larga."),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

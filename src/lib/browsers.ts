@@ -1,4 +1,5 @@
 // Navegadores para la guía de instalación de la extensión (/extension).
+// Etiquetas de Edge revisadas con la guía oficial de Microsoft en español (oct. 2026).
 // Para agregar uno: añade un objeto a BROWSERS y, si no es Chromium, su descarga en
 // scripts/build-extension-zip.mjs.
 
@@ -44,7 +45,7 @@ export const BROWSERS: BrowserGuide[] = [
     extensionsUrl: "edge://extensions",
     download: CHROMIUM_ZIP,
     labels: {
-      es: { devMode: "Modo de desarrollador", devModeWhere: "en el menú de la izquierda", load: "Cargar desempaquetada" },
+      es: { devMode: "Modo de desarrollador", devModeWhere: "en el menú de la izquierda", load: "Cargar desempaquetado" },
       en: { devMode: "Developer mode", devModeWhere: "in the left menu", load: "Load unpacked" },
     },
     screenshotsMatch: false,
@@ -66,7 +67,7 @@ export const BROWSERS: BrowserGuide[] = [
     extensionsUrl: "opera://extensions",
     download: CHROMIUM_ZIP,
     labels: {
-      es: { devMode: "Modo de desarrollador", devModeWhere: "arriba a la derecha", load: "Cargar descomprimida (Load unpacked)" },
+      es: { devMode: "Modo de desarrollador", devModeWhere: "arriba a la derecha", load: "Cargar desempaquetada» o «Load unpacked" },
       en: { devMode: "Developer mode", devModeWhere: "top right", load: "Load unpacked" },
     },
     screenshotsMatch: false,

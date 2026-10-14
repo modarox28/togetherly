@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogoMark } from "@/components/ui/Logo";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Users, Play, RefreshCw, Globe } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { LanguageToggle } from "@/components/ui/LanguageToggle";
+import { Navbar } from "@/components/landing/Navbar";
+import { Footer } from "@/components/landing/Footer";
 import { Button } from "@/components/ui/Button";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { PLATFORM_COLORS, PLATFORM_LABELS, type Platform } from "@/lib/platforms";
@@ -23,61 +22,55 @@ interface PublicRoom {
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
+async function fetchPublicRooms(): Promise<PublicRoom[]> {
+  try {
+    const res = await fetch(`${SOCKET_URL}/api/rooms`);
+    const data: unknown = await res.json();
+    return Array.isArray(data) ? (data as PublicRoom[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function DiscoverPage() {
   const [rooms, setRooms] = useState<PublicRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const { t } = useLanguage();
 
-  const fetchRooms = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${SOCKET_URL}/api/rooms`);
-      const data = await res.json();
-      setRooms(data);
-    } catch {
-      setRooms([]);
-    } finally {
-      setLoading(false);
-    }
+  const showRooms = (list: PublicRoom[]) => {
+    setRooms(list);
+    setLoading(false);
   };
 
-  useEffect(() => { fetchRooms(); }, []);
+  const refreshRooms = () => {
+    setLoading(true);
+    fetchPublicRooms().then(showRooms);
+  };
+
+  // Primera carga (loading ya empieza en true).
+  useEffect(() => {
+    let active = true;
+    fetchPublicRooms().then((list) => active && showRooms(list));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-day-50 dark:bg-night-950">
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full animate-blob-drift"
-          style={{ background: "radial-gradient(circle, rgba(255,201,101,0.10) 0%, transparent 70%)" }} />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full animate-blob-drift-reverse"
-          style={{ background: "radial-gradient(circle, rgba(242,167,176,0.08) 0%, transparent 70%)" }} />
-      </div>
+    <div className="flex min-h-dvh flex-col bg-day-50 dark:bg-night-950">
+      <Navbar />
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-black/5 dark:border-white/5 bg-white/80 dark:bg-night-900/80 backdrop-blur-md">
-        <Link href="/" className="flex items-center gap-2">
-          <LogoMark className="text-accent" />
-          <span className="font-display text-xl font-extrabold tracking-tight text-day-900 dark:text-white">Togetherly</span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <LanguageToggle />
-          <ThemeToggle />
-          <Button size="sm" onClick={() => window.location.href = "/room"}>
-            {t.nav.startWatching}
-          </Button>
-        </div>
-      </header>
-
-      <main className="relative z-10 max-w-5xl mx-auto px-4 py-12">
-        <div className="flex items-center justify-between mb-8">
+      <main className="grain mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-28 sm:pt-32">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-day-900 dark:text-white">
+            <h1 className="font-display text-4xl font-extrabold tracking-tight text-day-900 dark:text-white">
               {t.discover.title}
             </h1>
-            <p className="text-day-900/40 dark:text-white/40 mt-1 text-sm">
+            <p className="mt-2 text-day-900/65 dark:text-white/60">
               {t.discover.subtitle}
             </p>
           </div>
-          <button onClick={fetchRooms} disabled={loading}
+          <button onClick={refreshRooms} disabled={loading}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-black/5 dark:bg-white/5 text-day-900/60 dark:text-white/60 hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-sm">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             {t.discover.refresh}
@@ -151,6 +144,7 @@ export default function DiscoverPage() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

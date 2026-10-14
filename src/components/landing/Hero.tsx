@@ -14,7 +14,7 @@ export function Hero() {
   useEffect(() => wakeSocketServer(), []);
 
   return (
-    <section className="grain relative overflow-hidden bg-day-50 dark:bg-night-950 px-4 pt-28 pb-16 lg:pt-32">
+    <section className="grain relative overflow-hidden bg-day-50 dark:bg-night-950 px-4 pt-24 pb-12 sm:pt-28 sm:pb-16 lg:pt-32">
       <div className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center lg:gap-12">
         <div>
           <h1 className="font-display text-[clamp(2.6rem,6.2vw,4.6rem)] font-extrabold leading-[0.95] tracking-[-0.035em] text-day-900 dark:text-white">

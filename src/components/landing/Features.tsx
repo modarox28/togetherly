@@ -11,7 +11,7 @@ export function Features() {
   const { t } = useLanguage();
 
   return (
-    <section id="room-features" className="bg-day-100 px-4 py-24 dark:bg-night-900">
+    <section id="room-features" className="bg-day-100 px-4 py-16 sm:py-24 dark:bg-night-900">
       <div className="mx-auto max-w-6xl">
         <SectionHeading>{t.features.title}</SectionHeading>
         <dl className="mt-12 grid gap-x-16 sm:grid-cols-2">

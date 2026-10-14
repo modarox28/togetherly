@@ -235,3 +235,37 @@ test("el servidor rechaza eventos de quien no está en la sala", async () => {
     member.close();
   }
 });
+
+test("protocolo de la web y la app móvil: entrar, chatear y sincronizar", async () => {
+  const { io } = require("socket.io-client");
+  const ana = io(SERVER_URL, { transports: ["websocket"] });
+  const beto = io(SERVER_URL, { transports: ["websocket"] });
+  const once = (socket, event) => new Promise((resolve) => socket.once(event, resolve));
+  try {
+    const roomId = `MOVIL${Date.now() % 10000}`;
+    ana.emit("join-room", { roomId, username: "Ana", avatar: "🐈" });
+    const joined = await once(ana, "room-joined");
+    expect(joined.you.name).toBe("Ana");
+    expect(joined.premium).toBe(false);
+
+    const anaSeesBeto = once(ana, "participant-joined");
+    beto.emit("join-room", { roomId, username: "Beto", avatar: "☕" });
+    await once(beto, "room-joined");
+    expect((await anaSeesBeto).participant.name).toBe("Beto");
+
+    // El chat dice quién lo mandó (senderId) para que cada app sepa cuáles son "míos".
+    const message = once(ana, "chat-message");
+    beto.emit("chat-message", { roomId, text: "hola" });
+    const received = await message;
+    expect(received.senderId).toBe(beto.id);
+    expect(received.text).toBe("hola");
+
+    // play con currentTime (formato nuevo; la app móvil antes mandaba "time")
+    const play = once(ana, "video-play");
+    beto.emit("video-play", { roomId, currentTime: 42 });
+    expect((await play).currentTime).toBe(42);
+  } finally {
+    ana.close();
+    beto.close();
+  }
+});

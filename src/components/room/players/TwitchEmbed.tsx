@@ -26,7 +26,7 @@ export const TwitchEmbed = forwardRef<PlayerHandle, Props>(function TwitchEmbed(
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<TwitchPlayer | null>(null);
   const cachedTime = useRef(0);
   const mountedRef = useRef(true);
 
@@ -50,13 +50,13 @@ export const TwitchEmbed = forwardRef<PlayerHandle, Props>(function TwitchEmbed(
 
     const initPlayer = () => {
       if (!mountedRef.current || !container) return;
-      const TwitchLib = (window as any).Twitch;
+      const TwitchLib = window.Twitch;
       if (!TwitchLib?.Player) return;
 
       // Clear any previous player
       container.innerHTML = "";
 
-      const opts: any = {
+      const opts: TwitchPlayerOptions = {
         width: "100%",
         height: "100%",
         autoplay: false,
@@ -84,7 +84,7 @@ export const TwitchEmbed = forwardRef<PlayerHandle, Props>(function TwitchEmbed(
       });
     };
 
-    if ((window as any).Twitch?.Player) {
+    if (window.Twitch?.Player) {
       initPlayer();
     } else {
       const existing = document.querySelector('script[src*="twitch.tv/embed"]');
@@ -103,6 +103,8 @@ export const TwitchEmbed = forwardRef<PlayerHandle, Props>(function TwitchEmbed(
       playerRef.current = null;
       if (container) container.innerHTML = "";
     };
+    // El reproductor se crea una sola vez por enlace; los callbacks nuevos no lo recrean.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url]);
 
   return <div ref={containerRef} className="absolute inset-0 w-full h-full" />;

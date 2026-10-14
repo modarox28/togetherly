@@ -9,7 +9,7 @@ export function HowItWorks() {
   const { t } = useLanguage();
 
   return (
-    <section id="how-it-works" className="bg-day-100 px-4 py-24 dark:bg-night-900">
+    <section id="how-it-works" className="bg-day-100 px-4 py-16 sm:py-24 dark:bg-night-900">
       <div className="mx-auto max-w-6xl">
         <SectionHeading>{t.howItWorks.title}</SectionHeading>
         <ol className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8">

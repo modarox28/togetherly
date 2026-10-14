@@ -87,9 +87,11 @@ async function shoot(page, name, clip) {
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
   const id = new URL(worker.url()).host;
   const popup = await context.newPage();
-  await popup.setViewportSize({ width: 300, height: 430 });
+  await popup.setViewportSize({ width: 300, height: 520 });
   await popup.goto(`chrome-extension://${id}/popup.html`);
   await popup.evaluate(() => {
+    // El popup consulta su estado cada segundo y medio: se detiene para la foto.
+    for (let i = 1; i < 1000; i++) clearInterval(i);
     document.getElementById("view-connect").hidden = true;
     document.getElementById("view-connected").hidden = false;
     document.getElementById("room-code").textContent = "K7M2QX";

@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Video, Mic, X, Phone, CameraOff } from "lucide-react";
+import { useLanguage } from "@/components/providers/LanguageProvider";
 
-interface MediaDeviceInfo2 {
+interface DeviceOption {
   deviceId: string;
   label: string;
 }
@@ -14,9 +15,13 @@ interface Props {
   onCancel: () => void;
 }
 
+const stopStream = (stream: MediaStream | null) => stream?.getTracks().forEach((track) => track.stop());
+
+// Ventana para elegir cámara y micrófono antes de llamar (con vista previa de la cámara).
 export function DevicePickerModal({ onConfirm, onCancel }: Props) {
-  const [cameras, setCameras] = useState<MediaDeviceInfo2[]>([]);
-  const [mics, setMics] = useState<MediaDeviceInfo2[]>([]);
+  const { t } = useLanguage();
+  const [cameras, setCameras] = useState<DeviceOption[]>([]);
+  const [mics, setMics] = useState<DeviceOption[]>([]);
   const [selectedCamera, setSelectedCamera] = useState("");
   const [selectedMic, setSelectedMic] = useState("");
   const [previewError, setPreviewError] = useState(false);
@@ -24,49 +29,18 @@ export function DevicePickerModal({ onConfirm, onCancel }: Props) {
   const streamRef = useRef<MediaStream | null>(null);
   const mountedRef = useRef(true);
 
-  useEffect(() => {
-    mountedRef.current = true;
-    async function init() {
-      try {
-        const temp = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        temp.getTracks().forEach((t) => t.stop());
-        const all = await navigator.mediaDevices.enumerateDevices();
-        if (!mountedRef.current) return;
-        const cams = all.filter((d) => d.kind === "videoinput").map((d, i) => ({
-          deviceId: d.deviceId,
-          label: d.label || `Cámara ${i + 1}`,
-        }));
-        const mikes = all.filter((d) => d.kind === "audioinput").map((d, i) => ({
-          deviceId: d.deviceId,
-          label: d.label || `Micrófono ${i + 1}`,
-        }));
-        setCameras(cams);
-        setMics(mikes);
-        const cam = cams[0]?.deviceId ?? "";
-        const mic = mikes[0]?.deviceId ?? "";
-        setSelectedCamera(cam);
-        setSelectedMic(mic);
-        if (cam) startPreview(cam);
-      } catch {
-        if (mountedRef.current) setPreviewError(true);
-      }
-    }
-    init();
-    return () => {
-      mountedRef.current = false;
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-    };
-  }, []);
-
   const startPreview = async (deviceId: string) => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    stopStream(streamRef.current);
     setPreviewError(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { deviceId: { exact: deviceId }, width: { ideal: 320 }, height: { ideal: 240 } },
         audio: false,
       });
-      if (!mountedRef.current) { stream.getTracks().forEach((t) => t.stop()); return; }
+      if (!mountedRef.current) {
+        stopStream(stream);
+        return;
+      }
       streamRef.current = stream;
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch {
@@ -74,92 +48,113 @@ export function DevicePickerModal({ onConfirm, onCancel }: Props) {
     }
   };
 
+  useEffect(() => {
+    mountedRef.current = true;
+    const load = async () => {
+      try {
+        // Pedir permiso una vez para que el navegador muestre los nombres de los dispositivos.
+        stopStream(await navigator.mediaDevices.getUserMedia({ video: true, audio: true }));
+        const all = await navigator.mediaDevices.enumerateDevices();
+        if (!mountedRef.current) return;
+        const toOptions = (kind: MediaDeviceKind, fallback: string) =>
+          all.filter((d) => d.kind === kind).map((d, i) => ({ deviceId: d.deviceId, label: d.label || `${fallback} ${i + 1}` }));
+        const cams = toOptions("videoinput", t.roomUi.camera);
+        const microphones = toOptions("audioinput", t.roomUi.microphone);
+        setCameras(cams);
+        setMics(microphones);
+        setSelectedCamera(cams[0]?.deviceId ?? "");
+        setSelectedMic(microphones[0]?.deviceId ?? "");
+        if (cams[0]) startPreview(cams[0].deviceId);
+      } catch {
+        if (mountedRef.current) setPreviewError(true);
+      }
+    };
+    load();
+    return () => {
+      mountedRef.current = false;
+      stopStream(streamRef.current);
+    };
+    // Solo al abrir la ventana.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleCameraChange = (id: string) => {
     setSelectedCamera(id);
     startPreview(id);
   };
 
-  const handleConfirm = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    onConfirm(selectedCamera || undefined, selectedMic || undefined);
+  const close = (confirm: boolean) => {
+    stopStream(streamRef.current);
+    if (confirm) onConfirm(selectedCamera || undefined, selectedMic || undefined);
+    else onCancel();
   };
 
-  const handleCancel = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    onCancel();
-  };
+  const selectClass =
+    "w-full rounded-xl border border-white/10 bg-night-800 px-3 py-2.5 text-sm text-white outline-none focus:border-lamp";
 
   return (
-    <AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
+      onClick={() => close(false)}
+    >
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="device-picker-title"
+        initial={{ y: 24 }}
+        animate={{ y: 0 }}
+        exit={{ y: 24 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm overflow-hidden rounded-t-3xl bg-night-900 text-white shadow-2xl sm:rounded-3xl"
       >
-        <motion.div
-          initial={{ scale: 0.92, y: 16 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.92, y: 16 }}
-          className="w-80 rounded-2xl bg-night-900 border border-white/10 shadow-2xl overflow-hidden"
-        >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-            <span className="text-white font-semibold text-sm">Configurar videollamada</span>
-            <button onClick={handleCancel}
-              className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors">
-              <X className="w-4 h-4" />
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <h2 id="device-picker-title" className="font-display text-base font-bold">{t.roomUi.setupCall}</h2>
+          <button onClick={() => close(false)} aria-label={t.roomUi.cancel}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-white/60 hover:bg-white/10 hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="relative aspect-[4/3] bg-night-800">
+          {previewError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/45">
+              <CameraOff className="h-8 w-8" aria-hidden="true" />
+              <span className="text-sm">{t.roomUi.noCameraAccess}</span>
+            </div>
+          ) : (
+            <video ref={videoRef} autoPlay playsInline muted className="h-full w-full -scale-x-100 object-cover" />
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 p-5">
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-white/60">
+            <span className="flex items-center gap-1.5"><Video className="h-3.5 w-3.5" aria-hidden="true" /> {t.roomUi.camera}</span>
+            <select value={selectedCamera} onChange={(e) => handleCameraChange(e.target.value)} className={selectClass}>
+              {cameras.length === 0 && <option value="">{t.roomUi.noCameras}</option>}
+              {cameras.map((c) => <option key={c.deviceId} value={c.deviceId}>{c.label}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-white/60">
+            <span className="flex items-center gap-1.5"><Mic className="h-3.5 w-3.5" aria-hidden="true" /> {t.roomUi.microphone}</span>
+            <select value={selectedMic} onChange={(e) => setSelectedMic(e.target.value)} className={selectClass}>
+              {mics.length === 0 && <option value="">{t.roomUi.noMics}</option>}
+              {mics.map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label}</option>)}
+            </select>
+          </label>
+
+          <div className="mt-1 flex gap-2">
+            <button onClick={() => close(false)} className="flex-1 rounded-full bg-white/5 py-3 text-sm font-semibold text-white/70 hover:bg-white/10">
+              {t.roomUi.cancel}
+            </button>
+            <button onClick={() => close(true)} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-lamp py-3 text-sm font-bold text-plum">
+              <Phone className="h-4 w-4" aria-hidden="true" /> {t.roomUi.call}
             </button>
           </div>
-
-          {/* Camera preview */}
-          <div className="relative bg-night-800" style={{ aspectRatio: "4/3" }}>
-            {!previewError ? (
-              <video ref={videoRef} autoPlay playsInline muted
-                className="w-full h-full object-cover scale-x-[-1]" />
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                <CameraOff className="w-8 h-8 text-white/20" />
-                <span className="text-white/30 text-xs">Sin acceso a la cámara</span>
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-xs text-white/50 font-medium">
-                <Video className="w-3.5 h-3.5" /> Cámara
-              </label>
-              <select value={selectedCamera} onChange={(e) => handleCameraChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-night-800 border border-white/10 text-white text-sm outline-none focus:border-accent/50 transition-colors">
-                {cameras.length === 0 && <option value="">Sin cámaras detectadas</option>}
-                {cameras.map((c) => <option key={c.deviceId} value={c.deviceId}>{c.label}</option>)}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-xs text-white/50 font-medium">
-                <Mic className="w-3.5 h-3.5" /> Micrófono
-              </label>
-              <select value={selectedMic} onChange={(e) => setSelectedMic(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-night-800 border border-white/10 text-white text-sm outline-none focus:border-accent/50 transition-colors">
-                {mics.length === 0 && <option value="">Sin micrófonos detectados</option>}
-                {mics.map((m) => <option key={m.deviceId} value={m.deviceId}>{m.label}</option>)}
-              </select>
-            </div>
-
-            <div className="flex gap-2 mt-1">
-              <button onClick={handleCancel}
-                className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 text-sm font-medium hover:bg-white/10 transition-colors">
-                Cancelar
-              </button>
-              <button onClick={handleConfirm}
-                className="flex-1 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
-                <Phone className="w-3.5 h-3.5" /> Llamar
-              </button>
-            </div>
-          </div>
-        </motion.div>
+        </div>
       </motion.div>
-    </AnimatePresence>
+    </motion.div>
   );
 }

@@ -47,7 +47,7 @@ export function CompanionEmbed({
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 bg-night-900">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 overflow-y-auto bg-plum p-5 sm:gap-6 sm:p-8">
       {/* Platform badge */}
       <div className="flex flex-col items-center gap-3">
         <div

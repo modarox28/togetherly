@@ -29,6 +29,7 @@ const httpServer = createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
 
   if (req.method === "OPTIONS") {
     res.writeHead(204);
@@ -49,6 +50,25 @@ const httpServer = createServer((req, res) => {
 const io = new Server(httpServer, {
   cors: { origin: ALLOWED_ORIGINS, methods: ["GET", "POST"] },
   maxHttpBufferSize: 1e5, // 100 KB: suficiente para la señalización de WebRTC
+});
+
+// Máximo de conexiones a la vez desde una misma IP (una familia entera cabe de sobra).
+const MAX_CONNECTIONS_PER_IP = 20;
+const connectionsByIp = new Map();
+const clientIp = (socket) =>
+  String(socket.handshake.headers["x-forwarded-for"] ?? socket.handshake.address).split(",")[0].trim();
+
+io.use((socket, next) => {
+  const ip = clientIp(socket);
+  const count = connectionsByIp.get(ip) ?? 0;
+  if (count >= MAX_CONNECTIONS_PER_IP) return next(new Error("Demasiadas conexiones"));
+  connectionsByIp.set(ip, count + 1);
+  socket.on("disconnect", () => {
+    const left = (connectionsByIp.get(ip) ?? 1) - 1;
+    if (left <= 0) connectionsByIp.delete(ip);
+    else connectionsByIp.set(ip, left);
+  });
+  next();
 });
 
 io.on("connection", (socket) => handleConnection(io, socket, plans));
