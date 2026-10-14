@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getStripe, getPremiumPriceId, PAYMENTS_DISABLED } from "@/lib/stripe";
+import { PAYMENTS_ENABLED } from "@/lib/plans";
 import { prisma } from "@/lib/db";
 
 export async function POST() {
   const stripe = getStripe();
   const priceId = getPremiumPriceId();
-  if (!stripe || !priceId) return NextResponse.json(PAYMENTS_DISABLED, { status: 503 });
+  // Doble seguro: aunque alguien llame a esta ruta directamente, no se cobra con pagos en pausa.
+  if (!PAYMENTS_ENABLED || !stripe || !priceId) return NextResponse.json(PAYMENTS_DISABLED, { status: 503 });
 
   const session = await auth();
   if (!session?.user?.email) {

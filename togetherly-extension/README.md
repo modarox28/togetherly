@@ -37,7 +37,7 @@ Antes de publicar, valida la versión de Firefox con `npx web-ext lint --source-
 | `content.js` | Motor de sincronización: anti-rebote por evento esperado, cola de órdenes, ponerse al día y aviso flotante. |
 | `netflix-main.js` | Corre dentro de la página de Netflix para usar su reproductor interno; cambiar `currentTime` directo provoca el error M7375. |
 | `bridge.js` | Puente con la web de Togetherly. Solo acepta 3 tipos de mensaje y del mismo origen. |
-| `popup.html/js` | Conectarse a mano con un código. |
+| `popup.html/js` | Crear una sala nueva o unirse con un código, sin pasar por la web. |
 | `icons/` | Ícono en 16, 32, 48 y 128 px. |
 
 Pruebas de punta a punta (dos navegadores con la extensión y páginas que imitan Netflix, Prime y Disney+): `npm run test:extension` desde la raíz del repo.

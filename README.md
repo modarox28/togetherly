@@ -59,6 +59,9 @@ Extensión de Chrome ──────┘   (Netflix, Prime, etc.)
 | Cambiar la guía de instalación | Textos en `translations.ts` → `extensionPage`; navegadores en `src/lib/browsers.ts`; capturas y video con `node scripts/capture-extension-guide.mjs`. |
 | Agregar una plataforma dentro de la sala | `src/lib/platforms.ts` y un componente en `src/components/room/players/`. |
 | Cambiar la animación del hero | `src/components/landing/TwoRoomsScene.tsx` (tiempos en `TIMING`, colores en `COLORS`). |
+| Agregar o cambiar avatares | `src/lib/characters.ts` (personajes propios, sin marcas). |
+| Encender o apagar los pagos | `NEXT_PUBLIC_PAYMENTS_ENABLED` en Vercel. Antes, leer `docs/monetizacion.md`. |
+| Cambiar el popup de la extensión (crear/unirse a sala) | `togetherly-extension/popup.html` y `popup.js`. |
 | Cambiar reglas del servidor de salas | `server/connection.js` (eventos) y `server/validation.js` (validaciones). |
 
 ## Instalar y correr en tu computador (Windows / CMD)
@@ -104,12 +107,17 @@ GitHub Actions corre TypeScript, la compilación y estas pruebas en cada push (`
 | `AUTH_SECRET`, `NEXTAUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Vercel | Inicio de sesión |
 | `NEXT_PUBLIC_SOCKET_URL` | Vercel | Dirección del servidor de salas |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID` | Vercel | Pagos (opcionales: sin ellas la web se publica igual) |
+| `NEXT_PUBLIC_PAYMENTS_ENABLED` | Vercel | `true` muestra el botón de pagar Premium. Apagado = "Próximamente" (ver `docs/monetizacion.md`) |
+| `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Vercel | Videollamada en redes difíciles (opcional, ver abajo) |
+| `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL` | Vercel | Alternativa a Cloudflare con otro proveedor TURN (opcional) |
 | `ROOM_PASS_SECRET` | Vercel **y** Render (mismo valor) | Pases Premium; sin ella no hay límite por plan |
 | `ALLOWED_ORIGINS` | Render (ya viene en `render.yaml`) | Dominios que pueden conectarse. Render pone el puerto en `PORT` |
 
 Ninguna clave va en el código ni en GitHub: solo en `.env.local` (tu computador) o en los paneles de Vercel y Render.
 
 ## Despliegue
+
+El build (`npm run build`) aplica solo las migraciones de base de datos pendientes (`prisma migrate deploy`) si existe `DATABASE_URL`; sin base de datos, se salta ese paso.
 
 Un push a `main` publica la web en Vercel y el servidor de salas en Render. Los cambios grandes van en una rama con PR: Vercel genera una vista previa del PR antes de unirlo.
 
@@ -125,7 +133,10 @@ La extensión pregunta la dirección del servidor a `/api/config`, así que no h
 
 Límites del plan gratis: se duerme tras 15 minutos sin uso y tarda cerca de 1 minuto en despertar (la web lo despierta sola al abrir la página de inicio o la de crear sala); 750 horas al mes.
 
+### Videollamada (TURN opcional)
+
+Sin configurar nada, la videollamada usa STUN y funciona en la mayoría de redes de casa. En datos móviles o redes de universidad a veces no conecta: para eso está TURN, que reenvía el video. `src/app/api/turn/route.ts` entrega credenciales temporales; las claves se quedan en el servidor. Cloudflare TURN trae 1.000 GB gratis al mes y cobra después, así que **antes de activarlo hay que revisar si la cuenta tiene tarjeta** (la regla del proyecto es no gastar sin avisar).
+
 ## Pendientes conocidos
 
-- 23 avisos del compilador de React 19 en la sala, la videollamada y los reproductores de Twitch y Vimeo (`npm run lint`). No bloquean, pero conviene corregirlos probando cada cambio con una llamada real.
-- Los avatares usan personajes de marcas registradas (Mario, Pikachu…): reemplazarlos por personajes propios antes de cobrar en serio.
+- 21 avisos del compilador de React 19 en la sala, la videollamada y los reproductores de Twitch y Vimeo (`npm run lint`). No bloquean, pero conviene corregirlos probando cada cambio con una llamada real.

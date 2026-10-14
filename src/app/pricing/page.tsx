@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import { Check, Sparkles, Zap, Crown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { PLANS } from "@/lib/plans";
+import { PLANS, PAYMENTS_ENABLED } from "@/lib/plans";
 
 const FREE_FEATURES = PLANS.free.features;
 const PREMIUM_FEATURES = PLANS.premium.features;
@@ -215,10 +215,16 @@ function PricingContent() {
                   Gestionar suscripción
                 </Button>
               </div>
-            ) : (
+            ) : PAYMENTS_ENABLED ? (
               <Button className="w-full" loading={loading} onClick={handleCheckout}>
                 {status !== "authenticated" ? "Inicia sesión para suscribirte" : "Hazte Premium"}
               </Button>
+            ) : (
+              // Pagos en pausa: se muestra el plan, pero todavía no se puede comprar.
+              <div className="w-full rounded-xl border-2 border-dashed border-accent/40 px-4 py-3 text-center">
+                <p className="font-bold text-accent">Próximamente</p>
+                <p className="mt-1 text-xs text-white/60">Mientras tanto, todo lo del plan Gratis es tuyo sin pagar nada.</p>
+              </div>
             )}
           </motion.div>
         </div>

@@ -184,6 +184,33 @@ for (const platform of Object.keys(PLATFORM_URLS)) {
   });
 }
 
+test("crear sala desde el popup: el otro se une con el código y el play se sincroniza", async () => {
+  const ana = await openBrowser("ana-crea");
+  const beto = await openBrowser("beto-une");
+  try {
+    // Ana crea la sala sin pasar por la web.
+    const popup = await ana.context.newPage();
+    await popup.goto(`chrome-extension://${ana.extensionId}/popup.html`);
+    await popup.fill("#input-name", "Ana");
+    await popup.click("#btn-create");
+    await expect(popup.locator("#status-text")).toHaveText("Sincronizando", { timeout: 10000 });
+    const roomId = (await popup.locator("#room-code").textContent()).trim();
+    expect(roomId).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+    await popup.close();
+
+    // Beto se une con el código que le mandó Ana.
+    await joinWithPopup(beto, roomId, "Beto");
+
+    const pageA = await openPlatform(ana, "netflix");
+    const pageB = await openPlatform(beto, "netflix");
+    await pageA.evaluate(() => window.__user.play());
+    await expect.poll(async () => (await videoState(pageB)).paused, { timeout: 8000 }).toBe(false);
+  } finally {
+    await ana.context.close();
+    await beto.context.close();
+  }
+});
+
 test("el servidor rechaza eventos de quien no está en la sala", async () => {
   const { io } = require("socket.io-client");
   const intruder = io(SERVER_URL, { transports: ["websocket"] });
