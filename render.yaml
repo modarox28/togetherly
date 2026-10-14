@@ -20,6 +20,5 @@ services:
       # Dominios que pueden conectarse (separados por coma)
       - key: ALLOWED_ORIGINS
         value: https://togetherly-weld.vercel.app
-      # El mismo valor que en Vercel. Render lo pide al crear el servicio.
-      - key: ROOM_PASS_SECRET
-        sync: false
+      # ROOM_PASS_SECRET (opcional, para el límite de Premium): agrégalo después en
+      # Render → servicio → Environment, con el mismo valor que en Vercel.
