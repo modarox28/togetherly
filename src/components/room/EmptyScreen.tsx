@@ -44,7 +44,7 @@ export function EmptyScreen({ extensionActive, nowWatching, onLoadUrl }: Props) 
   };
 
   return (
-    <div className="flex h-full flex-col justify-center gap-6 overflow-y-auto p-5 text-white sm:p-8 lg:p-12">
+    <div className="flex h-full flex-col justify-start gap-6 overflow-y-auto p-5 text-white sm:p-8 lg:justify-center lg:p-12">
       {nowWatching ? (
         // Ya están viendo algo con la extensión: eso es lo principal.
         <div className="flex flex-col gap-4">
