@@ -3,9 +3,14 @@ const $ = (id) => document.getElementById(id);
 const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{3,32}$/; // igual que en background.js
 // Igual que src/lib/room.ts: 6 caracteres sin letras confusas (I, O, 0, 1)
 const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const WEB_ROOM_URL = "https://togetherly-weld.vercel.app/room/";
+const PLATFORM_NAMES = {
+  netflix: "Netflix", prime: "Prime Video", disney: "Disney+", hbo: "HBO Max",
+  appletv: "Apple TV+", paramount: "Paramount+", crunchyroll: "Crunchyroll",
+};
 
 let currentRoom = null;
+let inviteUrl = null;
+let watchingUrl = null;
 
 function generateRoomId() {
   const bytes = crypto.getRandomValues(new Uint8Array(6));
@@ -14,8 +19,16 @@ function generateRoomId() {
   return id;
 }
 
-function render(connected, roomId) {
+function render(connected, roomId, extra = {}) {
   currentRoom = roomId ?? null;
+  inviteUrl = extra.inviteUrl ?? null;
+  // La dirección ya viene validada por el background (solo plataformas soportadas).
+  watchingUrl = extra.nowWatching?.url ?? null;
+  $("watching").hidden = !watchingUrl;
+  if (watchingUrl) {
+    const name = PLATFORM_NAMES[extra.nowWatching.platform] ?? "streaming";
+    $("watching-text").textContent = `${name} · lo abrió ${extra.nowWatching.by}`;
+  }
   $("status-dot").className = connected ? "status-dot ok" : "status-dot";
   $("status-text").textContent = connected ? "Sincronizando" : roomId ? "Conectando… (puede tardar un minuto)" : "Sin conectar";
   $("view-connect").hidden = !!roomId;
@@ -26,7 +39,7 @@ function render(connected, roomId) {
 function refreshStatus() {
   chrome.runtime.sendMessage({ type: "PING" }, (reply) => {
     if (chrome.runtime.lastError || !reply) return;
-    render(reply.connected, reply.roomId);
+    render(reply.connected, reply.roomId, reply);
     if (reply.username) $("input-name").value = reply.username;
   });
 }
@@ -46,11 +59,12 @@ function readName() {
   return name;
 }
 
-function join(roomId, name, button) {
+/** openWatching: al unirse a la sala de otro, abrir su película en cuanto se sepa cuál es. */
+function join(roomId, name, button, openWatching = false) {
   const label = button.textContent;
   button.disabled = true;
   button.textContent = "Conectando…";
-  chrome.runtime.sendMessage({ type: "JOIN_ROOM", roomId, username: name, avatar: "🍿" }, (reply) => {
+  chrome.runtime.sendMessage({ type: "JOIN_ROOM", roomId, username: name, avatar: "🍿", openWatching }, (reply) => {
     button.disabled = false;
     button.textContent = label;
     if (reply?.ok) {
@@ -85,11 +99,12 @@ $("btn-connect").addEventListener("click", () => {
   const roomId = $("input-room").value.trim().toUpperCase();
   if (!ROOM_ID_PATTERN.test(roomId)) return showError("Escribe el código de la sala (letras y números).", $("input-room"));
   const name = readName();
-  if (name) join(roomId, name, $("btn-connect"));
+  if (name) join(roomId, name, $("btn-connect"), true);
 });
 
 $("btn-copy-code").addEventListener("click", () => currentRoom && copy(currentRoom, "Código copiado ✓"));
-$("btn-copy-link").addEventListener("click", () => currentRoom && copy(WEB_ROOM_URL + currentRoom, "Enlace copiado ✓"));
+$("btn-copy-link").addEventListener("click", () => inviteUrl && copy(inviteUrl, "Enlace copiado ✓"));
+$("btn-go").addEventListener("click", () => watchingUrl && chrome.tabs.create({ url: watchingUrl }));
 
 $("btn-disconnect").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "LEAVE_ROOM" }, () => render(false, null));

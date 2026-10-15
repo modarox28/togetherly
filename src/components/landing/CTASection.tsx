@@ -14,7 +14,8 @@ export function CTASection() {
 
   const handleJoin = (event: React.FormEvent) => {
     event.preventDefault();
-    if (isValid) router.push(`/room/${code}`);
+    // /j/ decide: película de la sala con la extensión, instalarla, o la sala web.
+    if (isValid) router.push(`/j/${code}`);
   };
 
   return (

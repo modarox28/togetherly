@@ -56,8 +56,10 @@ export default function RoomSetupPage() {
       sessionStorage.setItem("togetherly-character", characterId);
       sessionStorage.setItem("togetherly-is-public", isPublic ? "1" : "0");
       sessionStorage.setItem("togetherly-room-name", roomName.trim() || name);
+      localStorage.setItem("togetherly-name", name);
     } catch {}
-    router.push(`/room/${mode === "create" ? generateRoomId() : code}`);
+    // Al unirse se pasa por /j/: si la sala ya está viendo algo con la extensión, lleva ahí.
+    router.push(mode === "create" ? `/room/${generateRoomId()}` : `/j/${code}`);
   };
 
   return (

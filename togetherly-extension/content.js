@@ -6,6 +6,10 @@
 //   REMOTE_COMMAND { action: "play" | "pause" | "seek", currentTime, by }
 //   ROOM_STATE     { playing, currentTime }   → al entrar tarde o cambiar de episodio
 //   EXT_STATUS     { connected, roomId }
+//   NOW_WATCHING_UPDATE { url, by } → alguien de la sala abrió otra película
+//
+// Y avisa al background qué página de video está abierta (NOW_WATCHING), para que
+// quien entra con el enlace de invitación llegue directo a la misma película.
 
 (() => {
   if (globalThis.__togetherlyEngine) return;
@@ -22,6 +26,8 @@
   let pendingOrder = null; // orden que llegó antes de encontrar el video
   let orderQueue = Promise.resolve();
   let seekDebounce = null;
+  let lastReportedUrl = null;
+  const isTopFrame = window.top === window;
 
   // Eventos que provoca la propia extensión al aplicar una orden remota.
   // Se ignoran uno a uno (no por tiempo): así una acción real de la persona nunca se pierde.
@@ -111,10 +117,31 @@
       detachVideo();
       return;
     }
-    if (video && video.isConnected && video.readyState > 0) return;
-    const found = platform.findVideo();
-    if (found) attachVideo(found);
+    if (!(video && video.isConnected && video.readyState > 0)) {
+      const found = platform.findVideo();
+      if (found) attachVideo(found);
+    }
+    reportNowWatching();
   }, 1000);
+
+  // Solo la pestaña principal sabe la dirección real (en Crunchyroll el video va en un iframe).
+  function reportNowWatching() {
+    if (!isTopFrame || !(video || platform.id === "crunchyroll")) return;
+    const url = location.href.split("#")[0];
+    if (url === lastReportedUrl) return;
+    lastReportedUrl = url;
+    sendToBackground({ type: "NOW_WATCHING", url });
+  }
+
+  const samePage = (a, b) => {
+    try {
+      const x = new URL(a);
+      const y = new URL(b);
+      return x.origin === y.origin && x.pathname === y.pathname;
+    } catch {
+      return false;
+    }
+  };
 
   // ── Órdenes que llegan de la sala ───────────────────────────────────────
   // Se aplican en fila para que un "play" y un "seek" seguidos no se pisen.
@@ -176,6 +203,12 @@
       if (message.action === "seek") showToast(`⏩ ${who} saltó a ${formatTime(message.currentTime)}`);
     } else if (message.type === "ROOM_STATE" && message.playing !== undefined) {
       enqueue({ ...message, action: "state" });
+    } else if (message.type === "NOW_WATCHING_UPDATE" && isTopFrame && roomId) {
+      // El background ya validó la dirección (solo plataformas soportadas, https).
+      if (typeof message.url === "string" && !samePage(message.url, location.href)) {
+        const who = typeof message.by === "string" && message.by ? message.by.slice(0, 24) : "Alguien";
+        showToast(`${who} abrió otra cosa`, { label: "Ir", onClick: () => location.assign(message.url) });
+      }
     } else if (message.type === "EXT_STATUS") {
       roomId = message.connected ? message.roomId : null;
       if (!roomId) {
@@ -208,6 +241,10 @@
       box-shadow:0 10px 30px rgba(15,10,25,.45),inset 0 0 0 1.5px rgba(255,201,101,.35);
       transition:opacity .35s ease,transform .45s cubic-bezier(.34,1.56,.64,1)}
     .toast.visible{opacity:1;transform:translate(-50%,0) scale(1)}
+    .toast.has-action{pointer-events:auto}
+    .action{margin-left:4px;border:0;border-radius:999px;padding:6px 14px;background:#FFC965;color:#2A2140;
+      font:800 13px/1 "Nunito",ui-rounded,system-ui,sans-serif;cursor:pointer}
+    .action:focus-visible{outline:2px solid #F2A7B0;outline-offset:2px}
     .dot{width:22px;height:22px;border-radius:50%;background:#FFC965;display:grid;place-items:center;flex-shrink:0}
     .dot::after{content:"";width:8px;height:8px;border-radius:50%;background:#2A2140;animation:beat 1.6s ease-in-out infinite}
     @keyframes beat{50%{transform:scale(1.35)}}
@@ -216,6 +253,7 @@
   let toastHost = null;
   let toastBox = null;
   let toastText = null;
+  let toastAction = null;
   let hideTimer = null;
 
   function createToast() {
@@ -230,7 +268,10 @@
     const dot = document.createElement("span");
     dot.className = "dot";
     toastText = document.createElement("span");
-    toastBox.append(dot, toastText);
+    toastAction = document.createElement("button");
+    toastAction.className = "action";
+    toastAction.hidden = true;
+    toastBox.append(dot, toastText, toastAction);
     shadow.append(style, toastBox);
     document.addEventListener("fullscreenchange", placeToast);
   }
@@ -240,12 +281,21 @@
     if (toastHost && toastHost.parentNode !== parent) parent.appendChild(toastHost);
   }
 
-  function showToast(text) {
+  /** action (opcional): { label, onClick } → muestra un botón y deja el aviso más tiempo. */
+  function showToast(text, action) {
     if (!toastHost) createToast();
     placeToast();
     toastText.textContent = text; // textContent: nunca se interpreta como HTML
+    toastAction.hidden = !action;
+    toastBox.classList.toggle("has-action", !!action);
+    if (action) {
+      toastAction.textContent = action.label;
+      toastAction.onclick = action.onClick;
+    }
     requestAnimationFrame(() => toastBox.classList.add("visible"));
     clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => toastBox.classList.remove("visible"), 3800);
+    hideTimer = setTimeout(() => {
+      toastBox.classList.remove("visible", "has-action");
+    }, action ? 12000 : 3800);
   }
 })();

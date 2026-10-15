@@ -10,6 +10,20 @@ const WEB_CONFIG_URL = "https://togetherly-weld.vercel.app/api/config";
 const FALLBACK_SERVER_URL = "https://togetherly-salas.onrender.com";
 // Igual que en src/lib/room.ts y server/validation.js
 const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{3,32}$/;
+// Página de invitación: abre la misma película si tienes la extensión, o te guía a instalarla.
+const INVITE_URL = "https://togetherly-weld.vercel.app/j/";
+// Plataformas cuya dirección se puede compartir/abrir (igual que server/streaming.js)
+const STREAMING_HOST = /^(www\.)?netflix\.com$|^(www\.)?primevideo\.com$|^(www\.)?amazon\.[a-z.]{2,8}$|^(www\.)?disneyplus\.com$|^(play\.|www\.)?(hbomax|max)\.com$|^tv\.apple\.com$|^(www\.)?paramountplus\.com$|^(www\.)?crunchyroll\.com$/;
+
+function isStreamingUrl(value) {
+  if (typeof value !== "string" || value.length > 600) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && STREAMING_HOST.test(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
 
 // ── Cliente mínimo de Socket.io (protocolo v4) sobre WebSocket ──────────────
 // Un service worker no puede cargar la librería oficial, así que se habla el
@@ -100,12 +114,20 @@ let socket = null;
 let roomId = null;
 let username = null;
 let avatar = null;
+/** Lo último que alguien de la sala abrió: { url, platform, by } */
+let nowWatching = null;
+/** Lo que tengo abierto yo (se vuelve a contar si se cae y vuelve la conexión) */
+let myWatchingUrl = null;
+/** Al unirse desde el popup, abrir la película de la sala en cuanto se sepa cuál es */
+let openWhenKnown = false;
 const streamingTabs = new Set();
 
 // El service worker se duerme y despierta: la sala activa se guarda en storage.session.
-const ready = chrome.storage.session.get(["roomId", "username", "avatar"]).then((saved) => {
+const ready = chrome.storage.session.get(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl"]).then((saved) => {
   if (saved.roomId && ROOM_ID_PATTERN.test(saved.roomId)) {
     roomId = saved.roomId;
+    myWatchingUrl = isStreamingUrl(saved.myWatchingUrl) ? saved.myWatchingUrl : null;
+    nowWatching = isStreamingUrl(saved.nowWatching?.url) ? saved.nowWatching : null;
     username = saved.username || "Invitado";
     avatar = saved.avatar || "🍿";
     connect();
@@ -143,6 +165,8 @@ async function connect() {
 
   client.on("connect", () => {
     client.emit("ext-connect", { roomId, username, avatar });
+    // Si el servidor se reinició (o el service worker se durmió), se vuelve a contar qué tengo abierto.
+    if (myWatchingUrl) client.emit("ext-now-watching", { roomId, url: myWatchingUrl });
     setBadge(true);
     broadcastStatus(true);
   });
@@ -156,6 +180,19 @@ async function connect() {
   for (const [event, action] of Object.entries(remoteEvents)) {
     client.on(event, ({ currentTime, by }) => sendToStreamingTabs({ type: "REMOTE_COMMAND", action, currentTime, by }));
   }
+  // Qué película tiene abierta la sala (para el popup y para avisar si alguien cambia)
+  client.on("now-watching", (data) => {
+    if (!isStreamingUrl(data?.url)) return;
+    nowWatching = { url: data.url, platform: String(data.platform ?? ""), by: cleanText(data.by, 24, "Alguien") };
+    chrome.storage.session.set({ nowWatching });
+    if (openWhenKnown) {
+      openWhenKnown = false;
+      if (nowWatching.url !== myWatchingUrl) chrome.tabs.create({ url: nowWatching.url });
+      return;
+    }
+    sendToStreamingTabs({ type: "NOW_WATCHING_UPDATE", url: nowWatching.url, by: nowWatching.by });
+  });
+
   // En qué va la sala (al entrar tarde o al pedirlo)
   client.on("ext-state", (state) => {
     if (state?.known) {
@@ -209,6 +246,13 @@ async function handleMessage(message, sender) {
         return { ok: false, error: "Código de sala inválido" };
       }
       const alreadyConnected = message.roomId === roomId && socket?.isOpen;
+      if (message.roomId !== roomId) {
+        nowWatching = null;
+        chrome.storage.session.remove("nowWatching");
+      }
+      // Desde el popup ("Unirme"): abrir la película de la sala apenas se sepa.
+      // Desde la web (/j/CODIGO) no: la propia página lleva a la película.
+      openWhenKnown = message.openWatching === true;
       roomId = message.roomId;
       username = cleanText(message.username, 24, "Invitado");
       avatar = cleanText(message.avatar, 8, "🍿");
@@ -217,8 +261,9 @@ async function handleMessage(message, sender) {
       return { ok: true, roomId };
     }
     case "LEAVE_ROOM": {
-      roomId = username = avatar = null;
-      chrome.storage.session.remove(["roomId", "username", "avatar"]);
+      roomId = username = avatar = nowWatching = myWatchingUrl = null;
+      openWhenKnown = false;
+      chrome.storage.session.remove(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl"]);
       socket?.disconnect();
       socket = null;
       setBadge(false);
@@ -226,10 +271,25 @@ async function handleMessage(message, sender) {
       return { ok: true };
     }
     case "PING":
-      return { type: "PONG", connected: socket?.isOpen ?? false, roomId, username };
+      return {
+        type: "PONG",
+        connected: socket?.isOpen ?? false,
+        roomId,
+        username,
+        nowWatching,
+        inviteUrl: roomId ? INVITE_URL + roomId : null,
+      };
     case "CONTENT_READY":
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
       return { roomId, connected: !!roomId && (socket?.isOpen ?? false) };
+    case "NOW_WATCHING":
+      if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
+      if (isStreamingUrl(message.url)) {
+        myWatchingUrl = message.url;
+        chrome.storage.session.set({ myWatchingUrl });
+        if (roomId) socket?.emit("ext-now-watching", { roomId, url: message.url });
+      }
+      return { ok: true };
     case "REQUEST_STATE":
       if (roomId) socket?.emit("ext-state-request", { roomId });
       return { ok: true };

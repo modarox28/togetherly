@@ -3,6 +3,7 @@
 // Regla de seguridad: solo quien está dentro de una sala puede mandarle eventos.
 const { isRoomId, cleanText, cleanTime, isHttpUrl, isPlatform } = require("./validation");
 const { verifyRoomPass } = require("./room-pass");
+const { cleanStreamingUrl } = require("./streaming");
 const {
   MAX_PARTICIPANTS,
   rooms,
@@ -58,6 +59,19 @@ function handleConnection(io, socket, plans) {
     newRoom(roomId); // guarda el estado aunque nadie tenga la web abierta
     socket.emit("ext-connected", { roomId });
     socket.emit("ext-state", stateForExtension(roomId));
+    const { nowWatching } = rooms.get(roomId);
+    if (nowWatching) socket.emit("now-watching", nowWatching);
+  });
+
+  // La extensión avisa qué página de streaming tiene abierta quien está en la sala.
+  // Así, quien entra con el enlace de invitación llega directo a la misma película.
+  socket.on("ext-now-watching", (data) => {
+    if (!isInRoom(data?.roomId)) return;
+    const room = rooms.get(data.roomId);
+    const clean = cleanStreamingUrl(data.url);
+    if (!room || !clean || room.nowWatching?.url === clean.url) return;
+    room.nowWatching = { ...clean, by: currentUsername || "Alguien" };
+    io.to(data.roomId).emit("now-watching", room.nowWatching);
   });
 
   socket.on("ext-state-request", (data) => {
@@ -113,6 +127,7 @@ function handleConnection(io, socket, plans) {
       you: participant,
       maxParticipants: room.maxParticipants,
       premium: room.premium === true,
+      nowWatching: room.nowWatching,
     });
     socket.to(roomId).emit("participant-joined", { participant });
   });

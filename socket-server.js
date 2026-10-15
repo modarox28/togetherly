@@ -8,7 +8,8 @@
 const { createServer } = require("node:http");
 const { Server } = require("socket.io");
 const { handleConnection } = require("./server/connection");
-const { MAX_PARTICIPANTS, listPublicRooms } = require("./server/rooms");
+const { MAX_PARTICIPANTS, listPublicRooms, roomPreview } = require("./server/rooms");
+const { isRoomId } = require("./server/validation");
 
 // ── Configuración (variables de entorno) ─────────────────────────────────
 // Render (y la mayoría de servicios) indica el puerto en PORT; SOCKET_PORT sirve para pruebas locales.
@@ -34,12 +35,28 @@ const httpServer = createServer((req, res) => {
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
-  } else if (req.method === "GET" && req.url === "/health") {
+  } else if (req.method === "GET" && req.url.split("?")[0] === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("ok");
   } else if (req.method === "GET" && req.url === "/api/rooms") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(listPublicRooms()));
+  } else if (req.method === "GET" && req.url.startsWith("/api/rooms/")) {
+    // Vista previa para la invitación: GET /api/rooms/ABC234
+    let roomId = null;
+    try {
+      roomId = decodeURIComponent(req.url.slice("/api/rooms/".length).split("?")[0]);
+    } catch {
+      // %E0 y similares: dirección mal formada
+    }
+    if (!isRoomId(roomId)) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Código inválido" }));
+      return;
+    }
+    const online = io.sockets.adapter.rooms.get(roomId)?.size ?? 0;
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(JSON.stringify(roomPreview(roomId, online)));
   } else {
     res.writeHead(404);
     res.end();

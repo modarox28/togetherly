@@ -35,7 +35,8 @@ export function RoomHeader({ roomId, connected, participants, maxParticipants, p
 
   // En el celular abre el menú de compartir del sistema; en el computador copia el enlace.
   const invite = async () => {
-    const url = window.location.href;
+    // Enlace de invitación: con la extensión lleva directo a la película de la sala.
+    const url = `${window.location.origin}/j/${roomId}`;
     if (navigator.share && window.matchMedia("(pointer: coarse)").matches) {
       try {
         await navigator.share({ title: "Togetherly", text: t.roomUi.inviteText, url });

@@ -88,6 +88,10 @@
     .copied { font-size: 11.5px; color: var(--success); min-height: 1em; margin-top: 6px; }
     .steps { margin: 12px 0; padding-left: 20px; font-size: 12.5px; color: var(--text-muted); display: grid; gap: 4px; }
     .steps b { color: var(--text); }
+    .watching { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px;
+      padding: 10px 12px; border-radius: 14px; background: var(--surface-2); }
+    .watching small { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); }
+    .watching b { display: block; font-size: 13px; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     [hidden] { display: none !important; }
   </style>
@@ -140,10 +144,14 @@
         </div>
         <p class="copied" id="copied" role="status"></p>
       </div>
+      <div class="watching" id="watching" hidden>
+        <span><small>Viendo ahora</small><b id="watching-text"></b></span>
+        <button class="chip" id="btn-go">Ir</button>
+      </div>
       <ol class="steps">
-        <li>Mándale el código (o el enlace) a quien va a ver contigo.</li>
-        <li>Esa persona lo pega en su extensión y toca <b>Unirme</b>.</li>
-        <li>Abran la misma película: play, pausa y saltos van sincronizados.</li>
+        <li>Abre la película en Netflix, Prime, Disney+…</li>
+        <li>Copia el <b>enlace</b> y mándaselo a quien va a ver contigo.</li>
+        <li>Al abrirlo llega directo a la misma película (o a instalar la extensión si no la tiene).</li>
       </ol>
       <button class="btn secondary" id="btn-disconnect">Salir de la sala</button>
     </section>

@@ -6,9 +6,9 @@ import { motion } from "framer-motion";
 import { Users, Play, RefreshCw, Globe } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
-import { Button } from "@/components/ui/Button";
 import { useLanguage } from "@/components/providers/LanguageProvider";
 import { PLATFORM_COLORS, PLATFORM_LABELS, type Platform } from "@/lib/platforms";
+import { SOCKET_URL } from "@/lib/socket";
 
 interface PublicRoom {
   id: string;
@@ -20,7 +20,6 @@ interface PublicRoom {
   createdAt: number;
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
 async function fetchPublicRooms(): Promise<PublicRoom[]> {
   try {
@@ -87,9 +86,9 @@ export default function DiscoverPage() {
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
             <Globe className="w-12 h-12 text-day-900/20 dark:text-white/20" />
             <p className="text-day-900/40 dark:text-white/40 text-sm">{t.discover.noRooms}</p>
-            <Button onClick={() => window.location.href = "/room"}>
+            <Link href="/room" className="rounded-full bg-accent px-6 py-3 text-sm font-bold text-on-accent">
               {t.discover.createFirst}
-            </Button>
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

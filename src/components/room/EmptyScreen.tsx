@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Puzzle } from "lucide-react";
+import { CheckCircle2, ExternalLink, Puzzle } from "lucide-react";
 import { useLanguage } from "@/components/providers/LanguageProvider";
+import { PLATFORM_LABELS } from "@/lib/platforms";
+import type { NowWatching } from "@/lib/streaming";
 
 interface Props {
   extensionActive: boolean;
+  /** Película que alguien de la sala ya abrió con la extensión */
+  nowWatching?: NowWatching | null;
   onLoadUrl: (url: string) => void;
 }
 
@@ -23,7 +27,7 @@ export function normalizeVideoInput(value: string): string | null {
 }
 
 // Lo que se ve en la "tele" antes de elegir qué ver: los dos caminos posibles.
-export function EmptyScreen({ extensionActive, onLoadUrl }: Props) {
+export function EmptyScreen({ extensionActive, nowWatching, onLoadUrl }: Props) {
   const { t } = useLanguage();
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
@@ -41,9 +45,27 @@ export function EmptyScreen({ extensionActive, onLoadUrl }: Props) {
 
   return (
     <div className="flex h-full flex-col justify-center gap-6 overflow-y-auto p-5 text-white sm:p-8 lg:p-12">
-      <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{t.roomUi.emptyTitle}</h2>
+      {nowWatching ? (
+        // Ya están viendo algo con la extensión: eso es lo principal.
+        <div className="flex flex-col gap-4">
+          <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+            {t.invite.roomNowWatching.replace("{name}", nowWatching.by || "Alguien").replace("{platform}", PLATFORM_LABELS[nowWatching.platform])}
+          </h2>
+          <a
+            href={nowWatching.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-fit items-center gap-2 rounded-full bg-lamp px-5 py-3 font-bold text-plum"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" /> {t.invite.openAndSync}
+          </a>
+          <p className="hidden text-sm leading-relaxed text-white/60 pointer-coarse:block">{t.roomUi.extDesktopOnly}</p>
+        </div>
+      ) : (
+        <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{t.roomUi.emptyTitle}</h2>
+      )}
 
-      <div className="grid gap-6 md:grid-cols-2 md:gap-10">
+      <div className={`grid gap-6 md:grid-cols-2 md:gap-10 ${nowWatching ? "border-t border-white/10 pt-6" : ""}`}>
         {/* Camino 1: apps de streaming con la extensión */}
         <section className="flex flex-col gap-3">
           <h3 className="text-base font-bold text-lamp">{t.roomUi.streamingTitle}</h3>

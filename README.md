@@ -10,6 +10,7 @@ Para ver películas y series en sincronía con quien quieras, aunque estén en c
 - **Con la extensión** (Chrome, Edge, Brave, Opera y Firefox): Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll. Cada quien usa su propia cuenta y la extensión sincroniza el play, la pausa y los saltos. Guía para usuarios en [/extension](https://togetherly-weld.vercel.app/extension); detalles técnicos en [togetherly-extension/README.md](togetherly-extension/README.md).
 - Chat, reacciones flotantes, videollamada (WebRTC), salas públicas, modo claro/oscuro, español/inglés, PWA instalable.
 - **Planes:** gratis para 2 personas por sala; Premium (hasta 8) está en "Próximamente" mientras se elige una pasarela de pagos (ver `docs/monetizacion.md`).
+- **Enlace de invitación `/j/CODIGO`** (como Teleparty): quien lo abre con la extensión llega directo a la misma película y queda sincronizado; sin la extensión, la página le explica cómo instalarla; desde el celular, entra a la sala web. La lógica está en `src/components/room/InvitePage.tsx`; el servidor guarda "qué se está viendo" (`ext-now-watching`, solo direcciones de las plataformas de `server/streaming.js`).
 - **Funciona en celular y tableta** (la sala, el chat y la videollamada); la extensión es solo para computador.
 
 ## Stack
