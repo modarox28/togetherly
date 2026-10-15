@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 // Política de privacidad. Las tiendas de extensiones piden un enlace a esta página.
 // Si cambia lo que guarda la app o la extensión, actualiza este texto y la fecha.
-const UPDATED = "13 de octubre de 2026";
+const UPDATED = "14 de octubre de 2026";
 
 const sections = [
   {
@@ -23,8 +23,8 @@ const sections = [
     title: "La extensión Togetherly Sync",
     body: [
       "Funciona solo en las páginas de streaming de la lista (Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll) y en el sitio de Togetherly.",
-      "Envía al servidor de salas el código de la sala, tu nombre visible y los eventos de play, pausa y salto con el minuto del video. Nada más.",
-      "No lee tus contraseñas, tu cuenta de streaming, tus cookies, tu historial ni el título de lo que ves.",
+      "Envía al servidor de salas el código de la sala, tu nombre visible, los eventos de play, pausa y salto con el minuto del video y la dirección de la página del video que tienes abierto (por ejemplo netflix.com/watch/123). Esa dirección solo la ve la gente de tu sala, para que el enlace de invitación los lleve a la misma película.",
+      "Solo comparte direcciones de las plataformas de la lista, y solo mientras estás en una sala. No lee tus contraseñas, tu cuenta de streaming, tus cookies ni tu historial.",
       "Guarda en tu navegador el último nombre que usaste y la sala activa, para no pedirlos otra vez. Puedes borrarlos quitando la extensión.",
     ],
   },
@@ -73,8 +73,9 @@ export default function PrivacyPage() {
             <h2 className="font-display text-xl font-extrabold">In English</h2>
             <p className="mt-3 text-sm leading-relaxed text-day-900/70 dark:text-white/70">
               The Togetherly Sync extension only runs on the listed streaming sites and on Togetherly. It sends the room
-              code, your display name and play/pause/seek events (with the video time) to the room server. It does not
-              read passwords, accounts, cookies, browsing history or what you are watching. No data is sold and there
+              code, your display name, play/pause/seek events (with the video time) and the address of the video page you
+              have open, only while you are in a room and only to people in that room, so the invite link opens the same
+              title. It does not read passwords, accounts, cookies or browsing history. No data is sold and there
               are no ads. Contact: mdq2804@gmail.com.
             </p>
           </section>

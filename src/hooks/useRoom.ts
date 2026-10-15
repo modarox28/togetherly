@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getSocket } from "@/lib/socket";
+import { parseNowWatching, type NowWatching } from "@/lib/streaming";
 
 export interface Participant {
   id: string;
@@ -54,6 +55,8 @@ interface RoomState {
   maxParticipants: number;
   /** La sala la abrió alguien con Premium (pase válido). */
   premium: boolean;
+  /** Película que alguien abrió con la extensión (Netflix, Prime…), si hay. */
+  nowWatching: NowWatching | null;
 }
 
 interface RoomActions {
@@ -77,6 +80,7 @@ export function useRoom(): [RoomState, RoomActions] {
     roomFull: null,
     maxParticipants: 2,
     premium: false,
+    nowWatching: null,
     participants: [],
     you: null,
     isHost: false,
@@ -104,7 +108,7 @@ export function useRoom(): [RoomState, RoomActions] {
       setState((s) => ({ ...s, roomFull: max }));
     });
 
-    socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you, maxParticipants, premium }) => {
+    socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you, maxParticipants, premium, nowWatching }) => {
       setState((s) => ({
         ...s,
         joined: true,
@@ -115,6 +119,7 @@ export function useRoom(): [RoomState, RoomActions] {
         you,
         maxParticipants: typeof maxParticipants === "number" ? maxParticipants : s.maxParticipants,
         premium: premium === true,
+        nowWatching: parseNowWatching(nowWatching),
         messages: [systemMessage("you-joined", "", "#FFC965")],
       }));
     });
@@ -133,6 +138,11 @@ export function useRoom(): [RoomState, RoomActions] {
         participants: s.participants.filter((p) => p.id !== participantId),
         messages: [...s.messages, systemMessage("left", name, "#888")],
       }));
+    });
+
+    socket.on("now-watching", (data: unknown) => {
+      const nowWatching = parseNowWatching(data);
+      if (nowWatching) setState((s) => ({ ...s, nowWatching }));
     });
 
     socket.on("video-url-changed", ({ url }) => {
@@ -197,6 +207,7 @@ export function useRoom(): [RoomState, RoomActions] {
       socket.off("participant-joined");
       socket.off("participant-left");
       socket.off("video-url-changed");
+      socket.off("now-watching");
       socket.off("video-play");
       socket.off("video-pause");
       socket.off("video-seek");

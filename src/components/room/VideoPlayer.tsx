@@ -13,6 +13,7 @@ import { SpotifyEmbed } from "@/components/room/players/SpotifyEmbed";
 import { CompanionEmbed } from "@/components/room/players/CompanionEmbed";
 import type { PlayerHandle } from "@/components/room/players/TwitchEmbed";
 import { EmptyScreen, normalizeVideoInput } from "@/components/room/EmptyScreen";
+import type { NowWatching } from "@/lib/streaming";
 
 // Estados del reproductor de YouTube (window.YT.PlayerState)
 const YT_PLAYING = 1;
@@ -31,6 +32,7 @@ interface VideoPlayerProps {
   videoUrl: string | null;
   roomId: string;
   extensionActive?: boolean;
+  nowWatching?: NowWatching | null;
   onPlay: (currentTime: number | null) => void;
   onPause: (currentTime: number | null) => void;
   onSeek: (currentTime: number) => void;
@@ -41,7 +43,7 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(function VideoPlayer({
-  videoUrl, extensionActive = false,
+  videoUrl, extensionActive = false, nowWatching = null,
   onPlay, onPause, onSeek, onUrlChange,
   onRemotePlay, onRemotePause, onRemoteSeek,
 }, ref) {
@@ -267,7 +269,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(funct
   }));
 
   if (!videoUrl || !platform) {
-    return <EmptyScreen extensionActive={extensionActive} onLoadUrl={onUrlChange} />;
+    return <EmptyScreen extensionActive={extensionActive} nowWatching={nowWatching} onLoadUrl={onUrlChange} />;
   }
 
   return (

@@ -25,6 +25,8 @@ const rooms = new Map();
  * @property {string} platform
  * @property {number} createdAt
  * @property {number} maxParticipants
+ * @property {{url: string, platform: string, by: string}|null} nowWatching
+ *           lo último que alguien abrió en una app de streaming (para mandar a los demás ahí)
  */
 
 /** ¿Se puede abrir esta sala? (ya existe, o todavía hay cupo para salas nuevas) */
@@ -44,6 +46,7 @@ function getOrCreateRoom(roomId, { isPublic = false, name = null, maxParticipant
       platform: "youtube",
       createdAt: Date.now(),
       maxParticipants: maxParticipants ?? MAX_PARTICIPANTS,
+      nowWatching: null,
     });
   }
   return rooms.get(roomId);
@@ -64,6 +67,17 @@ function stateForExtension(roomId) {
 
 function colorForIndex(index) {
   return AVATAR_COLORS[index % AVATAR_COLORS.length];
+}
+
+/**
+ * Vista previa de una sala para la página de invitación (/j/CODIGO): si existe, cuántos
+ * están conectados y qué están viendo. Quien tiene el código ya puede entrar, así que no
+ * se expone nada que no vería adentro.
+ */
+function roomPreview(roomId, onlineCount) {
+  const room = rooms.get(roomId);
+  if (!room) return { exists: false, online: 0, nowWatching: null };
+  return { exists: true, online: onlineCount, nowWatching: room.nowWatching };
 }
 
 /** Salas públicas con gente, para la página "Salas públicas". */
@@ -94,4 +108,5 @@ module.exports = {
   stateForExtension,
   colorForIndex,
   listPublicRooms,
+  roomPreview,
 };

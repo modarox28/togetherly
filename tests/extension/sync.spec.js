@@ -269,3 +269,84 @@ test("protocolo de la web y la app móvil: entrar, chatear y sincronizar", async
     beto.close();
   }
 });
+
+test("enlace de invitación: la sala sabe qué película abrió el anfitrión", async () => {
+  const ana = await openBrowser("ana-anfitriona");
+  try {
+    const roomId = `INV${Date.now() % 100000}`;
+    await joinWithPopup(ana, roomId, "Ana");
+    // Ana abre la película: la extensión le avisa a la sala qué está viendo.
+    await openPlatform(ana, "netflix");
+    await expect
+      .poll(async () => (await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json()).nowWatching?.url, { timeout: 8000 })
+      .toBe(PLATFORM_URLS.netflix);
+    const preview = await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json();
+    expect(preview).toMatchObject({ exists: true, nowWatching: { platform: "netflix", by: "Ana" } });
+
+    // El popup ofrece el enlace /j/ y muestra qué se está viendo.
+    const popup = await ana.context.newPage();
+    await popup.goto(`chrome-extension://${ana.extensionId}/popup.html`);
+    await expect(popup.locator("#watching-text")).toContainText("Netflix");
+    await popup.close();
+  } finally {
+    await ana.context.close();
+  }
+});
+
+test("unirse desde el popup abre sola la película que está viendo la sala", async () => {
+  const ana = await openBrowser("ana-abre");
+  const beto = await openBrowser("beto-llega");
+  try {
+    const roomId = `ABRE${Date.now() % 100000}`;
+    await joinWithPopup(ana, roomId, "Ana");
+    await openPlatform(ana, "disney");
+    await expect
+      .poll(async () => (await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json()).nowWatching?.platform, { timeout: 8000 })
+      .toBe("disney");
+
+    // Beto se une con el código: la extensión le abre la misma película en una pestaña nueva.
+    const pagesBefore = beto.context.pages().length;
+    await joinWithPopup(beto, roomId, "Beto");
+    // La extensión abre una pestaña nueva con la película. (Playwright no puede servir las páginas
+    // falsas en pestañas que abre la extensión, así que aquí se vuelve a cargar la misma dirección.)
+    await expect.poll(() => beto.context.pages().length, { timeout: 10000 }).toBeGreaterThan(pagesBefore);
+    const moviePage = beto.context.pages().at(-1);
+    await moviePage.goto(PLATFORM_URLS.disney);
+    await moviePage.waitForFunction(hasMetadata);
+    await moviePage.waitForTimeout(1600);
+
+    // Y queda sincronizado: Ana da play y a Beto le arranca.
+    const pageA = ana.context.pages().find((page) => page.url().startsWith(PLATFORM_URLS.disney));
+    await pageA.evaluate(() => window.__user.play());
+    await expect.poll(async () => (await videoState(moviePage)).paused, { timeout: 8000 }).toBe(false);
+  } finally {
+    await ana.context.close();
+    await beto.context.close();
+  }
+});
+
+test("el servidor solo acepta direcciones de plataformas soportadas", async () => {
+  const { io } = require("socket.io-client");
+  const ext = io(SERVER_URL, { transports: ["websocket"] });
+  const connected = new Promise((r) => ext.once("connect", r));
+  try {
+    await connected;
+    const roomId = `SEG${Date.now() % 100000}`;
+    ext.emit("ext-connect", { roomId, username: "Eve" });
+    await new Promise((r) => ext.once("ext-connected", r));
+    const preview = async () => (await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json()).nowWatching;
+
+    for (const url of ["https://evil.example/watch/1", "javascript:alert(1)", "http://www.netflix.com/watch/1", "https://netflix.com.evil.io/watch"]) {
+      ext.emit("ext-now-watching", { roomId, url });
+    }
+    await new Promise((r) => setTimeout(r, 400));
+    expect(await preview()).toBeNull();
+
+    ext.emit("ext-now-watching", { roomId, url: "https://www.disneyplus.com/play/abc#t=10" });
+    await expect.poll(preview).toMatchObject({ url: "https://www.disneyplus.com/play/abc", platform: "disney" });
+    expect((await (await fetch(`${SERVER_URL}/api/rooms/NOEXISTE1`)).json()).exists).toBe(false);
+    expect((await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent("../etc")}`)).status).toBe(400);
+  } finally {
+    ext.close();
+  }
+});

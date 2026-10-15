@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
-import { Link2, Phone } from "lucide-react";
+import { ExternalLink, Link2, Phone } from "lucide-react";
+import { PLATFORM_LABELS } from "@/lib/platforms";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
 import { VideoCallPanel } from "@/components/room/VideoCallPanel";
@@ -167,6 +168,7 @@ export function RoomClientPage({ roomId }: Props) {
               videoUrl={state.videoUrl}
               roomId={roomId}
               extensionActive={extensionActive}
+              nowWatching={state.nowWatching}
               onPlay={(time) => actions.sendPlay(roomId, time)}
               onPause={(time) => actions.sendPause(roomId, time)}
               onSeek={(time) => actions.sendSeek(roomId, time)}
@@ -189,6 +191,25 @@ export function RoomClientPage({ roomId }: Props) {
               onEnd={call.endCall}
             />
           </div>
+
+          {state.nowWatching && hasVideo && (
+            // Alguien abrió una película con la extensión (y hay otro video en la sala): un toque y abres la misma.
+            <div className="relative mx-3 mt-2 flex flex-wrap items-center gap-3 rounded-2xl bg-lamp/15 px-4 py-3 sm:mx-4 lg:mx-0 lg:mt-3">
+              <p className="min-w-0 flex-1 text-sm font-semibold text-day-900 dark:text-white">
+                {t.invite.roomNowWatching
+                  .replace("{name}", state.nowWatching.by || "Alguien")
+                  .replace("{platform}", PLATFORM_LABELS[state.nowWatching.platform])}
+              </p>
+              <a
+                href={state.nowWatching.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-10 items-center gap-2 rounded-full bg-accent px-4 text-sm font-bold text-on-accent"
+              >
+                <ExternalLink className="h-4 w-4" aria-hidden="true" /> {t.invite.openAndSync}
+              </a>
+            </div>
+          )}
 
           {(hasVideo || canCall) && (
             <div className="relative flex flex-wrap gap-2 px-3 py-2 sm:px-4 lg:px-0 lg:pb-0 lg:pt-3">
