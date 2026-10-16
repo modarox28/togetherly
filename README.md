@@ -2,14 +2,15 @@
 
 Para ver películas y series en sincronía con quien quieras, aunque estén en ciudades distintas. Incluye chat, reacciones y videollamada.
 
-**En vivo:** [togetherly-weld.vercel.app](https://togetherly-weld.vercel.app)
+**En vivo:** [togetherly-weld.vercel.app](https://togetherly-weld.vercel.app) · **Licencia:** [AGPL-3.0](LICENSE) · **Gratis y de código abierto:** si te sirve, puedes [apoyar el proyecto](https://togetherly-weld.vercel.app/apoyar) o [ayudar a programarlo](CONTRIBUTING.md).
 
 ## Qué hace
 
 - **Dentro de la sala:** YouTube, Twitch, Vimeo y Spotify se reproducen sincronizados para todos.
 - **Con la extensión** (Chrome, Edge, Brave, Opera y Firefox): Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll. Cada quien usa su propia cuenta y la extensión sincroniza el play, la pausa y los saltos. Guía para usuarios en [/extension](https://togetherly-weld.vercel.app/extension); detalles técnicos en [togetherly-extension/README.md](togetherly-extension/README.md).
 - Chat, reacciones flotantes, videollamada (WebRTC), salas públicas, modo claro/oscuro, español/inglés, PWA instalable.
-- **Planes:** gratis para 2 personas por sala; Premium (hasta 8) está en "Próximamente" mientras se elige una pasarela de pagos (ver `docs/monetizacion.md`).
+- **Gratis para todos, sin anuncios.** Se sostiene con donaciones (página `/apoyar`, botón "Sponsor" del repositorio). Ver `docs/monetizacion.md`.
+- **Líder de sala:** quien crea la sala elige si controlan todos o solo esa persona.
 - **Enlace de invitación `/j/CODIGO`** (como Teleparty): quien lo abre con la extensión llega directo a la misma película y queda sincronizado; sin la extensión, la página le explica cómo instalarla; desde el celular, entra a la sala web. La lógica está en `src/components/room/InvitePage.tsx`; el servidor guarda "qué se está viendo" (`ext-now-watching`, solo direcciones de las plataformas de `server/streaming.js`).
 - **Funciona en celular y tableta** (la sala, el chat y la videollamada); la extensión es solo para computador.
 
@@ -35,7 +36,8 @@ Extensión del navegador ──┘   (Netflix, Prime, etc.; también puede crear
 | `src/components/ui/` | Piezas reutilizables: botón, campo de texto, logo, cambio de tema e idioma. |
 | `src/hooks/` | Lógica de la sala en el navegador: `useRoom` (sockets), `useWebRTC` (llamada). |
 | `src/lib/translations.ts` | **Todos los textos** de la web en español e inglés. |
-| `src/lib/plans.ts` | Planes Gratis y Premium (lo que se muestra en /pricing). |
+| `src/app/apoyar/` | Página "Apoya Togetherly" (gratis, código abierto, donaciones). `/pricing` redirige ahí. |
+| `src/lib/plans.ts` | Límites por plan (guardados por si algún día se cobra; hoy todo es gratis). |
 | `src/lib/room.ts` | Reglas de los códigos de sala. |
 | `src/lib/platforms.ts` | Plataformas soportadas y cómo se reconocen sus enlaces. |
 | `src/lib/stripe.ts`, `roomPass.ts` | Solo servidor: Stripe y la firma de pases Premium. |
@@ -65,7 +67,7 @@ Extensión del navegador ──┘   (Netflix, Prime, etc.; también puede crear
 | Agregar una plataforma dentro de la sala | `src/lib/platforms.ts` y un componente en `src/components/room/players/`. |
 | Cambiar la animación del hero | `src/components/landing/TwoRoomsScene.tsx` (tiempos en `TIMING`, colores en `COLORS`). |
 | Agregar o cambiar avatares | `src/lib/characters.ts` (personajes propios, sin marcas). |
-| Encender o apagar los pagos | `NEXT_PUBLIC_PAYMENTS_ENABLED` en Vercel. Antes, leer `docs/monetizacion.md`. |
+| Cambiar el enlace de donaciones | `NEXT_PUBLIC_DONATE_URL` en Vercel (y redesplegar); botón del repositorio en `.github/FUNDING.yml`. |
 | Cambiar el popup de la extensión (crear/unirse a sala) | `togetherly-extension/popup.html` y `popup.js`. |
 | Cambiar cabeceras de seguridad o permitir un dominio nuevo | `next.config.ts` (`FRAME_SOURCES`, `SCRIPT_SOURCES`). |
 | Cambiar reglas del servidor de salas | `server/connection.js` (eventos) y `server/validation.js` (validaciones). |
@@ -113,7 +115,8 @@ GitHub Actions corre TypeScript, lint, `npm audit`, la compilación, estas prueb
 | `AUTH_SECRET`, `NEXTAUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Vercel | Inicio de sesión |
 | `NEXT_PUBLIC_SOCKET_URL` | Vercel | Dirección del servidor de salas |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID` | Vercel | Pagos (opcionales: sin ellas la web se publica igual) |
-| `NEXT_PUBLIC_PAYMENTS_ENABLED` | Vercel | `true` muestra el botón de pagar Premium. Apagado = "Próximamente" (ver `docs/monetizacion.md`) |
+| `NEXT_PUBLIC_DONATE_URL` | Vercel | Enlace del botón "Donar" en `/apoyar` (GitHub Sponsors o Ko-fi). Sin él, la página dice que las donaciones abren pronto |
+| `NEXT_PUBLIC_PAYMENTS_ENABLED` | Vercel | Pagos con Stripe (código guardado, apagado; ver `docs/monetizacion.md`) |
 | `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Vercel | Videollamada en redes difíciles (opcional, ver abajo) |
 | `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL` | Vercel | Alternativa a Cloudflare con otro proveedor TURN (opcional) |
 | `ROOM_PASS_SECRET` | Vercel **y** Render (mismo valor) | Pases Premium; sin ella no hay límite por plan |
@@ -148,3 +151,7 @@ Sin configurar nada, la videollamada usa STUN y funciona en la mayoría de redes
 - Cuentas en producción: faltan la base de datos (Neon) y las claves de Google en Vercel. Sin ellas, /login y /register muestran "Las cuentas llegan pronto" y todo lo demás funciona.
 - Protección contra bots en el registro (Cloudflare Turnstile) si algún día hace falta.
 - La app móvil (`mobile/`) no se ha probado en un teléfono real después del cambio de protocolo.
+
+## Licencia
+
+[GNU AGPL-3.0](LICENSE). Puedes usar, estudiar, modificar y compartir el código. Si publicas una versión modificada o la ofreces como servicio en internet, también tienes que publicar su código con la misma licencia. Para contribuir, mira [CONTRIBUTING.md](CONTRIBUTING.md).

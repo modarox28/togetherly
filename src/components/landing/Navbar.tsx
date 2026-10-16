@@ -22,7 +22,7 @@ export function Navbar() {
     { label: t.nav.platforms, href: "/#platforms" },
     { label: t.nav.extension, href: "/extension" },
     { label: t.nav.discover, href: "/discover" },
-    { label: t.nav.pricing, href: "/pricing" },
+    { label: t.nav.pricing, href: "/apoyar" },
   ];
   const solid = scrolled || menuOpen;
 

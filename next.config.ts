@@ -51,6 +51,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Los planes se reemplazaron por /apoyar (Togetherly es gratis y de código abierto).
+  async redirects() {
+    return [{ source: "/pricing", destination: "/apoyar", permanent: true }];
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
