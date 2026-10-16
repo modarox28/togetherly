@@ -60,7 +60,8 @@ const FAKE_PAGES = {
 const PLATFORM_URLS = {
   netflix: "https://www.netflix.com/watch/81234567",
   prime: "https://www.primevideo.com/detail/0ABC/ref=atv_dp",
-  disney: "https://www.disneyplus.com/play/1234-abcd",
+  // Como el Disney+ real: sin "www", con idioma en la ruta y un ?contextId= muy largo.
+  disney: `https://disneyplus.com/es-419/play/1234-abcd?contextId=${"EiR1c".repeat(120)}`,
 };
 
 module.exports = { FAKE_PAGES, PLATFORM_URLS };

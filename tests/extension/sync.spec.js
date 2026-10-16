@@ -408,6 +408,9 @@ test("el servidor solo acepta direcciones de plataformas soportadas", async () =
 
     ext.emit("ext-now-watching", { roomId, url: "https://www.disneyplus.com/play/abc#t=10" });
     await expect.poll(preview).toMatchObject({ url: "https://www.disneyplus.com/play/abc", platform: "disney" });
+    // Como en el Disney+ real: sin "www" y con un ?contextId= enorme → se guarda sin parámetros.
+    ext.emit("ext-now-watching", { roomId, url: `https://disneyplus.com/es-419/play/e8569c2d?contextId=${"x".repeat(900)}` });
+    await expect.poll(preview).toMatchObject({ url: "https://disneyplus.com/es-419/play/e8569c2d", platform: "disney" });
     expect((await (await fetch(`${SERVER_URL}/api/rooms/NOEXISTE1`)).json()).exists).toBe(false);
     expect((await fetch(`${SERVER_URL}/api/rooms/${encodeURIComponent("../etc")}`)).status).toBe(400);
   } finally {
