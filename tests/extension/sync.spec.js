@@ -96,7 +96,7 @@ async function joinWithPopup({ context, extensionId }, roomId, name) {
 const videoState = (page) =>
   page.evaluate(() => {
     const v = window.__video ?? document.getElementById("v");
-    return { time: v.currentTime, paused: v.paused, m7375: window.__m7375 ?? false };
+    return { time: window.__contentTime?.() ?? v.currentTime, paused: v.paused, m7375: window.__m7375 ?? false };
   });
 
 const hasMetadata = () => (window.__video ?? document.getElementById("v"))?.readyState >= 1;

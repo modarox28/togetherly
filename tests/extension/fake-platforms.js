@@ -42,18 +42,31 @@ const FAKE_PAGES = {
     </script></body>`,
 
   // Disney+: el video vive dentro de un shadow DOM anidado; el de afuera es "cerrado", como en el sitio real.
+  // Y como en el Disney+ real: el <video> no sabe el minuto de la película (aquí va 7 s atrás),
+  // no avisa "seeked" cuando el reproductor salta, y solo su reproductor interno
+  // (<disney-web-player>.mediaPlayer) sabe saltar y en qué minuto va.
   disney: `<!doctype html><title>Disney+</title><body style="margin:0">
     <disney-web-player></disney-web-player>
     <script>
-      const outer = document.querySelector("disney-web-player").attachShadow({ mode: "closed" });
+      const OFFSET = 7;
+      const host = document.querySelector("disney-web-player");
+      const outer = host.attachShadow({ mode: "closed" });
       const middle = document.createElement("div");
       outer.append(middle);
       const inner = middle.attachShadow({ mode: "open" });
       const v = document.createElement("video");
       v.src = "/video/movie.webm"; v.muted = true; v.style.cssText = "width:100vw;height:100vh";
+      v.addEventListener("seeked", (e) => e.stopImmediatePropagation());
       inner.append(v);
+      host.mediaPlayer = {
+        seek: (ms) => { v.currentTime = Math.max(0, ms / 1000 - OFFSET); },
+        play: () => v.play(),
+        pause: () => v.pause(),
+        timeline: { get info() { return { playheadPositionMs: (v.currentTime + OFFSET) * 1000 }; } },
+      };
       window.__video = v;
-      window.__user = { seek: (ms) => (v.currentTime = ms / 1000), play: () => v.play(), pause: () => v.pause() };
+      window.__contentTime = () => v.currentTime + OFFSET;
+      window.__user = { seek: (ms) => host.mediaPlayer.seek(ms), play: () => v.play(), pause: () => v.pause() };
     </script></body>`,
 };
 
