@@ -26,6 +26,10 @@
   let pendingOrder = null; // orden que llegó antes de encontrar el video
   let orderQueue = Promise.resolve();
   let seekDebounce = null;
+  let lastSeekSentAt = 0; // cuándo se avisó el último salto propio
+  let lastSeekSentTime = -1; // y a qué minuto
+  let ignoreJumpsUntil = 0; // tras aplicar una orden remota, los saltos son nuestros
+  let lastSample = null; // { time, at, playing } para notar saltos sin evento "seeked"
   let lastReportedUrl = null;
   const URL_PLAYER_PLATFORMS = new Set(["netflix", "disney", "hbo", "paramount", "crunchyroll"]);
   const isTopFrame = window.top === window;
@@ -36,6 +40,11 @@
 
   const now = () => Date.now();
   const isValidTime = (t) => typeof t === "number" && Number.isFinite(t) && t >= 0;
+
+  // Minuto real de la película. En casi todas las plataformas es video.currentTime;
+  // en Disney+ lo da su reproductor (ver platforms.js).
+  const currentTime = () => (platform.control.time ? platform.control.time(video) : video.currentTime);
+  const JUMP_THRESHOLD = 3; // segundos de salto que cuentan como "la persona adelantó o atrasó"
 
   function expectEvent(type) {
     expectedEvents.push({ type, until: now() + EXPECTED_EVENT_TTL });
@@ -64,29 +73,57 @@
   // ── Eventos del video local ─────────────────────────────────────────────
   function onLocalPlay() {
     if (isOwnEvent("play") || !roomId) return;
-    sendToBackground({ type: "VIDEO_PLAY", currentTime: video.currentTime });
+    sendToBackground({ type: "VIDEO_PLAY", currentTime: currentTime() });
     showToast("▶ Diste play · sincronizando");
   }
 
   function onLocalPause() {
     if (isOwnEvent("pause") || !roomId || video.ended) return;
-    sendToBackground({ type: "VIDEO_PAUSE", currentTime: video.currentTime });
+    sendToBackground({ type: "VIDEO_PAUSE", currentTime: currentTime() });
     showToast("⏸ Pausaste · sincronizando");
   }
 
   function onLocalSeek() {
     if (isOwnEvent("seeked") || !roomId) return;
     // Al arrastrar la barra llegan varios "seeked": se manda solo el último.
+    // (Si el minuto lo da el reproductor de la plataforma, se espera a que lo actualice.)
     clearTimeout(seekDebounce);
-    seekDebounce = setTimeout(() => {
-      if (video) sendToBackground({ type: "VIDEO_SEEK", currentTime: video.currentTime });
-    }, 300);
+    seekDebounce = setTimeout(sendLocalSeek, platform.control.time ? 900 : 300);
   }
+
+  function sendLocalSeek() {
+    if (!video || !roomId) return;
+    lastSeekSentAt = now();
+    lastSeekSentTime = currentTime();
+    lastSample = null;
+    sendToBackground({ type: "VIDEO_SEEK", currentTime: lastSeekSentTime });
+  }
+
+  // Algunos reproductores (Disney+) saltan sin que el <video> avise "seeked".
+  // Cada medio segundo se compara el minuto con el esperado: si brincó más de 3 s, fue un salto.
+  setInterval(() => {
+    if (!video || !roomId || !video.isConnected) {
+      lastSample = null;
+      return;
+    }
+    const time = currentTime();
+    const sample = { time, at: now(), playing: !video.paused };
+    const previous = lastSample;
+    lastSample = sample;
+    if (!previous || !isValidTime(time) || now() < ignoreJumpsUntil) return;
+    const expected = previous.time + (previous.playing ? ((sample.at - previous.at) / 1000) * (video.playbackRate || 1) : 0);
+    if (Math.abs(time - expected) < JUMP_THRESHOLD) return;
+    // Ya se avisó este mismo salto (con "seeked"): no repetirlo. Un salto nuevo sí se avisa.
+    if (now() - lastSeekSentAt < 2000 && Math.abs(time - lastSeekSentTime) < JUMP_THRESHOLD) return;
+    clearTimeout(seekDebounce);
+    seekDebounce = setTimeout(sendLocalSeek, 300);
+  }, 500);
 
   function attachVideo(newVideo) {
     if (video === newVideo) return;
     detachVideo();
     video = newVideo;
+    lastSample = null;
     video.addEventListener("play", onLocalPlay);
     video.addEventListener("pause", onLocalPause);
     video.addEventListener("seeked", onLocalSeek);
@@ -161,10 +198,12 @@
     }
     const control = platform.control;
     const target = order.currentTime;
-    const isFar = isValidTime(target) && Math.abs(video.currentTime - target) > DRIFT_TOLERANCE;
+    const isFar = isValidTime(target) && Math.abs(currentTime() - target) > DRIFT_TOLERANCE;
 
     const seek = async () => {
       expectEvent("seeked");
+      ignoreJumpsUntil = now() + 6000; // Disney+ puede tardar en cargar el nuevo punto
+      lastSample = null;
       if (!(await control.seek(video, target))) showToast("No pude saltar: muévete al minuto a mano");
     };
     const play = async () => {

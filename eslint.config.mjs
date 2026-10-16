@@ -14,7 +14,6 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Archivos de configuración de la app móvil (CommonJS a propósito: Metro, Babel y Tailwind 3 lo exigen)
     "mobile/*.config.js",
-    "mobile/babel-nativewind-preset.js",
   ]),
 ]);
 

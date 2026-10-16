@@ -74,7 +74,7 @@
     },
   };
 
-  // Control de Netflix a través de su reproductor interno (ver netflix-main.js).
+  // Control a través del reproductor interno de la página (ver netflix-main.js y disney-main.js).
   // Los mensajes viajan como eventos del DOM con texto JSON.
   let nextCommandId = 1;
   const pending = new Map();
@@ -85,7 +85,7 @@
       pending.delete(id);
     } catch {}
   });
-  function sendNetflixCommand(action, time) {
+  function sendPageCommand(action, time) {
     const id = nextCommandId++;
     return new Promise((resolve) => {
       pending.set(id, resolve);
@@ -98,10 +98,34 @@
     });
   }
   const netflixControl = {
-    play: async (v) => (await sendNetflixCommand("play")) || nativeControl.play(v),
-    pause: async (v) => (await sendNetflixCommand("pause")) || nativeControl.pause(v),
+    play: async (v) => (await sendPageCommand("play")) || nativeControl.play(v),
+    pause: async (v) => (await sendPageCommand("pause")) || nativeControl.pause(v),
     // En Netflix nunca se cambia currentTime: si la API no responde, no se salta.
-    seek: (_v, seconds) => sendNetflixCommand("seek", seconds),
+    seek: (_v, seconds) => sendPageCommand("seek", seconds),
+  };
+
+  // Disney+: su <video> no sabe el minuto real de la película y cambiar currentTime no salta.
+  // disney-main.js usa el reproductor de Disney y avisa el minuto real cada medio segundo.
+  let disneyPosition = null; // { seconds, at }
+  document.addEventListener("togetherly:time", (e) => {
+    try {
+      const { seconds } = JSON.parse(e.detail);
+      if (typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0) {
+        disneyPosition = { seconds, at: Date.now() };
+      }
+    } catch {}
+  });
+  const disneyControl = {
+    // Play y pausa sobre el <video> funcionan bien en Disney+ (probado con el sitio real).
+    play: nativeControl.play,
+    pause: nativeControl.pause,
+    seek: (_v, seconds) => sendPageCommand("seek", seconds),
+    // Minuto real: el que avisó el reproductor de Disney, corrido por el tiempo que pasó desde entonces.
+    time: (v) => {
+      if (!disneyPosition || Date.now() - disneyPosition.at > 2000) return v.currentTime;
+      const elapsed = v.paused ? 0 : ((Date.now() - disneyPosition.at) / 1000) * (v.playbackRate || 1);
+      return disneyPosition.seconds + elapsed;
+    },
   };
 
   const PLATFORMS = [
@@ -133,7 +157,7 @@
       matches: () => /(^|\.)disneyplus\.com$/.test(host),
       isPlayerPage: () => /\/(play|video)\//.test(location.pathname),
       findVideo: () => pickMainVideo(findAllVideos()),
-      control: nativeControl,
+      control: disneyControl,
     },
     {
       id: "hbo",

@@ -19,13 +19,17 @@ export const CHARACTERS = [
   { id: "loro", emoji: "🦜", name: "Loro" },
 ];
 
+// Plataformas que se sincronizan dentro de la app (las mismas de la extensión).
 export const STREAMING_PLATFORMS = [
-  { id: "netflix", name: "Netflix", url: "https://www.netflix.com", color: "#E50914" },
-  { id: "disney", name: "Disney+", url: "https://www.disneyplus.com", color: "#113CCF" },
-  { id: "hbo", name: "HBO Max", url: "https://www.hbomax.com", color: "#002BE7" },
-  { id: "prime", name: "Prime Video", url: "https://www.primevideo.com", color: "#00A8E1" },
-  { id: "apple", name: "Apple TV+", url: "https://tv.apple.com", color: "#555555" },
-  { id: "paramount", name: "Paramount+", url: "https://www.paramountplus.com", color: "#0064FF" },
-  { id: "crunchyroll", name: "Crunchyroll", url: "https://www.crunchyroll.com", color: "#F47521" },
-  { id: "youtube", name: "YouTube", url: "https://www.youtube.com", color: "#FF0000" },
+  { id: "netflix", name: "Netflix", url: "https://www.netflix.com/browse", color: "#E50914" },
+  { id: "disney", name: "Disney+", url: "https://www.disneyplus.com/", color: "#113CCF" },
+  { id: "prime", name: "Prime Video", url: "https://www.primevideo.com/", color: "#00A8E1" },
+  { id: "hbo", name: "HBO Max", url: "https://play.hbomax.com/", color: "#6B2BD9" },
+  { id: "paramount", name: "Paramount+", url: "https://www.paramountplus.com/", color: "#0064FF" },
+  { id: "appletv", name: "Apple TV+", url: "https://tv.apple.com/", color: "#555555" },
 ];
+
+export const REACTIONS = ["❤️", "😂", "😮", "😭", "🔥", "👏"];
+
+/** Enlace de invitación: abre la web, que lleva a la app, a la extensión o a la misma película. */
+export const inviteUrl = (roomId: string) => `${API_URL}/j/${roomId}`;

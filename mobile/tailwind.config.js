@@ -12,6 +12,15 @@ module.exports = {
           700: "#252540",
           600: "#303050",
         },
+        // Paleta acogedora de la web y del panel de chat de la extensión
+        cozy: {
+          deep: "#1C1530",
+          plum: "#2A2140",
+          card: "#352A4F",
+          lamp: "#FFC965",
+          cream: "#F6EFF7",
+          muted: "#C9BCD6",
+        },
         neon: {
           purple: "#C084FC",
           pink: "#F472B6",

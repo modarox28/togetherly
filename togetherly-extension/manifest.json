@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Togetherly Sync",
-  "version": "2.4.2",
+  "version": "2.4.5",
   "description": "Mira Netflix, Prime Video, HBO Max, Disney+ y más en sincronía con quien quieras, estén donde estén.",
   "minimum_chrome_version": "121",
   "icons": {
@@ -68,6 +68,18 @@
       ],
       "js": [
         "netflix-main.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.disneyplus.com/*",
+        "https://disneyplus.com/*",
+        "https://*.disneyplus.com/*"
+      ],
+      "js": [
+        "disney-main.js"
       ],
       "world": "MAIN",
       "run_at": "document_idle"

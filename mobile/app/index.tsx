@@ -1,139 +1,106 @@
-import { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
-import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { storage, SESSION_KEYS } from "@/lib/storage";
-import { generateRoomId } from "@/lib/utils";
+import { generateRoomId, isRoomCode } from "@/lib/utils";
 import { CHARACTERS } from "@/lib/constants";
 
-type Tab = "create" | "join";
-type Step = "info" | "character";
-
+// Inicio: tu nombre, tu personaje y crear sala o unirte con el código.
+// Si llegas con un enlace de invitación (/j/CODIGO), el código ya viene puesto.
 export default function HomeScreen() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("create");
-  const [step, setStep] = useState<Step>("info");
-  const [username, setUsername] = useState("");
-  const [roomName, setRoomName] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [selectedChar, setSelectedChar] = useState<string | null>(null);
+  const params = useLocalSearchParams<{ code?: string }>();
+  const [name, setName] = useState("");
+  const [avatar, setAvatar] = useState(CHARACTERS[0].emoji);
+  const [code, setCode] = useState(typeof params.code === "string" ? params.code.toUpperCase() : "");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    storage.get(SESSION_KEYS.username).then((v) => { if (v) setUsername(v); });
+    storage.get(SESSION_KEYS.username).then((v) => v && setName(v));
+    storage.get(SESSION_KEYS.character).then((v) => {
+      const found = CHARACTERS.find((c) => c.id === v || c.emoji === v);
+      if (found) setAvatar(found.emoji);
+    });
   }, []);
 
-  const handleNext = () => {
-    if (!username.trim()) { setError("Enter your name"); return; }
-    if (tab === "join" && joinCode.length !== 6) { setError("Enter a 6-character room code"); return; }
-    setError("");
-    setStep("character");
-  };
-
-  const handleEnter = async () => {
-    if (!selectedChar) { setError("Choose a character"); return; }
-    const char = CHARACTERS.find((c) => c.id === selectedChar)!;
-    await storage.set(SESSION_KEYS.username, username.trim());
-    await storage.set(SESSION_KEYS.character, selectedChar);
-    await storage.set(SESSION_KEYS.roomName, roomName.trim() || `${username.trim()}'s room`);
-    const roomId = tab === "create" ? generateRoomId() : joinCode.trim().toUpperCase();
-    router.push(`/room/${roomId}`);
+  const enter = async (roomId: string) => {
+    const cleanName = name.trim();
+    if (!cleanName) return setError("Escribe tu nombre para que te reconozcan en la sala");
+    if (!isRoomCode(roomId)) return setError("El código de la sala tiene 6 letras o números");
+    await storage.set(SESSION_KEYS.username, cleanName.slice(0, 24));
+    await storage.set(SESSION_KEYS.character, avatar);
+    router.push(`/room/${roomId.toUpperCase()}`);
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1 bg-night-950">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View className="flex-1 items-center justify-center px-6 py-12">
-          {/* Logo */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#1C1530" }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1">
+        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 24, justifyContent: "center" }} keyboardShouldPersistTaps="handled">
           <View className="items-center mb-8">
-            <View className="w-14 h-14 rounded-2xl bg-purple-500 items-center justify-center mb-3">
-              <Text className="text-2xl">❤️</Text>
-            </View>
-            <Text className="text-white text-2xl font-bold">Togetherly</Text>
-            <Text className="text-white/40 text-sm mt-1">Watch together, feel closer</Text>
+            <Text className="text-5xl">🍿</Text>
+            <Text className="text-cozy-cream text-3xl font-extrabold mt-2">Togetherly</Text>
+            <Text className="text-cozy-muted text-base mt-1 text-center">Vean la misma película, aunque estén lejos</Text>
           </View>
 
-          <View className="w-full bg-night-800 rounded-3xl overflow-hidden">
-            {step === "info" ? (
-              <>
-                {/* Tabs */}
-                <View className="flex-row border-b border-white/5">
-                  {(["create", "join"] as Tab[]).map((t) => (
-                    <TouchableOpacity key={t} onPress={() => { setTab(t); setError(""); }}
-                      className={`flex-1 py-4 items-center ${tab === t ? "border-b-2 border-purple-400" : ""}`}>
-                      <Text className={`font-medium text-sm ${tab === t ? "text-purple-400" : "text-white/40"}`}>
-                        {t === "create" ? "Create room" : "Join room"}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+          <Text className="text-cozy-muted text-sm font-bold mb-2">Tu nombre</Text>
+          <TextInput
+            value={name}
+            onChangeText={(v) => {
+              setName(v);
+              setError("");
+            }}
+            placeholder="¿Cómo te llamas?"
+            placeholderTextColor="#8E80A6"
+            maxLength={24}
+            className="bg-cozy-plum text-cozy-cream px-4 py-4 rounded-2xl text-base"
+          />
 
-                <View className="p-6 gap-4">
-                  <View>
-                    <Text className="text-white/60 text-xs mb-1.5">Your name</Text>
-                    <TextInput value={username} onChangeText={(v) => { setUsername(v); setError(""); }}
-                      placeholder="Enter your name" placeholderTextColor="#ffffff40"
-                      maxLength={20}
-                      className="bg-night-700 text-white px-4 py-3 rounded-xl text-sm" />
-                  </View>
+          <Text className="text-cozy-muted text-sm font-bold mt-5 mb-2">Tu personaje</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {CHARACTERS.map((c) => (
+              <Pressable
+                key={c.id}
+                onPress={() => setAvatar(c.emoji)}
+                accessibilityLabel={c.name}
+                className={`w-14 h-14 rounded-2xl items-center justify-center ${avatar === c.emoji ? "bg-cozy-lamp" : "bg-cozy-plum"}`}
+              >
+                <Text className="text-2xl">{c.emoji}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
 
-                  {tab === "create" ? (
-                    <View>
-                      <Text className="text-white/60 text-xs mb-1.5">Room name (optional)</Text>
-                      <TextInput value={roomName} onChangeText={setRoomName}
-                        placeholder="My cozy room" placeholderTextColor="#ffffff40"
-                        maxLength={30}
-                        className="bg-night-700 text-white px-4 py-3 rounded-xl text-sm" />
-                    </View>
-                  ) : (
-                    <View>
-                      <Text className="text-white/60 text-xs mb-1.5">Room code</Text>
-                      <TextInput value={joinCode} onChangeText={(v) => { setJoinCode(v.toUpperCase().slice(0, 6)); setError(""); }}
-                        placeholder="ABC123" placeholderTextColor="#ffffff40"
-                        autoCapitalize="characters" maxLength={6}
-                        className="bg-night-700 text-white px-4 py-3 rounded-xl text-sm text-center font-mono tracking-widest text-lg" />
-                    </View>
-                  )}
+          <Pressable onPress={() => enter(generateRoomId())} className="bg-cozy-lamp rounded-full py-4 items-center mt-8">
+            <Text className="text-cozy-deep font-extrabold text-lg">Crear sala nueva</Text>
+          </Pressable>
 
-                  {error ? <Text className="text-red-400 text-xs">{error}</Text> : null}
-
-                  <TouchableOpacity onPress={handleNext}
-                    className="bg-purple-500 py-4 rounded-xl items-center mt-1">
-                    <Text className="text-white font-semibold">
-                      {tab === "create" ? "Create room →" : "Join room →"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <View className="p-6">
-                <TouchableOpacity onPress={() => setStep("info")} className="mb-5">
-                  <Text className="text-white/40 text-sm">← Back</Text>
-                </TouchableOpacity>
-                <Text className="text-white font-bold text-lg mb-1">Choose your character</Text>
-                <Text className="text-white/40 text-sm mb-5">This is how others will see you</Text>
-
-                <View className="flex-row flex-wrap gap-2 mb-5">
-                  {CHARACTERS.map((c) => (
-                    <TouchableOpacity key={c.id} onPress={() => { setSelectedChar(c.id); setError(""); }}
-                      className={`w-[22%] items-center p-2 rounded-xl border-2 ${selectedChar === c.id ? "border-purple-400 bg-purple-400/10" : "border-transparent bg-night-700"}`}>
-                      <Text className="text-2xl">{c.emoji}</Text>
-                      <Text className="text-white/60 text-[10px] mt-1 text-center">{c.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {error ? <Text className="text-red-400 text-xs mb-3">{error}</Text> : null}
-
-                <TouchableOpacity onPress={handleEnter}
-                  className={`py-4 rounded-xl items-center ${selectedChar ? "bg-purple-500" : "bg-night-700"}`}
-                  disabled={!selectedChar}>
-                  <Text className="text-white font-semibold">❤️ Enter room</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+          <View className="flex-row items-center my-6">
+            <View className="flex-1 h-px bg-cozy-card" />
+            <Text className="text-cozy-muted mx-3">o únete con un código</Text>
+            <View className="flex-1 h-px bg-cozy-card" />
           </View>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          <View className="flex-row gap-3">
+            <TextInput
+              value={code}
+              onChangeText={(v) => {
+                setCode(v.toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 32));
+                setError("");
+              }}
+              placeholder="CÓDIGO"
+              placeholderTextColor="#8E80A6"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              className="flex-1 bg-cozy-plum text-cozy-cream px-4 py-4 rounded-2xl text-lg text-center font-bold tracking-widest"
+            />
+            <Pressable onPress={() => enter(code)} className="bg-cozy-card rounded-2xl px-6 items-center justify-center">
+              <Text className="text-cozy-cream font-extrabold">Unirme</Text>
+            </Pressable>
+          </View>
+
+          {error ? <Text className="text-[#FF9AA2] mt-4 text-center">{error}</Text> : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
