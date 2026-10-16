@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Togetherly Sync",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Mira Netflix, Prime Video, HBO Max, Disney+ y más en sincronía con quien quieras, estén donde estén.",
   "minimum_chrome_version": "121",
   "icons": {
@@ -31,7 +31,15 @@
         "https://play.max.com/*",
         "https://www.max.com/*",
         "https://tv.apple.com/*",
-        "https://www.paramountplus.com/*"
+        "https://www.paramountplus.com/*",
+        "https://disneyplus.com/*",
+        "https://*.disneyplus.com/*",
+        "https://netflix.com/*",
+        "https://primevideo.com/*",
+        "https://*.primevideo.com/*",
+        "https://hbomax.com/*",
+        "https://max.com/*",
+        "https://paramountplus.com/*"
       ],
       "js": [
         "platforms.js",
@@ -43,7 +51,8 @@
     {
       "matches": [
         "https://www.crunchyroll.com/*",
-        "https://static.crunchyroll.com/*"
+        "https://static.crunchyroll.com/*",
+        "https://crunchyroll.com/*"
       ],
       "js": [
         "platforms.js",

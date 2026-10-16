@@ -30,7 +30,9 @@ function cleanStreamingUrl(value) {
   if (url.protocol !== "https:" || url.username || url.password) return null;
   const match = STREAMING_HOSTS.find((entry) => entry.test(url.hostname.toLowerCase()));
   if (!match) return null;
+  // Solo origen + ruta: los parámetros (?contextId=… de Disney+, rastreo) no hacen falta.
   url.hash = "";
+  url.search = "";
   const clean = url.toString();
   return clean.length <= MAX_URL_LENGTH ? { url: clean, platform: match.platform } : null;
 }

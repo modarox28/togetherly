@@ -25,6 +25,21 @@ function isStreamingUrl(value) {
   }
 }
 
+/**
+ * Deja solo origen + ruta (sin ?parámetros ni #): Disney+ agrega un ?contextId= de cientos de
+ * caracteres que no hace falta para abrir la película. null si no es una plataforma soportada.
+ */
+function cleanStreamingUrl(value) {
+  if (typeof value !== "string" || value.length > 4096) return null;
+  try {
+    const url = new URL(value);
+    const clean = url.origin + url.pathname;
+    return isStreamingUrl(clean) ? clean : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Cliente mínimo de Socket.io (protocolo v4) sobre WebSocket ──────────────
 // Un service worker no puede cargar la librería oficial, así que se habla el
 // protocolo directamente: "0{...}" apertura · "2" ping · "3" pong ·
@@ -338,14 +353,16 @@ async function handleMessage(message, sender) {
     case "CONTENT_READY":
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
       return { roomId, connected: !!roomId && (socket?.isOpen ?? false) };
-    case "NOW_WATCHING":
+    case "NOW_WATCHING": {
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
-      if (isStreamingUrl(message.url)) {
-        myWatchingUrl = message.url;
+      const watchingUrl = cleanStreamingUrl(message.url);
+      if (watchingUrl) {
+        myWatchingUrl = watchingUrl;
         chrome.storage.session.set({ myWatchingUrl });
-        if (roomId) socket?.emit("ext-now-watching", { roomId, url: message.url });
+        if (roomId) socket?.emit("ext-now-watching", { roomId, url: watchingUrl });
       }
       return { ok: true };
+    }
     case "CHAT_STATE":
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
       return {
