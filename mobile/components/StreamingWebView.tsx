@@ -1,130 +1,88 @@
-import { useRef, useEffect, forwardRef, useImperativeHandle } from "react";
-import { View } from "react-native";
-import WebView, { type WebViewMessageEvent } from "react-native-webview";
+import { forwardRef, useImperativeHandle, useRef, type ComponentType, type Ref } from "react";
+import { Platform, View } from "react-native";
+import WebView, { type WebViewMessageEvent, type WebViewProps } from "react-native-webview";
+import type { PlayerOrder } from "@/hooks/useRoom";
+// Mismo motor para Android y iPhone; también lo prueban las pruebas e2e (tests/extension/mobile-engine.spec.js).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { ENGINE_JS } = require("../lib/sync-engine.js") as { ENGINE_JS: string };
+
+// Los tipos de NativeWind chocan con el componente de clase de WebView: se le dan sus props a mano.
+const Browser = WebView as unknown as ComponentType<WebViewProps & { ref?: Ref<WebView> }>;
 
 export interface StreamingWebViewHandle {
-  play: () => void;
-  pause: () => void;
-  seekTo: (time: number) => void;
+  apply: (order: PlayerOrder) => void;
+  goTo: (url: string) => void;
 }
+
+export type EngineEvent =
+  | { type: "play" | "pause" | "seek"; time: number }
+  | { type: "watching"; url: string }
+  | { type: "video"; found: boolean }
+  | { type: "failed"; action: string };
 
 interface Props {
   url: string;
-  onPlay: (time: number) => void;
-  onPause: (time: number) => void;
-  onSeek: (time: number) => void;
-  onRemotePlay: (cb: (t: number) => void) => void;
-  onRemotePause: (cb: (t: number) => void) => void;
-  onRemoteSeek: (cb: (t: number) => void) => void;
+  onEvent: (event: EngineEvent) => void;
 }
 
-// JavaScript injected into every streaming page to hook video playback
-const INJECT_JS = `
-(function() {
-  let video = null;
-  let lastSentTime = -1;
-  let isSyncing = false;
+// Netflix y Disney+ no reproducen en navegadores de celular: se presenta como un navegador
+// de computador. En iPhone el motor es WebKit (como Safari en Mac); en Android, Chrome.
+const DESKTOP_USER_AGENT =
+  Platform.OS === "ios"
+    ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
+    : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
-  function findVideo() {
-    const v = document.querySelector('video');
-    if (v && v !== video) {
-      video = v;
-      attachListeners();
-    }
-  }
+function parseEvent(raw: string): EngineEvent | null {
+  try {
+    const data = JSON.parse(raw);
+    if (!data || typeof data.type !== "string") return null;
+    if (["play", "pause", "seek"].includes(data.type) && typeof data.time === "number" && Number.isFinite(data.time)) return data;
+    if (data.type === "watching" && typeof data.url === "string" && data.url.startsWith("https://")) return data;
+    if (data.type === "video" || data.type === "failed") return data;
+  } catch {}
+  return null;
+}
 
-  function attachListeners() {
-    video.addEventListener('play', () => {
-      if (isSyncing) return;
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'play', time: video.currentTime }));
-    });
-    video.addEventListener('pause', () => {
-      if (isSyncing) return;
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'pause', time: video.currentTime }));
-    });
-    video.addEventListener('seeked', () => {
-      if (isSyncing) return;
-      const t = video.currentTime;
-      if (Math.abs(t - lastSentTime) > 1) {
-        lastSentTime = t;
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'seek', time: t }));
-      }
-    });
-  }
+export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(function StreamingWebView({ url, onEvent }, ref) {
+  const webViewRef = useRef<WebView>(null);
 
-  // Poll for video element (streaming sites load it dynamically)
-  setInterval(findVideo, 1000);
-  findVideo();
+  useImperativeHandle(ref, () => ({
+    // La orden viaja como JSON: nunca se arma código con texto que llega de la sala.
+    apply: (order) =>
+      webViewRef.current?.injectJavaScript(
+        `window.__togetherly && window.__togetherly.apply(JSON.parse(${JSON.stringify(JSON.stringify(order))}));true;`
+      ),
+    goTo: (next) => {
+      if (next.startsWith("https://")) webViewRef.current?.injectJavaScript(`location.href=${JSON.stringify(next)};true;`);
+    },
+  }));
 
-  // Receive commands from React Native
-  window.addEventListener('message', function(e) {
-    try {
-      const msg = JSON.parse(e.data);
-      if (!video) { findVideo(); if (!video) return; }
-      isSyncing = true;
-      if (msg.type === 'play') {
-        if (Math.abs(video.currentTime - msg.time) > 1) video.currentTime = msg.time;
-        video.play().catch(() => {});
-      } else if (msg.type === 'pause') {
-        if (Math.abs(video.currentTime - msg.time) > 1) video.currentTime = msg.time;
-        video.pause();
-      } else if (msg.type === 'seek') {
-        video.currentTime = msg.time;
-      }
-      setTimeout(() => { isSyncing = false; }, 500);
-    } catch(e) {}
-  });
-})();
-true;
-`;
+  const handleMessage = (event: WebViewMessageEvent) => {
+    const parsed = parseEvent(event.nativeEvent.data);
+    if (parsed) onEvent(parsed);
+  };
 
-export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(
-  function StreamingWebView({ url, onPlay, onPause, onSeek, onRemotePlay, onRemotePause, onRemoteSeek }, ref) {
-    const webViewRef = useRef<WebView>(null);
-
-    const postMessage = (msg: object) => {
-      webViewRef.current?.postMessage(JSON.stringify(msg));
-    };
-
-    useImperativeHandle(ref, () => ({
-      play: () => postMessage({ type: "play" }),
-      pause: () => postMessage({ type: "pause" }),
-      seekTo: (time: number) => postMessage({ type: "seek", time }),
-    }));
-
-    useEffect(() => {
-      onRemotePlay((time) => postMessage({ type: "play", time }));
-      onRemotePause((time) => postMessage({ type: "pause", time }));
-      onRemoteSeek((time) => postMessage({ type: "seek", time }));
-    }, []);
-
-    const handleMessage = (event: WebViewMessageEvent) => {
-      try {
-        const msg = JSON.parse(event.nativeEvent.data);
-        if (msg.type === "play") onPlay(msg.time);
-        else if (msg.type === "pause") onPause(msg.time);
-        else if (msg.type === "seek") onSeek(msg.time);
-      } catch {}
-    };
-
-    return (
-      <View className="flex-1">
-        <WebView
-          ref={webViewRef}
-          source={{ uri: url }}
-          className="flex-1"
-          injectedJavaScript={INJECT_JS}
-          onMessage={handleMessage}
-          mediaPlaybackRequiresUserAction={false}
-          allowsInlineMediaPlayback
-          allowsFullscreenVideo
-          javaScriptEnabled
-          domStorageEnabled
-          sharedCookiesEnabled
-          thirdPartyCookiesEnabled
-          userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-        />
-      </View>
-    );
-  }
-);
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      <Browser
+        ref={webViewRef}
+        source={{ uri: url }}
+        style={{ flex: 1, backgroundColor: "#000" }}
+        userAgent={DESKTOP_USER_AGENT}
+        injectedJavaScript={ENGINE_JS}
+        onMessage={handleMessage}
+        // Video con DRM (Netflix, Disney+…): en Android hay que permitirlo explícitamente.
+        allowsProtectedMedia
+        mediaPlaybackRequiresUserAction={false}
+        allowsInlineMediaPlayback
+        allowsFullscreenVideo
+        javaScriptEnabled
+        domStorageEnabled
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
+        setSupportMultipleWindows={false}
+        originWhitelist={["https://*"]}
+      />
+    </View>
+  );
+});

@@ -64,6 +64,7 @@ const FAKE_PAGES = {
         pause: () => v.pause(),
         timeline: { get info() { return { playheadPositionMs: (v.currentTime + OFFSET) * 1000 }; } },
       };
+      host.mediaElement = v;
       window.__video = v;
       window.__contentTime = () => v.currentTime + OFFSET;
       window.__user = { seek: (ms) => host.mediaPlayer.seek(ms), play: () => v.play(), pause: () => v.pause() };

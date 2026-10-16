@@ -27,6 +27,7 @@
   let orderQueue = Promise.resolve();
   let seekDebounce = null;
   let lastSeekSentAt = 0; // cuándo se avisó el último salto propio
+  let lastSeekSentTime = -1; // y a qué minuto
   let ignoreJumpsUntil = 0; // tras aplicar una orden remota, los saltos son nuestros
   let lastSample = null; // { time, at, playing } para notar saltos sin evento "seeked"
   let lastReportedUrl = null;
@@ -93,8 +94,9 @@
   function sendLocalSeek() {
     if (!video || !roomId) return;
     lastSeekSentAt = now();
+    lastSeekSentTime = currentTime();
     lastSample = null;
-    sendToBackground({ type: "VIDEO_SEEK", currentTime: currentTime() });
+    sendToBackground({ type: "VIDEO_SEEK", currentTime: lastSeekSentTime });
   }
 
   // Algunos reproductores (Disney+) saltan sin que el <video> avise "seeked".
@@ -111,7 +113,8 @@
     if (!previous || !isValidTime(time) || now() < ignoreJumpsUntil) return;
     const expected = previous.time + (previous.playing ? ((sample.at - previous.at) / 1000) * (video.playbackRate || 1) : 0);
     if (Math.abs(time - expected) < JUMP_THRESHOLD) return;
-    if (now() - lastSeekSentAt < 2000) return; // ya se avisó con "seeked"
+    // Ya se avisó este mismo salto (con "seeked"): no repetirlo. Un salto nuevo sí se avisa.
+    if (now() - lastSeekSentAt < 2000 && Math.abs(time - lastSeekSentTime) < JUMP_THRESHOLD) return;
     clearTimeout(seekDebounce);
     seekDebounce = setTimeout(sendLocalSeek, 300);
   }, 500);

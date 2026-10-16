@@ -27,9 +27,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "autolinking": {
-      "exclude": ["react-native-reanimated"]
     }
   }
 }
