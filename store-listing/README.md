@@ -62,7 +62,7 @@ Cómo se usa:
 
 Funciona con Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ y Crunchyroll. Si quieren chat, reacciones y videollamada, abran la sala en togetherly-weld.vercel.app y la extensión se conecta sola.
 
-Privacidad: la extensión solo envía el código de la sala, tu nombre visible, los eventos de play, pausa y salto, y la dirección de la película que tienes abierta (solo a la gente de tu sala, para que el enlace los lleve ahí). No lee contraseñas, cuentas, cookies ni tu historial. Es gratis y no tiene anuncios.
+Privacidad: la extensión solo envía el código de la sala, tu nombre visible, los eventos de play, pausa y salto, y la dirección de la película que tienes abierta (solo a la gente de tu sala, para que el enlace los lleve ahí). No lee contraseñas, cuentas, cookies ni tu historial. Es gratis, de código abierto (AGPL-3.0, github.com/modarox28/togetherly) y no tiene anuncios.
 
 ### Description (EN)
 Togetherly Sync lets you watch a movie together even when you're far apart.
@@ -74,7 +74,7 @@ How it works:
 
 Works with Netflix, Prime Video, HBO Max, Disney+, Apple TV+, Paramount+ and Crunchyroll. For chat, reactions and video calls, open the room at togetherly-weld.vercel.app and the extension connects by itself.
 
-Privacy: the extension only sends the room code, your display name, play/pause/seek events and the address of the title you have open (only to people in your room, so the invite link opens it). It never reads passwords, accounts, cookies or your history. Free, no ads.
+Privacy: the extension only sends the room code, your display name, play/pause/seek events and the address of the title you have open (only to people in your room, so the invite link opens it). It never reads passwords, accounts, cookies or your history. Free, open source (AGPL-3.0, github.com/modarox28/togetherly), no ads.
 
 ### Nota para revisores (Edge y Firefox)
 The extension syncs playback between people in the same "room". To test: install it in two browser profiles, click the icon in the first one and press "Crear sala nueva" (create room), then paste the 6-letter code in the second profile and press "Unirme" (join). Open any video on one of the supported sites (a free YouTube video won't work; use a streaming account) and press play/pause: the other profile follows. Permissions: "storage" (remember the display name and active room) and "activeTab" (when the user clicks the icon on a movie page, read that tab's address so the invite link opens the same title). A chat panel is shown next to the video only while in a room. Content scripts run only on the listed streaming domains and on togetherly-weld.vercel.app. Network traffic goes only to the room server (togetherly-salas.onrender.com, WebSocket) and to togetherly-weld.vercel.app/api/config (to find that server). No remote code is loaded.

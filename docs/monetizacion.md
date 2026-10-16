@@ -1,39 +1,34 @@
 # Monetización de Togetherly
 
-Decisión (octubre 2026): **freemium, con los pagos apagados por ahora.** Sin anuncios.
+**Decisión (15 oct 2026): gratis para todos, de código abierto (AGPL-3.0) y sostenido con donaciones.** Sin anuncios y sin planes de pago.
 
-## Qué hay hoy
+## Por qué
 
-- Plan **Gratis**: salas de 2 personas, todo lo demás incluido.
-- Plan **Premium** (salas de hasta 8): se muestra en `/pricing` como "Próximamente".
-  No se puede comprar y la ruta `/api/stripe/checkout` responde 503.
-- El interruptor es la variable `NEXT_PUBLIC_PAYMENTS_ENABLED` (ver `src/lib/plans.ts`).
-  Mientras no valga `true`, nadie puede pagar.
+1. **Vercel Hobby (gratis) prohíbe el uso comercial** (cobrar o poner anuncios exige Pro, USD 20/mes),
+   pero **las donaciones sí están permitidas**. Fuente: https://vercel.com/docs/limits/fair-use-guidelines
+2. **Stripe no abre cuentas para negocios de Colombia**. Fuente: https://stripe.com/global
+3. Una extensión que entra a Netflix o Disney+ genera más confianza si su código se puede revisar.
+4. Meta del proyecto: no gastar sin avisar antes.
 
-## Por qué no cobramos todavía
+## Cómo se reciben donaciones
 
-1. **Vercel Hobby (gratis) prohíbe el uso comercial.** Cualquier forma de cobrar a los
-   visitantes, o poner anuncios (AdSense incluido), exige el plan Pro (USD 20/mes).
-   Las donaciones sí están permitidas.
-   Fuente: https://vercel.com/docs/limits/fair-use-guidelines
-2. **Stripe no abre cuentas para negocios de Colombia** (en Latinoamérica solo Brasil y
-   México). Fuente: https://stripe.com/global
-3. Meta del proyecto: no gastar un solo peso sin avisar antes.
-
-## Opciones para más adelante (todas por verificar antes de usarlas)
-
-| Opción | Costo fijo | Notas |
+| Opción | Desde Colombia | Comisión |
 |---|---|---|
-| Donaciones (Ko-fi, Buy Me a Coffee) | 0 | Permitido en Vercel Hobby. Lo más simple para empezar. |
-| Mercado Pago / Wompi | 0 + comisión | Funcionan en Colombia; requieren cambiar `src/app/api/stripe/*`. |
-| Lemon Squeezy / Paddle | 0 + comisión | "Merchant of record": cobran ellos y te pagan; revisar si pagan a Colombia. |
-| Pasarse a Vercel Pro | USD 20/mes | Obligatorio en cuanto se cobre o haya anuncios. |
+| GitHub Sponsors | Sí (región soportada) | 0 % si dona una persona; hasta 6 % si dona una organización |
+| Ko-fi (cobra por PayPal) | Sí, con PayPal | 0 % de Ko-fi en propinas; PayPal cobra la suya |
 
-## Cómo activar Premium cuando se decida
+Fuentes: https://docs.github.com/en/sponsors/getting-started-with-github-sponsors/about-github-sponsors ·
+https://talks.co/p/how-does-ko-fi-work/
 
-1. Tener la pasarela configurada (claves solo como variables de entorno en Vercel).
-2. Pasar el proyecto de Vercel a un plan que permita uso comercial.
-3. En Vercel → Settings → Environment Variables: `NEXT_PUBLIC_PAYMENTS_ENABLED=true`.
-4. Redesplegar (las variables `NEXT_PUBLIC_` se leen al compilar).
-5. Poner `ROOM_PASS_SECRET` (el mismo valor) en Vercel y en Render para que el límite
-   de 8 personas se respete en el servidor de salas.
+## Cómo activar el botón de donar
+
+1. Crear la cuenta (GitHub → Settings → Sponsors, o ko-fi.com con PayPal).
+2. Vercel → proyecto → Settings → Environment Variables: `NEXT_PUBLIC_DONATE_URL` con el enlace
+   (tipo Config, Production) y redesplegar.
+3. Si usas Ko-fi, quita el `#` de `ko_fi:` en `.github/FUNDING.yml` y pon tu usuario.
+
+## Lo que quedó guardado (por si algún día se cobra)
+
+- El código de Stripe (`src/app/api/stripe/*`, `src/lib/stripe.ts`) sigue en el repositorio, apagado con
+  `NEXT_PUBLIC_PAYMENTS_ENABLED`. La página de planes se reemplazó por `/apoyar` (`/pricing` redirige ahí).
+- El límite de personas por plan solo se activa con `ROOM_PASS_SECRET`; sin él, cada sala admite hasta 20.

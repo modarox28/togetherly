@@ -18,12 +18,9 @@ export function RoomFullScreen({ max }: { max: number }) {
           {t.watchRoom.roomFullHint.replace("{max}", String(max))}
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
-          <Link href="/pricing" className="rounded-full bg-accent px-6 py-3 font-bold text-on-accent">
-            {t.watchRoom.seePlans}
-          </Link>
           <Link
             href="/room"
-            className="rounded-full border-2 border-day-900/15 px-6 py-3 font-bold text-day-900 dark:border-white/20 dark:text-white"
+            className="rounded-full bg-accent px-6 py-3 font-bold text-on-accent"
           >
             {t.watchRoom.createOwn}
           </Link>

@@ -159,7 +159,17 @@ refreshStatus();
 setInterval(refreshStatus, 1500);
 
 // ── Diagnóstico: versión y qué ve la extensión en la pestaña actual ─────────
-$("version").textContent = `Togetherly Sync v${chrome.runtime.getManifest().version}`;
+// Versión + enlace a la página de apoyo (Togetherly es gratis y de código abierto).
+{
+  const support = document.createElement("a");
+  support.href = "#";
+  support.textContent = "Código abierto · Apoyar";
+  support.addEventListener("click", (event) => {
+    event.preventDefault();
+    chrome.tabs.create({ url: "https://togetherly-weld.vercel.app/apoyar" });
+  });
+  $("version").replaceChildren(`Togetherly Sync v${chrome.runtime.getManifest().version} · `, support);
+}
 
 function showDiag(kind, title, detail, videos) {
   const box = $("diag");
