@@ -48,7 +48,8 @@
       const rect = v.getBoundingClientRect();
       const area = rect.width * rect.height;
       if (area < 4000) continue; // oculto o miniatura
-      const duration = Number.isFinite(v.duration) ? v.duration : 0;
+      // Algunos reproductores (MSE) dicen duración "infinita" mientras cargan: se acepta.
+      const duration = v.duration === Infinity ? 7200 : Number.isFinite(v.duration) ? v.duration : 0;
       if (duration < minDuration) continue;
       const score = Math.min(duration, 100000) + area / 1000;
       if (score > bestScore) {
@@ -171,5 +172,15 @@
 
   globalThis.TogetherlyPlatforms = {
     current: () => PLATFORMS.find((p) => p.matches()) ?? null,
+    /** Para el diagnóstico del popup: todos los videos que ve la extensión en esta página. */
+    describeVideos: () =>
+      findAllVideos().map((v) => {
+        const rect = v.getBoundingClientRect();
+        return {
+          duration: v.duration === Infinity ? "∞" : Number.isFinite(v.duration) ? Math.round(v.duration) : "?",
+          ready: v.readyState,
+          size: `${Math.round(rect.width)}×${Math.round(rect.height)}`,
+        };
+      }),
   };
 })();
