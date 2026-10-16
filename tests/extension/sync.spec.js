@@ -380,6 +380,12 @@ test("chat dentro de la película: lo que escribe uno lo ve el otro, y escribir 
     await chatB.send("Sí, dale");
     await expect.poll(() => chatA.messages(), { timeout: 8000 }).toContain("Sí, dale");
 
+    // El popup muestra la versión (para saber si la extensión está actualizada).
+    const popup = await ana.context.newPage();
+    await popup.goto(`chrome-extension://${ana.extensionId}/popup.html`);
+    await expect(popup.locator("#version")).toContainText(/v\d+\.\d+\.\d+/);
+    await popup.close();
+
     // Escribir con espacios en el chat no debe pausar la película.
     expect((await videoState(pageA)).paused).toBe(false);
     expect((await videoState(pageB)).paused).toBe(false);

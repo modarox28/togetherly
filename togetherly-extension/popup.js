@@ -145,3 +145,36 @@ chrome.storage.local.get(["savedName"], ({ savedName }) => {
 refreshStatus();
 // Mientras el popup está abierto, el estado se actualiza solo (el servidor gratis tarda en despertar).
 setInterval(refreshStatus, 1500);
+
+// ── Diagnóstico: versión y qué ve la extensión en la pestaña actual ─────────
+$("version").textContent = `Togetherly Sync v${chrome.runtime.getManifest().version}`;
+
+function showDiag(kind, title, detail) {
+  const box = $("diag");
+  box.hidden = false;
+  box.className = `diag ${kind}`;
+  const strong = document.createElement("b");
+  strong.textContent = title;
+  box.replaceChildren(strong, document.createElement("br"), document.createTextNode(detail));
+}
+
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  const tab = tabs?.[0];
+  if (!tab?.id) return;
+  chrome.tabs.sendMessage(tab.id, { type: "DIAG" }, (reply) => {
+    if (chrome.runtime.lastError || !reply) {
+      // Sin respuesta: no es una plataforma soportada, o la pestaña se abrió antes de instalar/actualizar.
+      if (tab.url && /^https:/.test(tab.url)) {
+        showDiag("warn", "Togetherly no está activo en esta pestaña", "Si es Netflix, Disney+, Prime u otra compatible, recárgala con F5.");
+      }
+      return;
+    }
+    if (reply.videoFound) {
+      showDiag("ok", `${reply.platform}: video encontrado ✓`, reply.inRoom ? "Esta pestaña está sincronizada con tu sala." : "Únete o crea una sala para sincronizar.");
+    } else if (reply.onPlayerPage) {
+      showDiag("warn", `${reply.platform}: buscando el video…`, "Dale play a la película. Si no aparece en unos segundos, recarga con F5.");
+    } else {
+      showDiag("", `${reply.platform} detectado`, "Abre una película o serie para sincronizar.");
+    }
+  });
+});

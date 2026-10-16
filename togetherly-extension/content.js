@@ -197,8 +197,23 @@
     }
   }
 
-  chrome.runtime.onMessage.addListener((message) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || typeof message !== "object") return;
+
+    // Diagnóstico para el popup: ¿qué ve la extensión en esta pestaña?
+    // (En Crunchyroll el video está en un marco aparte: ese marco responde si lo tiene.)
+    if (message.type === "DIAG") {
+      const videoFound = !!(video && video.isConnected);
+      if (isTopFrame || videoFound) {
+        sendResponse({
+          platform: platform.name,
+          onPlayerPage: platform.isPlayerPage(),
+          videoFound,
+          inRoom: !!roomId,
+        });
+      }
+      return;
+    }
 
     if (message.type === "REMOTE_COMMAND") {
       enqueue(message);
