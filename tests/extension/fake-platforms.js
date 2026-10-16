@@ -55,7 +55,7 @@ const FAKE_PAGES = {
       outer.append(middle);
       const inner = middle.attachShadow({ mode: "open" });
       const v = document.createElement("video");
-      v.src = "/video/movie.webm"; v.muted = true; v.style.cssText = "width:100vw;height:100vh";
+      v.src = "/video/movie.webm"; v.muted = true; v.style.cssText = "width:100%;height:100vh";
       v.addEventListener("seeked", (e) => e.stopImmediatePropagation());
       inner.append(v);
       host.mediaPlayer = {

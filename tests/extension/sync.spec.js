@@ -395,6 +395,28 @@ test("chat dentro de la película: lo que escribe uno lo ve el otro, y escribir 
   }
 });
 
+test("el chat abierto no tapa la película: la página se encoge, y si no se puede, queda encima", async () => {
+  const ana = await openBrowser("ana-espacio");
+  try {
+    await joinWithPopup(ana, `ESPACIO${Date.now() % 10000}`, "Ana");
+    const videoRight = (page) =>
+      page.evaluate(() => (window.__video ?? document.getElementById("v")).getBoundingClientRect().right);
+    const chatOpenClass = (page) => page.evaluate(() => document.documentElement.classList.contains("togetherly-chat-open"));
+
+    // Disney+ (como el real): el reproductor se acomoda al ancho y queda a la izquierda del chat.
+    const disney = await openPlatform(ana, "disney");
+    await expect.poll(() => videoRight(disney), { timeout: 8000 }).toBeLessThanOrEqual(1280 - 320 + 1);
+    expect(await chatOpenClass(disney)).toBe(true);
+
+    // Un reproductor que no se deja encoger (ancho fijo de pantalla): se quita el arreglo y el chat queda encima.
+    const netflix = await openPlatform(ana, "netflix");
+    await expect.poll(() => chatOpenClass(netflix), { timeout: 8000 }).toBe(false);
+    expect(await videoRight(netflix)).toBeGreaterThan(1200);
+  } finally {
+    await ana.context.close();
+  }
+});
+
 test("modo líder: solo quien creó la sala controla; los demás vuelven a donde va la sala", async () => {
   const ana = await openBrowser("ana-lider");
   const beto = await openBrowser("beto-sigue");

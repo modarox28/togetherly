@@ -194,8 +194,44 @@
     }
   }
 
+  // Como Teleparty: con el chat abierto la página se encoge para que el panel no tape la película.
+  // Con transform, los elementos "fixed" de la página (el reproductor) quedan dentro del body encogido.
+  // Si en alguna plataforma el video no se encoge, se deja el panel encima como antes.
+  const roomStyle = document.createElement("style");
+  roomStyle.textContent = `html.togetherly-chat-open > body {
+    transform: translateZ(0) !important; width: calc(100vw - ${PANEL_WIDTH}px) !important;
+    height: 100vh !important; overflow: hidden !important; }`;
+  let shrinkFailed = false;
+  let shrinkCheck = null;
+
+  function mainVideo() {
+    try {
+      return globalThis.TogetherlyPlatforms?.current()?.findVideo() ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  function makeRoom(on) {
+    const want = on && !shrinkFailed && !document.fullscreenElement;
+    const html = document.documentElement;
+    if (want && !roomStyle.isConnected) (document.head ?? html).append(roomStyle);
+    html.classList.toggle("togetherly-chat-open", want);
+    clearTimeout(shrinkCheck);
+    if (!want) return;
+    shrinkCheck = setTimeout(() => {
+      const video = mainVideo();
+      if (!video || !html.classList.contains("togetherly-chat-open")) return;
+      if (video.getBoundingClientRect().right > window.innerWidth - PANEL_WIDTH + 4) {
+        shrinkFailed = true;
+        html.classList.remove("togetherly-chat-open");
+      }
+    }, 600);
+  }
+
   function render() {
     host.style.display = roomId ? "block" : "none";
+    makeRoom(!!roomId && isOpen);
     launcher.hidden = isOpen;
     panel.hidden = !isOpen;
     badge.hidden = unread === 0;
@@ -291,7 +327,10 @@
     const parent = document.fullscreenElement ?? document.body;
     if (parent && host.parentNode !== parent) parent.appendChild(host);
   }
-  document.addEventListener("fullscreenchange", placeHost);
+  document.addEventListener("fullscreenchange", () => {
+    placeHost();
+    render();
+  });
 
   function loadState(state) {
     roomId = state?.connected ? state.roomId : null;
