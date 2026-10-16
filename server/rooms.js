@@ -25,6 +25,7 @@ const rooms = new Map();
  * @property {string} platform
  * @property {number} createdAt
  * @property {number} maxParticipants
+ * @property {Map<string, object>} extMembers  quienes están solo con la extensión (sin la web abierta)
  * @property {{url: string, platform: string, by: string}|null} nowWatching
  *           lo último que alguien abrió en una app de streaming (para mandar a los demás ahí)
  */
@@ -47,6 +48,7 @@ function getOrCreateRoom(roomId, { isPublic = false, name = null, maxParticipant
       createdAt: Date.now(),
       maxParticipants: maxParticipants ?? MAX_PARTICIPANTS,
       nowWatching: null,
+      extMembers: new Map(),
     });
   }
   return rooms.get(roomId);
@@ -80,6 +82,21 @@ function roomPreview(roomId, onlineCount) {
   return { exists: true, online: onlineCount, nowWatching: room.nowWatching };
 }
 
+/**
+ * Quiénes están en la sala (web y extensión), una vez por nombre: si Ana tiene la web y
+ * la extensión abiertas, aparece una sola vez.
+ */
+function membersOf(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return [];
+  const byName = new Map();
+  for (const person of [...room.participants.values(), ...room.extMembers.values()]) {
+    const key = person.name.toLowerCase();
+    if (!byName.has(key)) byName.set(key, { name: person.name, avatar: person.avatar, color: person.color });
+  }
+  return [...byName.values()];
+}
+
 /** Salas públicas con gente, para la página "Salas públicas". */
 function listPublicRooms(limit = 100) {
   const list = [];
@@ -109,4 +126,5 @@ module.exports = {
   colorForIndex,
   listPublicRooms,
   roomPreview,
+  membersOf,
 };

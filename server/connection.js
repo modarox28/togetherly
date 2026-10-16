@@ -12,6 +12,7 @@ const {
   currentPosition,
   stateForExtension,
   colorForIndex,
+  membersOf,
 } = require("./rooms");
 
 const RATE_LIMIT = { windowMs: 10_000, maxEvents: 150 };
@@ -51,12 +52,24 @@ function handleConnection(io, socket, plans) {
   socket.on("ext-connect", (data) => {
     const roomId = data?.roomId;
     if (!isRoomId(roomId) || !canOpenRoom(roomId)) return;
-    if (currentRoomId && currentRoomId !== roomId) socket.leave(currentRoomId);
+    if (currentRoomId && currentRoomId !== roomId) {
+      socket.leave(currentRoomId);
+      if (rooms.get(currentRoomId)?.extMembers.delete(socket.id)) {
+        io.to(currentRoomId).emit("members", { members: membersOf(currentRoomId) });
+      }
+    }
     currentRoomId = roomId;
     currentUsername = cleanText(data.username, 24) || "Invitado";
     isExtension = true;
     socket.join(roomId);
-    newRoom(roomId); // guarda el estado aunque nadie tenga la web abierta
+    const room = newRoom(roomId); // guarda el estado aunque nadie tenga la web abierta
+    room.extMembers.set(socket.id, {
+      id: socket.id,
+      name: currentUsername,
+      avatar: cleanText(data.avatar, 8) || "🍿",
+      color: colorForIndex(room.participants.size + room.extMembers.size),
+    });
+    io.to(roomId).emit("members", { members: membersOf(roomId) });
     socket.emit("ext-connected", { roomId });
     socket.emit("ext-state", stateForExtension(roomId));
     const { nowWatching } = rooms.get(roomId);
@@ -130,6 +143,7 @@ function handleConnection(io, socket, plans) {
       nowWatching: room.nowWatching,
     });
     socket.to(roomId).emit("participant-joined", { participant });
+    io.to(roomId).emit("members", { members: membersOf(roomId) });
   });
 
   socket.on("video-url-change", (data) => {
@@ -170,29 +184,41 @@ function handleConnection(io, socket, plans) {
     }
   });
 
-  socket.on("chat-message", (data) => {
+  /** Quién habla: la persona en la web o, si solo tiene la extensión, su ficha de extensión. */
+  const speaker = (roomId) => {
+    const room = rooms.get(roomId);
+    return room?.participants.get(socket.id) ?? room?.extMembers.get(socket.id) ?? null;
+  };
+
+  // El chat y las reacciones llegan de la web ("chat-message") o del panel dentro de
+  // Netflix, Prime… ("ext-chat"); todos en la sala reciben lo mismo.
+  const onChat = (data) => {
     const text = cleanText(data?.text, 500);
     if (!text || !isInRoom(data.roomId)) return;
-    const participant = rooms.get(data.roomId)?.participants.get(socket.id);
-    if (!participant) return;
+    const person = speaker(data.roomId);
+    if (!person) return;
     io.to(data.roomId).emit("chat-message", {
       id: `${Date.now()}-${socket.id}`,
       senderId: socket.id,
       text,
-      username: participant.name,
-      color: participant.color,
-      avatar: participant.avatar,
+      username: person.name,
+      color: person.color,
+      avatar: person.avatar,
       timestamp: Date.now(),
     });
-  });
+  };
+  socket.on("chat-message", onChat);
+  socket.on("ext-chat", onChat);
 
-  socket.on("reaction", (data) => {
+  const onReaction = (data) => {
     const emoji = cleanText(data?.emoji, 8);
     if (!emoji || !isInRoom(data.roomId)) return;
-    const participant = rooms.get(data.roomId)?.participants.get(socket.id);
-    if (!participant) return;
-    io.to(data.roomId).emit("reaction", { emoji, username: participant.name, id: Date.now() });
-  });
+    const person = speaker(data.roomId);
+    if (!person) return;
+    io.to(data.roomId).emit("reaction", { emoji, username: person.name, id: Date.now() });
+  };
+  socket.on("reaction", onReaction);
+  socket.on("ext-reaction", onReaction);
 
   // ── Señalización de la videollamada (WebRTC): solo entre personas de la misma sala ──
   socket.on("call-request", (data) => {
@@ -232,12 +258,18 @@ function handleConnection(io, socket, plans) {
       rooms.delete(currentRoomId);
       return;
     }
-    if (isExtension) return; // la extensión no cuenta como participante
+    if (isExtension) {
+      // La extensión no sale como "participante" en el chat, pero sí en la lista de quiénes están.
+      room.extMembers.delete(socket.id);
+      io.to(currentRoomId).emit("members", { members: membersOf(currentRoomId) });
+      return;
+    }
 
     const participant = room.participants.get(socket.id);
     room.participants.delete(socket.id);
     if (room.host === socket.id) room.host = room.participants.keys().next().value ?? null;
     socket.to(currentRoomId).emit("participant-left", { participantId: socket.id, name: participant?.name });
+    io.to(currentRoomId).emit("members", { members: membersOf(currentRoomId) });
   });
 }
 

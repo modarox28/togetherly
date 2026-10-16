@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Togetherly Sync",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Mira Netflix, Prime Video, HBO Max, Disney+ y más en sincronía con quien quieras, estén donde estén.",
   "minimum_chrome_version": "121",
   "icons": {
@@ -11,7 +11,8 @@
     "128": "icons/icon-128.png"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab"
   ],
   "background": {
     "service_worker": "background.js"
@@ -34,7 +35,8 @@
       ],
       "js": [
         "platforms.js",
-        "content.js"
+        "content.js",
+        "chat-panel.js"
       ],
       "run_at": "document_idle"
     },
@@ -45,7 +47,8 @@
       ],
       "js": [
         "platforms.js",
-        "content.js"
+        "content.js",
+        "chat-panel.js"
       ],
       "all_frames": true,
       "run_at": "document_idle"

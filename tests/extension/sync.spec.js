@@ -325,6 +325,70 @@ test("unirse desde el popup abre sola la película que está viendo la sala", as
   }
 });
 
+// El panel de chat vive en un shadow DOM cerrado: se lee con el protocolo de Chrome (pierce).
+async function chatPanel(page) {
+  const cdp = await page.context().newCDPSession(page);
+  const nodes = async () => {
+    const { root } = await cdp.send("DOM.getDocument", { depth: -1, pierce: true });
+    const all = [];
+    const walk = (node) => {
+      all.push(node);
+      for (const child of [...(node.children ?? []), ...(node.shadowRoots ?? [])]) walk(child);
+    };
+    walk(root);
+    return all;
+  };
+  const classOf = (node) => {
+    const attrs = node.attributes ?? [];
+    const i = attrs.indexOf("class");
+    return i >= 0 ? attrs[i + 1] : "";
+  };
+  return {
+    /** Textos de los mensajes del chat */
+    async messages() {
+      const all = await nodes();
+      return all
+        .filter((n) => n.nodeName === "P" && classOf(n) === "text")
+        .map((n) => (n.children ?? []).map((c) => c.nodeValue ?? "").join(""));
+    },
+    /** Escribe y envía un mensaje desde el panel */
+    async send(text) {
+      const input = (await nodes()).find((n) => n.nodeName === "INPUT" && (n.attributes ?? []).includes("Mensaje"));
+      await cdp.send("DOM.focus", { backendNodeId: input.backendNodeId });
+      await page.keyboard.type(text);
+      await page.keyboard.press("Enter");
+    },
+  };
+}
+
+test("chat dentro de la película: lo que escribe uno lo ve el otro, y escribir no pausa el video", async () => {
+  const ana = await openBrowser("ana-chat");
+  const beto = await openBrowser("beto-chat");
+  try {
+    const roomId = `CHAT${Date.now() % 100000}`;
+    await joinWithPopup(ana, roomId, "Ana");
+    await joinWithPopup(beto, roomId, "Beto");
+    const pageA = await openPlatform(ana, "netflix");
+    const pageB = await openPlatform(beto, "netflix");
+    await pageA.evaluate(() => window.__user.play());
+    await expect.poll(async () => (await videoState(pageB)).paused, { timeout: 8000 }).toBe(false);
+
+    const chatA = await chatPanel(pageA);
+    const chatB = await chatPanel(pageB);
+    await chatA.send("¿Ya empezó? 🍿");
+    await expect.poll(() => chatB.messages(), { timeout: 8000 }).toContain("¿Ya empezó? 🍿");
+    await chatB.send("Sí, dale");
+    await expect.poll(() => chatA.messages(), { timeout: 8000 }).toContain("Sí, dale");
+
+    // Escribir con espacios en el chat no debe pausar la película.
+    expect((await videoState(pageA)).paused).toBe(false);
+    expect((await videoState(pageB)).paused).toBe(false);
+  } finally {
+    await ana.context.close();
+    await beto.context.close();
+  }
+});
+
 test("el servidor solo acepta direcciones de plataformas soportadas", async () => {
   const { io } = require("socket.io-client");
   const ext = io(SERVER_URL, { transports: ["websocket"] });

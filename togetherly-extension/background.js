@@ -60,6 +60,12 @@ class SocketClient {
       }
       if (data === "40" || data.startsWith("40{")) {
         this.retryDelay = 2000;
+        // "40{"sid":"…"}": el id de esta conexión (sirve para saber qué mensajes son míos)
+        try {
+          this.id = JSON.parse(data.slice(2)).sid ?? null;
+        } catch {
+          this.id = null;
+        }
         this.fire("connect");
         return;
       }
@@ -121,11 +127,16 @@ let myWatchingUrl = null;
 /** Al unirse desde el popup, abrir la película de la sala en cuanto se sepa cuál es */
 let openWhenKnown = false;
 const streamingTabs = new Set();
+/** Chat de la sala para el panel dentro de Netflix, Prime… (últimos mensajes y quiénes están) */
+const MAX_CHAT_MESSAGES = 60;
+let chatMessages = [];
+let members = [];
 
 // El service worker se duerme y despierta: la sala activa se guarda en storage.session.
-const ready = chrome.storage.session.get(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl"]).then((saved) => {
+const ready = chrome.storage.session.get(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl", "chatMessages"]).then((saved) => {
   if (saved.roomId && ROOM_ID_PATTERN.test(saved.roomId)) {
     roomId = saved.roomId;
+    chatMessages = Array.isArray(saved.chatMessages) ? saved.chatMessages.slice(-MAX_CHAT_MESSAGES) : [];
     myWatchingUrl = isStreamingUrl(saved.myWatchingUrl) ? saved.myWatchingUrl : null;
     nowWatching = isStreamingUrl(saved.nowWatching?.url) ? saved.nowWatching : null;
     username = saved.username || "Invitado";
@@ -193,6 +204,28 @@ async function connect() {
     sendToStreamingTabs({ type: "NOW_WATCHING_UPDATE", url: nowWatching.url, by: nowWatching.by });
   });
 
+  // Chat, reacciones y quiénes están → panel de chat de las pestañas de streaming
+  client.on("chat-message", (data) => {
+    const message = cleanChatMessage(data);
+    if (!message) return;
+    chatMessages = [...chatMessages, message].slice(-MAX_CHAT_MESSAGES);
+    chrome.storage.session.set({ chatMessages });
+    sendToStreamingTabs({ type: "CHAT_MESSAGE", message, mine: message.senderId === client.id });
+  });
+  client.on("reaction", (data) => {
+    const emoji = cleanText(data?.emoji, 8, null);
+    if (emoji) sendToStreamingTabs({ type: "CHAT_REACTION", emoji, by: cleanText(data.username, 24, "Alguien") });
+  });
+  client.on("members", (data) => {
+    if (!Array.isArray(data?.members)) return;
+    members = data.members.slice(0, 20).map((m) => ({
+      name: cleanText(m?.name, 24, "Invitado"),
+      avatar: cleanText(m?.avatar, 8, "🍿"),
+      color: /^#[0-9a-f]{6}$/i.test(m?.color) ? m.color : "#FFC965",
+    }));
+    sendToStreamingTabs({ type: "CHAT_MEMBERS", members });
+  });
+
   // En qué va la sala (al entrar tarde o al pedirlo)
   client.on("ext-state", (state) => {
     if (state?.known) {
@@ -235,6 +268,27 @@ function cleanTime(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 86400 ? value : null;
 }
 
+/** Mensaje del chat con solo los campos esperados (el panel los muestra con textContent). */
+function cleanChatMessage(data) {
+  const text = cleanText(data?.text, 500, null);
+  if (!text) return null;
+  return {
+    id: cleanText(data.id, 80, String(Date.now())),
+    senderId: typeof data.senderId === "string" ? data.senderId.slice(0, 40) : null,
+    text,
+    username: cleanText(data.username, 24, "Alguien"),
+    avatar: cleanText(data.avatar, 8, "🍿"),
+    color: /^#[0-9a-f]{6}$/i.test(data.color) ? data.color : "#FFC965",
+    timestamp: typeof data.timestamp === "number" ? data.timestamp : Date.now(),
+  };
+}
+
+function clearChat() {
+  chatMessages = [];
+  members = [];
+  chrome.storage.session.remove("chatMessages");
+}
+
 const LOCAL_EVENTS = { VIDEO_PLAY: "video-play", VIDEO_PAUSE: "video-pause", VIDEO_SEEK: "video-seek" };
 
 // ── Mensajes de la web (bridge.js), el popup y las pestañas de streaming ───
@@ -249,6 +303,7 @@ async function handleMessage(message, sender) {
       if (message.roomId !== roomId) {
         nowWatching = null;
         chrome.storage.session.remove("nowWatching");
+        clearChat();
       }
       // Desde el popup ("Unirme"): abrir la película de la sala apenas se sepa.
       // Desde la web (/j/CODIGO) no: la propia página lleva a la película.
@@ -263,6 +318,7 @@ async function handleMessage(message, sender) {
     case "LEAVE_ROOM": {
       roomId = username = avatar = nowWatching = myWatchingUrl = null;
       openWhenKnown = false;
+      clearChat();
       chrome.storage.session.remove(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl"]);
       socket?.disconnect();
       socket = null;
@@ -290,6 +346,26 @@ async function handleMessage(message, sender) {
         if (roomId) socket?.emit("ext-now-watching", { roomId, url: message.url });
       }
       return { ok: true };
+    case "CHAT_STATE":
+      if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
+      return {
+        roomId,
+        connected: !!roomId && (socket?.isOpen ?? false),
+        messages: chatMessages.map((m) => ({ ...m, mine: !!socket?.id && m.senderId === socket.id })),
+        members,
+        myName: username,
+      };
+    case "CHAT_SEND": {
+      const text = cleanText(message.text, 500, null);
+      if (!roomId || !text || !socket?.isOpen) return { ok: false };
+      socket.emit("ext-chat", { roomId, text });
+      return { ok: true };
+    }
+    case "REACTION_SEND": {
+      const emoji = cleanText(message.emoji, 8, null);
+      if (roomId && emoji) socket?.emit("ext-reaction", { roomId, emoji });
+      return { ok: true };
+    }
     case "REQUEST_STATE":
       if (roomId) socket?.emit("ext-state-request", { roomId });
       return { ok: true };
