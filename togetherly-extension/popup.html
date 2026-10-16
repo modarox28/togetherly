@@ -98,6 +98,8 @@
     .diag.ok b { color: var(--success); }
     .diag.warn b { color: var(--accent); }
     .version { font-size: 11px; color: var(--text-muted); text-align: center; opacity: .7; }
+    .seg { display: flex; gap: 4px; }
+    .chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -148,6 +150,13 @@
           <button class="chip" id="btn-copy-link">Copiar enlace</button>
         </div>
         <p class="copied" id="copied" role="status"></p>
+      </div>
+      <div class="watching" id="control-row">
+        <span><small>¿Quién controla play y pausa?</small><b id="control-text">Todos</b></span>
+        <span class="seg" id="control-seg" hidden>
+          <button class="chip" id="btn-control-all">Todos</button>
+          <button class="chip" id="btn-control-leader">Solo yo</button>
+        </span>
       </div>
       <div class="watching" id="watching" hidden>
         <span><small>Viendo ahora</small><b id="watching-text"></b></span>

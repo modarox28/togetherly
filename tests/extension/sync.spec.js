@@ -395,6 +395,47 @@ test("chat dentro de la película: lo que escribe uno lo ve el otro, y escribir 
   }
 });
 
+test("modo líder: solo quien creó la sala controla; los demás vuelven a donde va la sala", async () => {
+  const ana = await openBrowser("ana-lider");
+  const beto = await openBrowser("beto-sigue");
+  try {
+    const roomId = `LID${Date.now() % 100000}`;
+    await joinWithPopup(ana, roomId, "Ana"); // primera en entrar: lidera
+    await joinWithPopup(beto, roomId, "Beto");
+    const pageA = await openPlatform(ana, "netflix");
+    const pageB = await openPlatform(beto, "netflix");
+
+    // Beto no ve el selector; Ana sí, y elige "Solo yo".
+    const popupB = await beto.context.newPage();
+    await popupB.goto(`chrome-extension://${beto.extensionId}/popup.html`);
+    await expect(popupB.locator("#control-seg")).toBeHidden();
+    await popupB.close();
+    const popupA = await ana.context.newPage();
+    await popupA.goto(`chrome-extension://${ana.extensionId}/popup.html`);
+    await expect(popupA.locator("#control-seg")).toBeVisible({ timeout: 8000 });
+    await popupA.click("#btn-control-leader");
+    await expect(popupA.locator("#control-text")).toContainText("Solo tú", { timeout: 8000 });
+    await popupA.close();
+
+    // Ana da play: a Beto le arranca.
+    await pageA.evaluate(() => window.__user.play());
+    await expect.poll(async () => (await videoState(pageB)).paused, { timeout: 8000 }).toBe(false);
+
+    // Beto intenta pausar: Ana sigue y a Beto se le reanuda solo.
+    await pageB.evaluate(() => window.__user.pause());
+    await pageB.waitForTimeout(2500);
+    expect((await videoState(pageA)).paused).toBe(false);
+    await expect.poll(async () => (await videoState(pageB)).paused, { timeout: 8000 }).toBe(false);
+
+    // Ana pausa: Beto se pausa.
+    await pageA.evaluate(() => window.__user.pause());
+    await expect.poll(async () => (await videoState(pageB)).paused, { timeout: 8000 }).toBe(true);
+  } finally {
+    await ana.context.close();
+    await beto.context.close();
+  }
+});
+
 test("el servidor solo acepta direcciones de plataformas soportadas", async () => {
   const { io } = require("socket.io-client");
   const ext = io(SERVER_URL, { transports: ["websocket"] });

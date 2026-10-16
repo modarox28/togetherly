@@ -26,6 +26,8 @@ const rooms = new Map();
  * @property {number} createdAt
  * @property {number} maxParticipants
  * @property {Map<string, object>} extMembers  quienes están solo con la extensión (sin la web abierta)
+ * @property {string|null} leader  nombre (en minúsculas) de quien lidera la sala: el primero en entrar
+ * @property {"all"|"leader"} controlMode  quién puede dar play, pausar o adelantar
  * @property {{url: string, platform: string, by: string}|null} nowWatching
  *           lo último que alguien abrió en una app de streaming (para mandar a los demás ahí)
  */
@@ -49,6 +51,8 @@ function getOrCreateRoom(roomId, { isPublic = false, name = null, maxParticipant
       maxParticipants: maxParticipants ?? MAX_PARTICIPANTS,
       nowWatching: null,
       extMembers: new Map(),
+      leader: null,
+      controlMode: "all",
     });
   }
   return rooms.get(roomId);
@@ -79,7 +83,14 @@ function colorForIndex(index) {
 function roomPreview(roomId, onlineCount) {
   const room = rooms.get(roomId);
   if (!room) return { exists: false, online: 0, nowWatching: null };
-  return { exists: true, online: onlineCount, nowWatching: room.nowWatching };
+  // playback: si ya llegó algún play/pausa/salto de verdad (sirve para diagnosticar la extensión)
+  return {
+    exists: true,
+    online: onlineCount,
+    nowWatching: room.nowWatching,
+    playback: { known: room.videoState.known === true, playing: room.videoState.playing === true },
+    controlMode: room.controlMode,
+  };
 }
 
 /**
@@ -92,9 +103,28 @@ function membersOf(roomId) {
   const byName = new Map();
   for (const person of [...room.participants.values(), ...room.extMembers.values()]) {
     const key = person.name.toLowerCase();
-    if (!byName.has(key)) byName.set(key, { name: person.name, avatar: person.avatar, color: person.color });
+    if (!byName.has(key)) {
+      byName.set(key, { name: person.name, avatar: person.avatar, color: person.color, leader: key === room.leader });
+    }
   }
   return [...byName.values()];
+}
+
+/** Ajustes de la sala que ven todos: quién lidera y quién controla la reproducción. */
+function settingsOf(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  const leader = membersOf(roomId).find((m) => m.leader)?.name ?? null;
+  return { controlMode: room.controlMode, leader };
+}
+
+/** Si quien lideraba ya no está, el liderazgo pasa a la siguiente persona de la sala. */
+function ensureLeader(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  const names = membersOf(roomId).map((m) => m.name.toLowerCase());
+  if (room.leader && names.includes(room.leader)) return;
+  room.leader = names[0] ?? null;
 }
 
 /** Salas públicas con gente, para la página "Salas públicas". */
@@ -127,4 +157,6 @@ module.exports = {
   listPublicRooms,
   roomPreview,
   membersOf,
+  settingsOf,
+  ensureLeader,
 };
