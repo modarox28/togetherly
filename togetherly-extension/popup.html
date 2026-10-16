@@ -93,6 +93,11 @@
     .watching small { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); }
     .watching b { display: block; font-size: 13px; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .diag { font-size: 12px; line-height: 1.45; padding: 9px 12px; border-radius: 12px; background: var(--surface-2); color: var(--text-muted); }
+    .diag b { color: var(--text); }
+    .diag.ok b { color: var(--success); }
+    .diag.warn b { color: var(--accent); }
+    .version { font-size: 11px; color: var(--text-muted); text-align: center; opacity: .7; }
     [hidden] { display: none !important; }
   </style>
 </head>
@@ -156,10 +161,12 @@
       <button class="btn secondary" id="btn-disconnect">Salir de la sala</button>
     </section>
 
+    <p class="diag" id="diag" hidden></p>
     <ul class="platforms" aria-label="Plataformas compatibles">
       <li>Netflix</li><li>Prime Video</li><li>HBO Max</li><li>Disney+</li>
       <li>Apple TV+</li><li>Paramount+</li><li>Crunchyroll</li>
     </ul>
+    <p class="version" id="version"></p>
   </main>
 
   <script src="popup.js"></script>
