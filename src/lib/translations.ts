@@ -142,6 +142,8 @@ export const translations = {
       joinRoom: "Join",
     },
     invite: {
+      waitingSlowHint: "Already playing? Ask {name} to click the Togetherly Sync icon while on the movie (or reload that tab with F5). That tells the room which movie it is.",
+      hostFallback: "whoever invited you",
       waitingFor: "Waiting for {name} to open the movie…",
       waitingGeneric: "Waiting for someone to open the movie…",
       waitingHint: "As soon as they do, we'll take you there. Keep this tab open.",
@@ -420,6 +422,8 @@ export const translations = {
       joinRoom: "Unirse",
     },
     invite: {
+      waitingSlowHint: "¿Ya la abrieron? Pídele a {name} que toque el ícono de Togetherly Sync estando en la película (o que recargue esa pestaña con F5). Así la sala sabe cuál es.",
+      hostFallback: "quien te invitó",
       waitingFor: "Esperando a que {name} abra la película…",
       waitingGeneric: "Esperando a que abran la película…",
       waitingHint: "Apenas la abran te llevamos solos. Deja esta pestaña abierta.",

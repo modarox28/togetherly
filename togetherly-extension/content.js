@@ -27,6 +27,7 @@
   let orderQueue = Promise.resolve();
   let seekDebounce = null;
   let lastReportedUrl = null;
+  const URL_PLAYER_PLATFORMS = new Set(["netflix", "disney", "hbo", "paramount", "crunchyroll"]);
   const isTopFrame = window.top === window;
 
   // Eventos que provoca la propia extensión al aplicar una orden remota.
@@ -126,7 +127,11 @@
 
   // Solo la pestaña principal sabe la dirección real (en Crunchyroll el video va en un iframe).
   function reportNowWatching() {
-    if (!isTopFrame || !(video || platform.id === "crunchyroll")) return;
+    // Se reconoce la película por la dirección (/watch/, /play/…), aunque el video
+    // todavía no aparezca: así funciona aunque el reproductor tarde o esté escondido.
+    // (Prime y Apple TV+ no tienen una dirección de reproductor clara: ahí se espera el video.)
+    const onPlayerPage = URL_PLAYER_PLATFORMS.has(platform.id) && platform.isPlayerPage();
+    if (!isTopFrame || !(video || onPlayerPage || platform.id === "crunchyroll")) return;
     const url = location.href.split("#")[0];
     if (url === lastReportedUrl) return;
     lastReportedUrl = url;

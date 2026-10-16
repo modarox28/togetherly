@@ -70,6 +70,8 @@ export function InvitePage({ code }: { code: string }) {
   const [waking, setWaking] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [name, setName] = useState("");
+  // Si la espera se alarga, se explica qué puede estar pasando.
+  const [waitingLong, setWaitingLong] = useState(false);
 
   const platformName = preview?.nowWatching ? PLATFORM_LABELS[preview.nowWatching.platform] : null;
 
@@ -110,6 +112,7 @@ export function InvitePage({ code }: { code: string }) {
   useEffect(() => {
     if (step !== "waiting") return;
     let cancelled = false;
+    const slowTimer = setTimeout(() => setWaitingLong(true), 15000);
     const timer = setInterval(async () => {
       const latest = await fetchPreviewOnce(code);
       if (!cancelled && latest?.nowWatching) {
@@ -120,6 +123,7 @@ export function InvitePage({ code }: { code: string }) {
     return () => {
       cancelled = true;
       clearInterval(timer);
+      clearTimeout(slowTimer);
     };
   }, [step, code]);
 
@@ -221,6 +225,11 @@ export function InvitePage({ code }: { code: string }) {
             <>
               <Status text={host ? t.invite.waitingFor.replace("{name}", host) : t.invite.waitingGeneric} />
               <p className="mt-3 text-sm leading-relaxed text-day-900/65 dark:text-white/60">{t.invite.waitingHint}</p>
+              {waitingLong && (
+                <p className="mt-4 rounded-2xl bg-day-100 p-4 text-sm leading-relaxed text-day-900/80 dark:bg-night-800 dark:text-white/80">
+                  {t.invite.waitingSlowHint.replace("{name}", host || t.invite.hostFallback)}
+                </p>
+              )}
               <button onClick={() => goToWebRoom(readSavedName())} className="mt-6 w-full rounded-full py-3 text-sm font-bold text-day-900 ring-2 ring-day-900/15 hover:bg-day-900/5 dark:text-white dark:ring-white/20 dark:hover:bg-white/5">
                 {t.invite.waitInWebRoom}
               </button>

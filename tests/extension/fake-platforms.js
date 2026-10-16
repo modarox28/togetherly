@@ -26,6 +26,10 @@ const FAKE_PAGES = {
         getVideoPlayerBySessionId: () => player,
       }}) } } } };
       window.__user = player;
+      // Como en Netflix real: la barra espaciadora pausa o reanuda.
+      document.addEventListener("keydown", (e) => {
+        if (e.code === "Space") v.paused ? v.play() : v.pause();
+      });
     </script></body>`,
 
   // Prime: un avance corto al fondo y la película dentro del contenedor del reproductor.
@@ -37,11 +41,11 @@ const FAKE_PAGES = {
       window.__user = { seek: (ms) => (v.currentTime = ms / 1000), play: () => v.play(), pause: () => v.pause() };
     </script></body>`,
 
-  // Disney+: el video vive dentro de un shadow DOM anidado.
+  // Disney+: el video vive dentro de un shadow DOM anidado; el de afuera es "cerrado", como en el sitio real.
   disney: `<!doctype html><title>Disney+</title><body style="margin:0">
     <disney-web-player></disney-web-player>
     <script>
-      const outer = document.querySelector("disney-web-player").attachShadow({ mode: "open" });
+      const outer = document.querySelector("disney-web-player").attachShadow({ mode: "closed" });
       const middle = document.createElement("div");
       outer.append(middle);
       const inner = middle.attachShadow({ mode: "open" });

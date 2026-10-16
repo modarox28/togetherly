@@ -36,11 +36,36 @@ function render(connected, roomId, extra = {}) {
   $("room-code").textContent = roomId ?? "";
 }
 
+// Con el permiso activeTab, al abrir el popup se puede leer la dirección de la pestaña actual.
+// Sirve para avisarle a la sala qué película tienes abierta aunque esa pestaña se haya cargado
+// antes de instalar o actualizar la extensión (ahí el content script no está corriendo).
+// Solo páginas de reproducción (no el catálogo): /watch/, /play/, /video/, /detail/…
+const WATCH_PATH = /\/(watch|play|video|detail|movie|movies|episode|show|shows|series)(\/|$)/i;
+
+function shareActiveTab() {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const url = tabs?.[0]?.url;
+    let isWatchPage = false;
+    try {
+      isWatchPage = WATCH_PATH.test(new URL(url).pathname);
+    } catch {}
+    // El background además valida que sea una plataforma soportada antes de mandarla.
+    if (isWatchPage) chrome.runtime.sendMessage({ type: "NOW_WATCHING", url: url.split("#")[0] }, () => void chrome.runtime.lastError);
+  });
+}
+
+let sharedOnOpen = false;
+
 function refreshStatus() {
   chrome.runtime.sendMessage({ type: "PING" }, (reply) => {
     if (chrome.runtime.lastError || !reply) return;
     render(reply.connected, reply.roomId, reply);
     if (reply.username) $("input-name").value = reply.username;
+    // Si estoy en una sala y nadie ha dicho qué película ven, comparto la de esta pestaña.
+    if (reply.connected && reply.roomId && !reply.nowWatching && !sharedOnOpen) {
+      sharedOnOpen = true;
+      shareActiveTab();
+    }
   });
 }
 

@@ -15,11 +15,25 @@
   const host = location.hostname;
 
   // Busca <video> también dentro de shadow roots anidados (Disney+, Apple TV).
+  // Algunos reproductores (p. ej. Disney+) guardan el video en un shadow DOM "cerrado".
+  // Las extensiones sí pueden abrirlo: chrome.dom en Chromium, openOrClosedShadowRoot en Firefox.
+  // Solo se intenta en etiquetas personalizadas (con guion), que son las que tienen shadow DOM.
+  function shadowOf(el) {
+    if (el.shadowRoot) return el.shadowRoot;
+    if (!el.tagName.includes("-")) return null;
+    try {
+      return globalThis.chrome?.dom?.openOrClosedShadowRoot?.(el) ?? el.openOrClosedShadowRoot ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   function findAllVideos(root = document, depth = 0) {
     const videos = [...root.querySelectorAll("video")];
     if (depth > 4) return videos;
     for (const el of root.querySelectorAll("*")) {
-      if (el.shadowRoot) videos.push(...findAllVideos(el.shadowRoot, depth + 1));
+      const shadow = shadowOf(el);
+      if (shadow) videos.push(...findAllVideos(shadow, depth + 1));
     }
     return videos;
   }
