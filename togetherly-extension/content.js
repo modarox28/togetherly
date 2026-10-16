@@ -221,6 +221,9 @@
       if (message.action === "play") showToast(`▶ ${who} dio play`);
       if (message.action === "pause") showToast(`⏸ ${who} pausó`);
       if (message.action === "seek") showToast(`⏩ ${who} saltó a ${formatTime(message.currentTime)}`);
+    } else if (message.type === "CONTROL_DENIED") {
+      const leader = typeof message.leader === "string" ? message.leader.slice(0, 24) : "quien lidera la sala";
+      showToast(`👑 Solo ${leader} controla la reproducción`);
     } else if (message.type === "ROOM_STATE" && message.playing !== undefined) {
       enqueue({ ...message, action: "state" });
     } else if (message.type === "NOW_WATCHING_UPDATE" && isTopFrame && roomId) {

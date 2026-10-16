@@ -18,6 +18,8 @@
   let isOpen = true;
   let unread = 0;
   let members = [];
+  let settings = { controlMode: "all", leader: null };
+  let amLeader = false;
 
   // ── Estructura ────────────────────────────────────────────────────────────
   const host = document.createElement("div");
@@ -56,6 +58,12 @@
     .member span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .face { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; flex-shrink: 0; }
 
+    .control { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid rgba(246,239,247,.1); font-size: 12px; color: #C9BCD6; }
+    .control .label { flex: 1; }
+    .control b { color: #F6EFF7; }
+    .seg { display: flex; padding: 3px; border-radius: 999px; background: rgba(246,239,247,.07); }
+    .seg button { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; color: #C9BCD6; }
+    .seg button[aria-pressed="true"] { background: #FFC965; color: #2A2140; }
     .messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
     .empty { margin: auto 0; text-align: center; font-size: 13px; color: #C9BCD6; }
     .msg { display: flex; align-items: flex-end; gap: 8px; }
@@ -122,6 +130,19 @@
   header.append(logo, title, close);
 
   const memberList = el("div", "members");
+
+  // Quién controla la reproducción: quien lidera elige; los demás solo ven quién manda.
+  const control = el("div", "control");
+  const controlLabel = el("span", "label");
+  const seg = el("div", "seg");
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "Quién controla la reproducción");
+  const allButton = el("button", null, "Todos");
+  const leaderButton = el("button", null, "Solo yo");
+  allButton.addEventListener("click", () => send({ type: "SET_CONTROL", mode: "all" }));
+  leaderButton.addEventListener("click", () => send({ type: "SET_CONTROL", mode: "leader" }));
+  seg.append(allButton, leaderButton);
+  control.append(controlLabel, seg);
   const messageList = el("div", "messages");
   messageList.setAttribute("aria-live", "polite");
   const empty = el("p", "empty", "Escribe algo: lo ven todos en la sala.");
@@ -148,7 +169,7 @@
   sendButton.append(svg('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>'));
   form.append(input, sendButton);
 
-  panel.append(header, memberList, messageList, reactionRow, form);
+  panel.append(header, memberList, control, messageList, reactionRow, form);
   root.append(launcher, panel);
   shadow.append(style, root);
 
@@ -181,6 +202,23 @@
     badge.textContent = unread > 9 ? "9+" : String(unread);
     titleText.textContent = roomId ? `Sala ${roomId}` : "Togetherly";
     subtitle.textContent = members.length === 1 ? "1 persona en la sala" : `${members.length} personas en la sala`;
+    renderControl();
+  }
+
+  function renderControl() {
+    const leaderOnly = settings.controlMode === "leader";
+    seg.hidden = !amLeader;
+    allButton.setAttribute("aria-pressed", String(!leaderOnly));
+    leaderButton.setAttribute("aria-pressed", String(leaderOnly));
+    const strong = el("b", null, leaderOnly ? `👑 ${amLeader ? "Tú" : settings.leader ?? "Quien lidera"}` : "Todos");
+    controlLabel.replaceChildren(leaderOnly ? "Controla: " : "Controlan: ", strong);
+  }
+
+  function applySettings(next) {
+    if (!next) return;
+    settings = { controlMode: next.controlMode === "leader" ? "leader" : "all", leader: next.leader ?? null };
+    amLeader = next.isLeader === true;
+    render();
   }
 
   function renderMembers() {
@@ -189,7 +227,7 @@
         const chip = el("span", "member");
         const face = el("span", "face", member.avatar);
         face.style.background = member.color;
-        chip.append(face, el("span", null, member.name));
+        chip.append(face, el("span", null, member.leader ? `👑 ${member.name}` : member.name));
         return chip;
       })
     );
@@ -260,6 +298,7 @@
     members = Array.isArray(state?.members) ? state.members : [];
     messageList.replaceChildren(empty);
     for (const message of state?.messages ?? []) addMessage(message, message.mine);
+    applySettings(state?.roomSettings ? { ...state.roomSettings, isLeader: state.isLeader } : null);
     renderMembers();
   }
 
@@ -271,6 +310,8 @@
       render();
     } else if (message.type === "CHAT_REACTION" && typeof message.emoji === "string") {
       floatReaction(message.emoji);
+    } else if (message.type === "ROOM_SETTINGS") {
+      applySettings(message);
     } else if (message.type === "CHAT_MEMBERS" && Array.isArray(message.members)) {
       members = message.members;
       renderMembers();

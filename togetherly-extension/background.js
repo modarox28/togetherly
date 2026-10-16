@@ -146,6 +146,9 @@ const streamingTabs = new Set();
 const MAX_CHAT_MESSAGES = 60;
 let chatMessages = [];
 let members = [];
+/** Quién lidera la sala y si solo esa persona controla la reproducción */
+let roomSettings = { controlMode: "all", leader: null };
+const isLeader = () => !!username && !!roomSettings.leader && username.toLowerCase() === roomSettings.leader.toLowerCase();
 
 // El service worker se duerme y despierta: la sala activa se guarda en storage.session.
 const ready = chrome.storage.session.get(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl", "chatMessages"]).then((saved) => {
@@ -237,8 +240,21 @@ async function connect() {
       name: cleanText(m?.name, 24, "Invitado"),
       avatar: cleanText(m?.avatar, 8, "🍿"),
       color: /^#[0-9a-f]{6}$/i.test(m?.color) ? m.color : "#FFC965",
+      leader: m?.leader === true,
     }));
     sendToStreamingTabs({ type: "CHAT_MEMBERS", members });
+  });
+
+  // Jerarquía: quién lidera y si solo esa persona controla play, pausa y saltos
+  client.on("room-settings", (data) => {
+    roomSettings = {
+      controlMode: data?.controlMode === "leader" ? "leader" : "all",
+      leader: cleanText(data?.leader, 24, null),
+    };
+    sendToStreamingTabs({ type: "ROOM_SETTINGS", ...roomSettings, isLeader: isLeader() });
+  });
+  client.on("control-denied", (data) => {
+    sendToStreamingTabs({ type: "CONTROL_DENIED", leader: cleanText(data?.leader, 24, "quien lidera la sala") });
   });
 
   // En qué va la sala (al entrar tarde o al pedirlo)
@@ -301,6 +317,7 @@ function cleanChatMessage(data) {
 function clearChat() {
   chatMessages = [];
   members = [];
+  roomSettings = { controlMode: "all", leader: null };
   chrome.storage.session.remove("chatMessages");
 }
 
@@ -349,6 +366,8 @@ async function handleMessage(message, sender) {
         username,
         nowWatching,
         inviteUrl: roomId ? INVITE_URL + roomId : null,
+        roomSettings,
+        isLeader: isLeader(),
       };
     case "CONTENT_READY":
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
@@ -371,7 +390,12 @@ async function handleMessage(message, sender) {
         messages: chatMessages.map((m) => ({ ...m, mine: !!socket?.id && m.senderId === socket.id })),
         members,
         myName: username,
+        roomSettings,
+        isLeader: isLeader(),
       };
+    case "SET_CONTROL":
+      if (roomId && ["all", "leader"].includes(message.mode)) socket?.emit("set-control", { roomId, mode: message.mode });
+      return { ok: true };
     case "CHAT_SEND": {
       const text = cleanText(message.text, 500, null);
       if (!roomId || !text || !socket?.isOpen) return { ok: false };

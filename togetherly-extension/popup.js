@@ -29,6 +29,15 @@ function render(connected, roomId, extra = {}) {
     const name = PLATFORM_NAMES[extra.nowWatching.platform] ?? "streaming";
     $("watching-text").textContent = `${name} · lo abrió ${extra.nowWatching.by}`;
   }
+  // Jerarquía: quién lidera elige si controlan todos o solo esa persona.
+  const settings = extra.roomSettings ?? { controlMode: "all", leader: null };
+  const leaderOnly = settings.controlMode === "leader";
+  $("control-text").textContent = leaderOnly
+    ? `👑 ${extra.isLeader ? "Solo tú" : `Solo ${settings.leader ?? "quien lidera"}`}`
+    : "Todos";
+  $("control-seg").hidden = !extra.isLeader;
+  $("btn-control-all").setAttribute("aria-pressed", String(!leaderOnly));
+  $("btn-control-leader").setAttribute("aria-pressed", String(leaderOnly));
   $("status-dot").className = connected ? "status-dot ok" : "status-dot";
   $("status-text").textContent = connected ? "Sincronizando" : roomId ? "Conectando… (puede tardar un minuto)" : "Sin conectar";
   $("view-connect").hidden = !!roomId;
@@ -130,6 +139,9 @@ $("btn-connect").addEventListener("click", () => {
 $("btn-copy-code").addEventListener("click", () => currentRoom && copy(currentRoom, "Código copiado ✓"));
 $("btn-copy-link").addEventListener("click", () => inviteUrl && copy(inviteUrl, "Enlace copiado ✓"));
 $("btn-go").addEventListener("click", () => watchingUrl && chrome.tabs.create({ url: watchingUrl }));
+
+$("btn-control-all").addEventListener("click", () => chrome.runtime.sendMessage({ type: "SET_CONTROL", mode: "all" }, () => setTimeout(refreshStatus, 300)));
+$("btn-control-leader").addEventListener("click", () => chrome.runtime.sendMessage({ type: "SET_CONTROL", mode: "leader" }, () => setTimeout(refreshStatus, 300)));
 
 $("btn-disconnect").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "LEAVE_ROOM" }, () => render(false, null));
