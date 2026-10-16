@@ -161,13 +161,23 @@ setInterval(refreshStatus, 1500);
 // ── Diagnóstico: versión y qué ve la extensión en la pestaña actual ─────────
 $("version").textContent = `Togetherly Sync v${chrome.runtime.getManifest().version}`;
 
-function showDiag(kind, title, detail) {
+function showDiag(kind, title, detail, videos) {
   const box = $("diag");
   box.hidden = false;
   box.className = `diag ${kind}`;
   const strong = document.createElement("b");
   strong.textContent = title;
   box.replaceChildren(strong, document.createElement("br"), document.createTextNode(detail));
+  // Detalle técnico: qué videos hay en la página (duración, carga, tamaño). Sirve para soporte.
+  if (Array.isArray(videos)) {
+    const tech = document.createElement("small");
+    tech.style.display = "block";
+    tech.style.marginTop = "6px";
+    tech.textContent = videos.length
+      ? `Videos: ${videos.map((v) => `${v.duration}s·${v.ready}·${v.size}`).join(" | ")}`
+      : "Videos: ninguno visible para la extensión";
+    box.append(tech);
+  }
 }
 
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -182,9 +192,9 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       return;
     }
     if (reply.videoFound) {
-      showDiag("ok", `${reply.platform}: video encontrado ✓`, reply.inRoom ? "Esta pestaña está sincronizada con tu sala." : "Únete o crea una sala para sincronizar.");
+      showDiag("ok", `${reply.platform}: video encontrado ✓`, reply.inRoom ? "Esta pestaña está sincronizada con tu sala." : "Únete o crea una sala para sincronizar.", reply.videos);
     } else if (reply.onPlayerPage) {
-      showDiag("warn", `${reply.platform}: buscando el video…`, "Dale play a la película. Si no aparece en unos segundos, recarga con F5.");
+      showDiag("warn", `${reply.platform}: buscando el video…`, "Dale play a la película. Si no aparece en unos segundos, recarga con F5.", reply.videos);
     } else {
       showDiag("", `${reply.platform} detectado`, "Abre una película o serie para sincronizar.");
     }

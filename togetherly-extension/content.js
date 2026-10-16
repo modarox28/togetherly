@@ -210,6 +210,7 @@
           onPlayerPage: platform.isPlayerPage(),
           videoFound,
           inRoom: !!roomId,
+          videos: globalThis.TogetherlyPlatforms?.describeVideos?.() ?? [],
         });
       }
       return;
