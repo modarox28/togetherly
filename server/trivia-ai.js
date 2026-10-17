@@ -4,12 +4,15 @@
 //   CF_ACCOUNT_ID   → el ID de la cuenta de Cloudflare
 //   CF_AI_TOKEN     → un token con permiso "Workers AI" (Read y Edit)
 //   CF_AI_MODEL     → opcional; por defecto un modelo disponible en el plan gratis
-//   TRIVIA_DAILY_LIMIT → opcional; máximo de trivias con IA al día en todo el servidor (100)
+//   TRIVIA_DAILY_LIMIT → opcional; máximo de trivias con IA al día en todo el servidor (60)
 // Sin CF_ACCOUNT_ID o CF_AI_TOKEN, la trivia funciona igual en modo "entre amigos".
 
-const DEFAULT_MODEL = "@cf/google/gemma-4-26b-a4b-it";
+// Llama 3.3 70B "fast": responde en pocos segundos, acepta JSON y no "piensa" antes de contestar.
+// (Gemma 4 se demoraba más de 20 s razonando y la trivia caía siempre en modo amigos.)
+// Costo aprox.: ~130 neuronas por trivia → unas 75 al día dentro del plan gratis.
+const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const QUESTIONS = 5;
-const TIMEOUT_MS = 20_000;
+const TIMEOUT_MS = 22_000;
 
 const SCHEMA = {
   type: "object",
@@ -81,7 +84,7 @@ function createTriviaAI(env = process.env, fetchImpl = globalThis.fetch) {
   const token = env.CF_AI_TOKEN;
   const model = env.CF_AI_MODEL || DEFAULT_MODEL;
   const baseUrl = (env.CF_AI_BASE_URL || "https://api.cloudflare.com/client/v4").replace(/\/$/, "");
-  const dailyLimit = Number(env.TRIVIA_DAILY_LIMIT) > 0 ? Number(env.TRIVIA_DAILY_LIMIT) : 100;
+  const dailyLimit = Number(env.TRIVIA_DAILY_LIMIT) > 0 ? Number(env.TRIVIA_DAILY_LIMIT) : 60;
   const enabled = !!(accountId && token && /^[a-f0-9]{32}$/i.test(accountId));
 
   // Las mismas preguntas sirven para todas las salas que vean la misma película (ahorra cupo).
@@ -112,7 +115,7 @@ function createTriviaAI(env = process.env, fetchImpl = globalThis.fetch) {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
-          max_tokens: 1200,
+          max_tokens: 900,
           temperature: 0.4,
           response_format: { type: "json_schema", json_schema: SCHEMA },
           messages: [

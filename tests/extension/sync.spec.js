@@ -844,7 +844,7 @@ test("trivia con IA: el título llega del reproductor, la respuesta solo se reve
     expect(q.options).toHaveLength(4);
     expect(q.correct).toBeUndefined(); // la respuesta no viaja mientras se puede responder
     const request = aiRequests[aiRequests.length - 1];
-    expect(request.url).toBe(`/accounts/${AI_ACCOUNT}/ai/run/@cf/google/gemma-4-26b-a4b-it`);
+    expect(request.url).toBe(`/accounts/${AI_ACCOUNT}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast`);
     expect(request.auth).toBe("Bearer token-de-prueba-local");
 
     // Ana responde bien, Beto mal; respuestas repetidas o fuera de rango no cuentan.
