@@ -63,7 +63,13 @@ export default function RoomScreen() {
       setMyWatching(event.url);
       room.sendWatching(event.url);
     } else if (event.type === "video" && event.found) room.requestState(); // entraste tarde: ponte al día
-    else if (event.type === "drm" && !drmShown.current) {
+    else if (event.type === "crashed") {
+      setDrm(
+        event.retrying
+          ? "El navegador de la película se cerró: lo abrí de nuevo en modo normal."
+          : "El navegador de la película se cerró otra vez. Toca Cambiar y vuelve a intentar."
+      );
+    } else if (event.type === "drm" && !drmShown.current) {
       // Diagnóstico de la prueba: qué protección de video tiene el navegador interno de este celular.
       drmShown.current = true;
       setDrm(`Protección de video · Widevine: ${event.widevine ? "sí" : "no"} · FairPlay: ${event.fairplay ? "sí" : "no"}`);
