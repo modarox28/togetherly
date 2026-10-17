@@ -239,7 +239,9 @@ async function connect() {
   // Órdenes de los demás → pestañas de streaming
   const remoteEvents = { "video-play": "play", "video-pause": "pause", "video-seek": "seek" };
   for (const [event, action] of Object.entries(remoteEvents)) {
-    client.on(event, ({ currentTime, by }) => sendToStreamingTabs({ type: "REMOTE_COMMAND", action, currentTime, by }));
+    client.on(event, ({ currentTime, by }) =>
+      sendToStreamingTabs({ type: "REMOTE_COMMAND", action, currentTime, by, roomUrl: nowWatching?.url ?? null })
+    );
   }
   // Qué película tiene abierta la sala (para el popup y para avisar si alguien cambia)
   client.on("now-watching", (data) => {
@@ -269,6 +271,7 @@ async function connect() {
   client.on("members", (data) => {
     if (!Array.isArray(data?.members)) return;
     members = data.members.slice(0, 20).map((m) => ({
+      id: typeof m?.id === "string" && /^[a-f0-9]{6,32}$/.test(m.id) ? m.id : null,
       name: cleanText(m?.name, 24, "Invitado"),
       avatar: cleanText(m?.avatar, 8, "🍿"),
       color: /^#[0-9a-f]{6}$/i.test(m?.color) ? m.color : "#FFC965",
@@ -286,6 +289,11 @@ async function connect() {
     };
     sendToStreamingTabs({ type: "ROOM_SETTINGS", ...roomSettings, isLeader: isLeader() });
   });
+  // Quien lidera te expulsó: se sale de la sala y se avisa en las pestañas.
+  client.on("kicked", () => {
+    sendToStreamingTabs({ type: "KICKED" });
+    handleMessage({ type: "LEAVE_ROOM" }, {});
+  });
   client.on("control-denied", (data) => {
     sendToStreamingTabs({ type: "CONTROL_DENIED", leader: cleanText(data?.leader, 24, "quien lidera la sala") });
   });
@@ -293,7 +301,7 @@ async function connect() {
   // En qué va la sala (al entrar tarde o al pedirlo)
   client.on("ext-state", (state) => {
     if (state?.known) {
-      sendToStreamingTabs({ type: "ROOM_STATE", playing: !!state.playing, currentTime: state.position });
+      sendToStreamingTabs({ type: "ROOM_STATE", playing: !!state.playing, currentTime: state.position, roomUrl: nowWatching?.url ?? null });
     }
   });
 
@@ -412,7 +420,7 @@ async function handleMessage(message, sender) {
       };
     case "CONTENT_READY":
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
-      return { roomId, connected: !!roomId && (socket?.isOpen ?? false) };
+      return { roomId, connected: !!roomId && (socket?.isOpen ?? false), roomUrl: nowWatching?.url ?? null };
     case "NOW_WATCHING": {
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
       const watchingUrl = cleanStreamingUrl(message.url);
@@ -434,6 +442,14 @@ async function handleMessage(message, sender) {
         roomSettings,
         isLeader: isLeader(),
       };
+    case "KICK_MEMBER":
+      if (roomId && typeof message.memberId === "string") socket?.emit("kick-member", { roomId, memberId: message.memberId });
+      return { ok: true };
+    case "REPORT_MEMBER":
+      if (roomId && typeof message.memberId === "string") {
+        socket?.emit("report-member", { roomId, memberId: message.memberId, reason: cleanText(message.reason, 200, "") });
+      }
+      return { ok: true };
     case "SET_CONTROL":
       if (roomId && ["all", "leader"].includes(message.mode)) socket?.emit("set-control", { roomId, mode: message.mode });
       return { ok: true };

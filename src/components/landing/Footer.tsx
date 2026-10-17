@@ -30,9 +30,14 @@ export function Footer() {
           ·{" "}
           <Link href="/privacidad" className="underline underline-offset-4 hover:text-day-900 dark:hover:text-white">
             {t.footer.privacy}
+          </Link>{" "}
+          ·{" "}
+          <Link href="/terminos" className="underline underline-offset-4 hover:text-day-900 dark:hover:text-white">
+            {t.footer.terms}
           </Link>
         </p>
       </div>
+      <p className="mx-auto mt-4 max-w-6xl text-xs leading-relaxed text-day-900/45 dark:text-white/45">{t.footer.notAffiliated}</p>
     </footer>
   );
 }

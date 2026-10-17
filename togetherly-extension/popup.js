@@ -83,11 +83,27 @@ function showError(message, field) {
   field?.focus();
 }
 
+// Edad mínima y términos: se aceptan una vez (igual que en la web y la app).
+const TERMS_VERSION = "2026-10-17";
+let termsAccepted = false;
+chrome.storage.local.get("termsAccepted", ({ termsAccepted: saved }) => {
+  termsAccepted = saved === TERMS_VERSION;
+  $("terms-row").hidden = termsAccepted;
+});
+
 function readName() {
   const name = $("input-name").value.trim();
   if (!name) {
     showError("Escribe tu nombre primero.", $("input-name"));
     return null;
+  }
+  if (!termsAccepted) {
+    if (!$("input-terms").checked) {
+      showError("Confirma que tienes 18 años o más y aceptas los términos.", $("input-terms"));
+      return null;
+    }
+    termsAccepted = true;
+    chrome.storage.local.set({ termsAccepted: TERMS_VERSION });
   }
   chrome.storage.local.set({ savedName: name });
   return name;

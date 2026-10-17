@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Togetherly Sync",
-  "version": "2.4.8",
+  "version": "2.5.0",
   "description": "Mira Netflix, Prime Video, HBO Max, Disney+ y más en sincronía con quien quieras, estén donde estén.",
   "minimum_chrome_version": "121",
   "icons": {

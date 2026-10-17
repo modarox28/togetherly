@@ -52,6 +52,12 @@
     .title small { display: block; font-size: 12px; color: #C9BCD6; }
     .close { width: 34px; height: 34px; border-radius: 50%; color: #C9BCD6; display: grid; place-items: center; }
     .close:hover { background: rgba(246,239,247,.08); color: #F6EFF7; }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 14px; border-bottom: 1px solid rgba(246,239,247,.1); font-size: 12px; }
+    .actions[hidden] { display: none; }
+    .actions .who { flex: 1; min-width: 100%; color: #C9BCD6; }
+    .actions button { padding: 5px 10px; border-radius: 999px; background: rgba(246,239,247,.1); font-weight: 700; font-size: 12px; }
+    .actions button.danger { background: #FF9AA2; color: #2A2140; }
+    button.member { cursor: pointer; }
     .members { display: flex; gap: 6px; padding: 0 14px 12px; flex-wrap: wrap; border-bottom: 1px solid rgba(246,239,247,.1); }
     .member { display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 3px; border-radius: 999px;
       background: rgba(246,239,247,.07); font-size: 12px; font-weight: 700; max-width: 140px; }
@@ -131,6 +137,36 @@
 
   const memberList = el("div", "members");
 
+  // Al tocar a alguien: reportarlo y, si lideras, expulsarlo de la sala.
+  const actions = el("div", "actions");
+  actions.hidden = true;
+  const actionsWho = el("span", "who");
+  const reportButton = el("button", null, "Reportar");
+  const kickButton = el("button", "danger", "Expulsar de la sala");
+  const cancelButton = el("button", null, "Cancelar");
+  actions.append(actionsWho, reportButton, kickButton, cancelButton);
+  let selected = null;
+  function selectMember(member) {
+    selected = member;
+    actions.hidden = !member;
+    if (!member) return;
+    actionsWho.textContent = `${member.name}${member.leader ? " (lidera)" : ""}`;
+    kickButton.hidden = !amLeader || member.leader;
+  }
+  reportButton.addEventListener("click", () => {
+    if (!selected) return;
+    send({ type: "REPORT_MEMBER", memberId: selected.id, reason: "Comportamiento inapropiado (desde el chat)" });
+    actionsWho.textContent = `Reportaste a ${selected.name}. Gracias, lo revisaremos.`;
+    reportButton.hidden = kickButton.hidden = true;
+    setTimeout(() => selectMember(null), 2500);
+  });
+  kickButton.addEventListener("click", () => {
+    if (!selected) return;
+    send({ type: "KICK_MEMBER", memberId: selected.id });
+    selectMember(null);
+  });
+  cancelButton.addEventListener("click", () => selectMember(null));
+
   // Quién controla la reproducción: quien lidera elige; los demás solo ven quién manda.
   const control = el("div", "control");
   const controlLabel = el("span", "label");
@@ -169,7 +205,7 @@
   sendButton.append(svg('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>'));
   form.append(input, sendButton);
 
-  panel.append(header, memberList, control, messageList, reactionRow, form);
+  panel.append(header, memberList, actions, control, messageList, reactionRow, form);
   root.append(launcher, panel);
   shadow.append(style, root);
 
@@ -260,10 +296,13 @@
   function renderMembers() {
     memberList.replaceChildren(
       ...members.map((member) => {
-        const chip = el("span", "member");
+        const chip = el("button", "member");
+        chip.type = "button";
+        chip.title = "Opciones";
         const face = el("span", "face", member.avatar);
         face.style.background = member.color;
         chip.append(face, el("span", null, member.leader ? `👑 ${member.name}` : member.name));
+        if (typeof member.id === "string") chip.addEventListener("click", () => selectMember(member));
         return chip;
       })
     );

@@ -155,3 +155,7 @@ Sin configurar nada, la videollamada usa STUN y funciona en la mayoría de redes
 ## Licencia
 
 [GNU AGPL-3.0](LICENSE). Puedes usar, estudiar, modificar y compartir el código. Si publicas una versión modificada o la ofreces como servicio en internet, también tienes que publicar su código con la misma licencia. Para contribuir, mira [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Aviso
+
+Togetherly no está afiliado ni respaldado por Netflix, Disney+, Prime Video, HBO Max, Apple TV+, Paramount+, Crunchyroll ni YouTube; sus nombres son marcas de sus dueños. No aloja ni transmite contenido: cada persona ve con su propia suscripción. Uso solo para mayores de 18 años. Ver [Términos](https://togetherly-weld.vercel.app/terminos) y [Privacidad](https://togetherly-weld.vercel.app/privacidad).

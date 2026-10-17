@@ -76,7 +76,7 @@ async function openBrowser(name) {
     .poll(() => worker.evaluate(() => !!globalThis.chrome?.storage?.local).catch(() => false), { timeout: 10000 })
     .toBe(true);
   // Apunta la extensión al servidor local de pruebas.
-  await worker.evaluate((url) => chrome.storage.local.set({ serverUrl: url }), SERVER_URL);
+  await worker.evaluate((url) => chrome.storage.local.set({ serverUrl: url, termsAccepted: "2026-10-17" }), SERVER_URL);
   return { context, extensionId };
 }
 
@@ -568,5 +568,106 @@ test("unirse con un código que no existe avisa y no crea una sala", async () =>
     expect(preview.exists).toBe(false);
   } finally {
     await ana.context.close();
+  }
+});
+
+test("si un invitado se va a otra película, no se sincroniza con la de la sala (ni la cambia)", async () => {
+  const ana = await openBrowser("ana-otra");
+  const beto = await openBrowser("beto-otra");
+  try {
+    const roomId = `OTRA${Date.now() % 100000}`;
+    await joinWithPopup(ana, roomId, "Ana"); // lidera
+    await joinWithPopup(beto, roomId, "Beto");
+    const pageA = await openPlatform(ana, "netflix");
+    await expect
+      .poll(async () => (await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json()).nowWatching?.url, { timeout: 8000 })
+      .toBe(PLATFORM_URLS.netflix);
+
+    // Ana pone "Solo yo".
+    const popupA = await ana.context.newPage();
+    await popupA.goto(`chrome-extension://${ana.extensionId}/popup.html`);
+    await expect(popupA.locator("#control-seg")).toBeVisible({ timeout: 8000 });
+    await popupA.click("#btn-control-leader");
+    await expect(popupA.locator("#control-text")).toContainText("Solo tú", { timeout: 8000 });
+    await popupA.close();
+
+    // Beto abre OTRA película y le da play.
+    const pageB = await beto.context.newPage();
+    await pageB.goto("https://www.netflix.com/watch/99999999");
+    await pageB.waitForFunction(() => document.getElementById("v")?.readyState >= 1);
+    await pageB.waitForTimeout(1600);
+    await pageB.evaluate(() => window.__user.play());
+    await pageB.waitForTimeout(1500);
+
+    // La sala sigue en la película de Ana (Beto no lidera) y a Ana no le pasó nada.
+    const preview = await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json();
+    expect(preview.nowWatching.url).toBe(PLATFORM_URLS.netflix);
+    expect((await videoState(pageA)).paused).toBe(true);
+
+    // Ana da play y salta al minuto 5: a Beto (en otra película) no lo mueven.
+    await pageA.evaluate(() => window.__user.seek(300000));
+    await pageA.evaluate(() => window.__user.play());
+    await pageA.waitForTimeout(2500);
+    expect((await videoState(pageB)).time).toBeLessThan(60);
+    expect((await videoState(pageB)).m7375).toBe(false);
+  } finally {
+    await ana.context.close();
+    await beto.context.close();
+  }
+});
+
+test("quien lidera puede expulsar (y no vuelve a entrar); reportar responde; sin videollamada en salas públicas", async () => {
+  const { io } = require("socket.io-client");
+  const roomId = `EXP${Date.now() % 100000}`;
+  const connect = () => io(SERVER_URL, { transports: ["websocket"], forceNew: true });
+  const lider = connect();
+  const otro = connect();
+  const keyLider = "lider".repeat(5);
+  const keyOtro = "otrox".repeat(5);
+  let members = [];
+  lider.on("members", (d) => (members = d.members));
+  let kicked = 0;
+  otro.on("kicked", () => kicked++);
+  let reported = false;
+  otro.on("report-received", () => (reported = true));
+  try {
+    lider.emit("ext-connect", { roomId, username: "Ana", clientKey: keyLider, isPublic: true, roomName: "Pública" });
+    await expect.poll(() => members.length).toBe(1);
+    otro.emit("ext-connect", { roomId, username: "Beto", clientKey: keyOtro });
+    await expect.poll(() => members.length).toBe(2);
+    const beto = members.find((m) => m.name === "Beto");
+    const ana = members.find((m) => m.name === "Ana");
+    expect(beto.id).toMatch(/^[a-f0-9]{12}$/);
+    expect(JSON.stringify(members)).not.toContain(keyOtro); // la clave nunca se reparte
+
+    // Beto reporta a Ana: el servidor confirma.
+    otro.emit("report-member", { roomId, memberId: ana.id, reason: "prueba" });
+    await expect.poll(() => reported).toBe(true);
+
+    // Sala pública: pedir videollamada no le llega a nadie.
+    let callArrived = false;
+    lider.on("call-request", () => (callArrived = true));
+    otro.emit("call-request", { roomId });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(callArrived).toBe(false);
+
+    // Beto (no lidera) no puede expulsar a Ana.
+    otro.emit("kick-member", { roomId, memberId: ana.id });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(members.length).toBe(2);
+
+    // Ana expulsa a Beto: sale de la sala y no puede volver a entrar.
+    lider.emit("kick-member", { roomId, memberId: beto.id });
+    await expect.poll(() => kicked).toBeGreaterThan(0);
+    await expect.poll(() => members.length).toBe(1);
+    const vuelve = connect();
+    let rejected = false;
+    vuelve.on("kicked", () => (rejected = true));
+    vuelve.emit("ext-connect", { roomId, username: "Beto", clientKey: keyOtro });
+    await expect.poll(() => rejected).toBe(true);
+    vuelve.close();
+  } finally {
+    lider.close();
+    otro.close();
   }
 });

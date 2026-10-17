@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 // Política de privacidad. Las tiendas de extensiones piden un enlace a esta página.
 // Si cambia lo que guarda la app o la extensión, actualiza este texto y la fecha.
-const UPDATED = "14 de octubre de 2026";
+const UPDATED = "17 de octubre de 2026";
 
 const sections = [
   {
@@ -17,6 +17,13 @@ const sections = [
     body: [
       "Togetherly sirve para ver películas al mismo tiempo con otras personas. Para eso solo necesita saber en qué sala estás, tu nombre visible y cuándo das play, pausa o adelantas.",
       "No vendemos datos, no mostramos publicidad y no rastreamos lo que ves fuera de la sala.",
+    ],
+  },
+  {
+    title: "Quién es responsable",
+    body: [
+      "El responsable del tratamiento de los datos es Moisés Rodríguez, creador de Togetherly, en Colombia (contacto: mdq2804@gmail.com). Tratamos los datos conforme a la Ley 1581 de 2012 y sus decretos reglamentarios.",
+      "Togetherly es solo para personas de 18 años o más; no recogemos a propósito datos de menores de edad.",
     ],
   },
   {
@@ -29,10 +36,20 @@ const sections = [
     ],
   },
   {
+    title: "La app para celular",
+    body: [
+      "La app muestra la página de la plataforma de streaming dentro de un navegador interno. Tú inicias sesión directamente en esa plataforma: Togetherly no ve, no guarda y no envía tu usuario ni tu contraseña.",
+      "La app envía lo mismo que la extensión (código de sala, nombre visible, play/pausa/salto con el minuto y la dirección de la película) y guarda en el celular tu nombre, tu personaje y una clave aleatoria del dispositivo.",
+      "Esa clave sirve para saber quién lidera una sala sin depender del nombre; nunca se muestra a otras personas.",
+    ],
+  },
+  {
     title: "Las salas",
     body: [
       "Las salas viven en la memoria del servidor mientras alguien está conectado. El chat no se guarda: al cerrarse la sala, desaparece.",
-      "La videollamada va directo entre los navegadores (WebRTC, cifrada). Si una red no lo permite, puede pasar por un servidor de reenvío que no la graba.",
+      "La videollamada va directo entre los navegadores (WebRTC, cifrada). Si una red no lo permite, puede pasar por un servidor de reenvío que no la graba. En las salas públicas no hay videollamada.",
+      "Si reportas a alguien, guardamos en el registro del servidor el código de la sala, el nombre visible de la persona reportada, el de quien reporta, el motivo y la hora, para revisarlo. Ese registro se borra con el tiempo y no incluye el chat.",
+      "Las salas públicas muestran en una lista su nombre, cuántas personas hay, quién lidera y qué plataforma están viendo.",
     ],
   },
   {
@@ -41,6 +58,13 @@ const sections = [
       "Si creas una cuenta guardamos tu nombre, tu correo y tu contraseña cifrada (nunca la contraseña real). Si entras con Google, recibimos tu nombre, correo y foto de perfil.",
       "Si en el futuro pagas Premium, el pago lo procesa la pasarela de pagos; Togetherly no ve ni guarda los datos de tu tarjeta.",
       "Puedes pedir que borremos tu cuenta escribiendo al correo de abajo.",
+    ],
+  },
+  {
+    title: "Tus derechos",
+    body: [
+      "Puedes conocer, actualizar, corregir y pedir que borremos tus datos, y revocar tu autorización, escribiendo al correo de abajo. Respondemos dentro de los plazos de la ley (10 días hábiles para consultas y 15 para reclamos).",
+      "Si no quedas conforme, puedes acudir a la Superintendencia de Industria y Comercio (SIC).",
     ],
   },
   {

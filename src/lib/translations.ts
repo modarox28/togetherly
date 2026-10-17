@@ -107,6 +107,9 @@ export const translations = {
       privacy: "Privacy",
       openSource: "Open source (AGPL-3.0)",
       support: "Support us",
+      terms: "Terms",
+      notAffiliated:
+        "Togetherly is not affiliated with or endorsed by Netflix, Disney+, Prime Video, HBO Max, Apple TV+, Paramount+, Crunchyroll or YouTube. Their names are trademarks of their owners. Each person watches with their own subscription.",
       tagline: "Made in Colombia for people who love each other from far away.",
       rights: "All rights reserved.",
     },
@@ -389,6 +392,9 @@ export const translations = {
       privacy: "Privacidad",
       openSource: "Código abierto (AGPL-3.0)",
       support: "Apoyar",
+      terms: "Términos",
+      notAffiliated:
+        "Togetherly no está afiliado ni respaldado por Netflix, Disney+, Prime Video, HBO Max, Apple TV+, Paramount+, Crunchyroll ni YouTube. Sus nombres son marcas de sus dueños. Cada persona ve con su propia suscripción.",
       tagline: "Hecho en Colombia para quienes se quieren a la distancia.",
       rights: "Todos los derechos reservados.",
     },

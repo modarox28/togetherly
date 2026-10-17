@@ -56,6 +56,8 @@ interface RoomState {
   maxParticipants: number;
   /** La sala la abrió alguien con Premium (pase válido). */
   premium: boolean;
+  /** Sala pública: sin videollamada (puede haber desconocidos). */
+  isPublic: boolean;
   /** Película que alguien abrió con la extensión (Netflix, Prime…), si hay. */
   nowWatching: NowWatching | null;
 }
@@ -81,6 +83,7 @@ export function useRoom(): [RoomState, RoomActions] {
     roomFull: null,
     maxParticipants: 2,
     premium: false,
+    isPublic: false,
     nowWatching: null,
     participants: [],
     you: null,
@@ -109,7 +112,7 @@ export function useRoom(): [RoomState, RoomActions] {
       setState((s) => ({ ...s, roomFull: max }));
     });
 
-    socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you, maxParticipants, premium, nowWatching }) => {
+    socket.on("room-joined", ({ participants, videoUrl, videoState, isHost, you, maxParticipants, premium, nowWatching, isPublic }) => {
       setState((s) => ({
         ...s,
         joined: true,
@@ -120,6 +123,7 @@ export function useRoom(): [RoomState, RoomActions] {
         you,
         maxParticipants: typeof maxParticipants === "number" ? maxParticipants : s.maxParticipants,
         premium: premium === true,
+        isPublic: isPublic === true,
         nowWatching: parseNowWatching(nowWatching),
         messages: [systemMessage("you-joined", "", "#FFC965")],
       }));
