@@ -46,11 +46,22 @@ export default function RoomScreen() {
     });
   }, [roomId, router]);
 
-  const onOrder = useCallback((order: PlayerOrder) => player.current?.apply(order), []);
+  // Solo se sincroniza si este celular tiene abierta la misma película que la sala:
+  // aplicar el minuto de otra película rompía el reproductor (error de Netflix).
+  const roomUrlRef = useRef<string | null>(null);
+  const myUrlRef = useRef<string | null>(null);
+  const sameMovie = () => !roomUrlRef.current || !myUrlRef.current || samePage(roomUrlRef.current, myUrlRef.current);
+  const onOrder = useCallback((order: PlayerOrder) => {
+    if (sameMovie()) player.current?.apply(order);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const room = useRoom(roomId, me?.name ?? "", me?.avatar ?? "🍿", onOrder, {
     isPublic: pub === "1",
     roomName: typeof rname === "string" ? rname : undefined,
   });
+  useEffect(() => {
+    roomUrlRef.current = room.nowWatching?.url ?? null;
+    myUrlRef.current = myWatching;
+  }, [room.nowWatching, myWatching]);
 
   // Como el enlace de invitación: si la sala ya está viendo algo, entras directo a esa película.
   useEffect(() => {
@@ -65,7 +76,9 @@ export default function RoomScreen() {
   const unread = chatOpen ? 0 : Math.max(0, othersCount - seenOthers);
 
   const onEngineEvent = (event: EngineEvent) => {
-    if (event.type === "play" || event.type === "pause" || event.type === "seek") room.sendPlayback(event.type, event.time);
+    if (event.type === "play" || event.type === "pause" || event.type === "seek") {
+      if (sameMovie()) room.sendPlayback(event.type, event.time);
+    }
     else if (event.type === "watching") {
       setMyWatching(event.url);
       room.sendWatching(event.url);

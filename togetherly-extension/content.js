@@ -73,12 +73,14 @@
   // ── Eventos del video local ─────────────────────────────────────────────
   function onLocalPlay() {
     if (isOwnEvent("play") || !roomId) return;
+    if (!watchingRoomMovie()) return warnOtherMovie();
     sendToBackground({ type: "VIDEO_PLAY", currentTime: currentTime() });
     showToast("▶ Diste play · sincronizando");
   }
 
   function onLocalPause() {
     if (isOwnEvent("pause") || !roomId || video.ended) return;
+    if (!watchingRoomMovie()) return;
     sendToBackground({ type: "VIDEO_PAUSE", currentTime: currentTime() });
     showToast("⏸ Pausaste · sincronizando");
   }
@@ -92,7 +94,7 @@
   }
 
   function sendLocalSeek() {
-    if (!video || !roomId) return;
+    if (!video || !roomId || !watchingRoomMovie()) return;
     lastSeekSentAt = now();
     lastSeekSentTime = currentTime();
     lastSample = null;
@@ -175,15 +177,29 @@
     sendToBackground({ type: "NOW_WATCHING", url });
   }
 
+  // Misma película: mismo sitio (con o sin "www") y misma ruta; los parámetros no cuentan.
   const samePage = (a, b) => {
     try {
       const x = new URL(a);
       const y = new URL(b);
-      return x.origin === y.origin && x.pathname === y.pathname;
+      const host = (u) => u.hostname.replace(/^www\./, "");
+      return host(x) === host(y) && x.pathname.replace(/\/$/, "") === y.pathname.replace(/\/$/, "");
     } catch {
       return false;
     }
   };
+
+  // Qué está viendo la sala. Si esta pestaña tiene otra película, no se sincroniza:
+  // aplicar el minuto de otra película (o mandar el mío) rompía el reproductor.
+  let roomUrl = null;
+  let warnedUrl = null;
+  const watchingRoomMovie = () => !roomUrl || !isTopFrame || samePage(roomUrl, location.href);
+  function warnOtherMovie() {
+    if (!roomUrl || warnedUrl === roomUrl + location.href) return;
+    warnedUrl = roomUrl + location.href;
+    const target = roomUrl;
+    showToast("La sala está viendo otra cosa: aquí no se sincroniza", { label: "Ir", onClick: () => location.assign(target) });
+  }
 
   // ── Órdenes que llegan de la sala ───────────────────────────────────────
   // Se aplican en fila para que un "play" y un "seek" seguidos no se pisen.
@@ -255,6 +271,13 @@
       return;
     }
 
+    if ((message.type === "REMOTE_COMMAND" || message.type === "ROOM_STATE") && typeof message.roomUrl === "string") {
+      roomUrl = message.roomUrl;
+    }
+    if ((message.type === "REMOTE_COMMAND" || message.type === "ROOM_STATE") && !watchingRoomMovie()) {
+      warnOtherMovie();
+      return;
+    }
     if (message.type === "REMOTE_COMMAND") {
       enqueue(message);
       const who = typeof message.by === "string" && message.by ? message.by.slice(0, 24) : "Alguien";
@@ -266,7 +289,10 @@
       showToast(`👑 Solo ${leader} controla la reproducción`);
     } else if (message.type === "ROOM_STATE" && message.playing !== undefined) {
       enqueue({ ...message, action: "state" });
-    } else if (message.type === "NOW_WATCHING_UPDATE" && isTopFrame && roomId) {
+    } else if (message.type === "NOW_WATCHING_UPDATE" && typeof message.url === "string") {
+      roomUrl = message.url;
+    }
+    if (message.type === "NOW_WATCHING_UPDATE" && isTopFrame && roomId) {
       // El background ya validó la dirección (solo plataformas soportadas, https).
       if (typeof message.url === "string" && !samePage(message.url, location.href)) {
         const who = typeof message.by === "string" && message.by ? message.by.slice(0, 24) : "Alguien";
@@ -283,6 +309,7 @@
 
   sendToBackground({ type: "CONTENT_READY" }, (reply) => {
     if (reply?.connected && reply.roomId) roomId = reply.roomId;
+    if (typeof reply?.roomUrl === "string") roomUrl = reply.roomUrl;
   });
 
   function formatTime(seconds) {

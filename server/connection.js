@@ -110,6 +110,10 @@ function handleConnection(io, socket, plans) {
     const room = rooms.get(data.roomId);
     const clean = cleanStreamingUrl(data.url);
     if (!room || !clean || room.nowWatching?.url === clean.url) return;
+    // Con "Solo el líder", solo quien lidera cambia la película de la sala.
+    if (room.controlMode === "leader" && currentKey !== room.leader) return;
+    // Cambio de película: el minuto y el play/pausa de la anterior ya no sirven.
+    if (room.nowWatching) room.videoState = { playing: false, currentTime: 0, updatedAt: Date.now(), known: false };
     room.nowWatching = { ...clean, by: currentUsername || "Alguien" };
     io.to(data.roomId).emit("now-watching", room.nowWatching);
   });

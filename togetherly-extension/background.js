@@ -239,7 +239,9 @@ async function connect() {
   // Órdenes de los demás → pestañas de streaming
   const remoteEvents = { "video-play": "play", "video-pause": "pause", "video-seek": "seek" };
   for (const [event, action] of Object.entries(remoteEvents)) {
-    client.on(event, ({ currentTime, by }) => sendToStreamingTabs({ type: "REMOTE_COMMAND", action, currentTime, by }));
+    client.on(event, ({ currentTime, by }) =>
+      sendToStreamingTabs({ type: "REMOTE_COMMAND", action, currentTime, by, roomUrl: nowWatching?.url ?? null })
+    );
   }
   // Qué película tiene abierta la sala (para el popup y para avisar si alguien cambia)
   client.on("now-watching", (data) => {
@@ -293,7 +295,7 @@ async function connect() {
   // En qué va la sala (al entrar tarde o al pedirlo)
   client.on("ext-state", (state) => {
     if (state?.known) {
-      sendToStreamingTabs({ type: "ROOM_STATE", playing: !!state.playing, currentTime: state.position });
+      sendToStreamingTabs({ type: "ROOM_STATE", playing: !!state.playing, currentTime: state.position, roomUrl: nowWatching?.url ?? null });
     }
   });
 
@@ -412,7 +414,7 @@ async function handleMessage(message, sender) {
       };
     case "CONTENT_READY":
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
-      return { roomId, connected: !!roomId && (socket?.isOpen ?? false) };
+      return { roomId, connected: !!roomId && (socket?.isOpen ?? false), roomUrl: nowWatching?.url ?? null };
     case "NOW_WATCHING": {
       if (sender.tab?.id != null) streamingTabs.add(sender.tab.id);
       const watchingUrl = cleanStreamingUrl(message.url);

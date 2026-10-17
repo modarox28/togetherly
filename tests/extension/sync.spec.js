@@ -570,3 +570,48 @@ test("unirse con un código que no existe avisa y no crea una sala", async () =>
     await ana.context.close();
   }
 });
+
+test("si un invitado se va a otra película, no se sincroniza con la de la sala (ni la cambia)", async () => {
+  const ana = await openBrowser("ana-otra");
+  const beto = await openBrowser("beto-otra");
+  try {
+    const roomId = `OTRA${Date.now() % 100000}`;
+    await joinWithPopup(ana, roomId, "Ana"); // lidera
+    await joinWithPopup(beto, roomId, "Beto");
+    const pageA = await openPlatform(ana, "netflix");
+    await expect
+      .poll(async () => (await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json()).nowWatching?.url, { timeout: 8000 })
+      .toBe(PLATFORM_URLS.netflix);
+
+    // Ana pone "Solo yo".
+    const popupA = await ana.context.newPage();
+    await popupA.goto(`chrome-extension://${ana.extensionId}/popup.html`);
+    await expect(popupA.locator("#control-seg")).toBeVisible({ timeout: 8000 });
+    await popupA.click("#btn-control-leader");
+    await expect(popupA.locator("#control-text")).toContainText("Solo tú", { timeout: 8000 });
+    await popupA.close();
+
+    // Beto abre OTRA película y le da play.
+    const pageB = await beto.context.newPage();
+    await pageB.goto("https://www.netflix.com/watch/99999999");
+    await pageB.waitForFunction(() => document.getElementById("v")?.readyState >= 1);
+    await pageB.waitForTimeout(1600);
+    await pageB.evaluate(() => window.__user.play());
+    await pageB.waitForTimeout(1500);
+
+    // La sala sigue en la película de Ana (Beto no lidera) y a Ana no le pasó nada.
+    const preview = await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json();
+    expect(preview.nowWatching.url).toBe(PLATFORM_URLS.netflix);
+    expect((await videoState(pageA)).paused).toBe(true);
+
+    // Ana da play y salta al minuto 5: a Beto (en otra película) no lo mueven.
+    await pageA.evaluate(() => window.__user.seek(300000));
+    await pageA.evaluate(() => window.__user.play());
+    await pageA.waitForTimeout(2500);
+    expect((await videoState(pageB)).time).toBeLessThan(60);
+    expect((await videoState(pageB)).m7375).toBe(false);
+  } finally {
+    await ana.context.close();
+    await beto.context.close();
+  }
+});
