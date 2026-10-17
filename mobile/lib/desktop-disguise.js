@@ -1,21 +1,30 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Se inyecta ANTES de que cargue la página de streaming (injectedJavaScriptBeforeContentLoaded).
-// Netflix y Disney+ mandan a su app si detectan un celular: además del "user agent" de
-// computador, aquí se ocultan las otras pistas (plataforma, pantalla táctil, puntero).
+// Netflix y Disney+ mandan a su app si detectan un celular. Hay tres perfiles:
+//   "none"    → no se cambia nada (iPad: Netflix ya lo acepta así; probado el 16 oct 2026)
+//   "ipad"    → iPhone que se presenta como iPad (pantalla de iPad; Netflix acepta Safari de iPad)
+//   "desktop" → Android que se presenta como computador (plataforma, sin pantalla táctil, puntero)
 // También revisa qué protección de video (DRM) tiene el navegador interno y se lo avisa a la app:
 //   { type: "drm", widevine, fairplay, webkitKeys }
 // Ojo: va dentro de String.raw`…`: no usar comillas invertidas ni "${" en el código.
 
-const disguise = (platform) => String.raw`
+const disguise = (profile) => String.raw`
 (function () {
-  var PLATFORM = "__PLATFORM__";
+  var PROFILE = "__PROFILE__";
   function define(obj, key, value) {
     try { Object.defineProperty(obj, key, { get: function () { return value; }, configurable: true }); } catch (e) {}
   }
   var proto = Navigator.prototype;
-  define(proto, "platform", PLATFORM === "ios" ? "MacIntel" : "Win32");
-  define(proto, "maxTouchPoints", 0);
-  if ("userAgentData" in navigator) {
+  if (PROFILE === "ipad") {
+    // Safari de iPad dice "MacIntel" y tiene pantalla táctil; solo cambia el tamaño de pantalla.
+    define(proto, "platform", "MacIntel");
+    var sp = Screen.prototype;
+    define(sp, "width", 1024); define(sp, "height", 1366);
+    define(sp, "availWidth", 1024); define(sp, "availHeight", 1366);
+  }
+  if (PROFILE === "desktop") define(proto, "platform", "Win32");
+  if (PROFILE === "desktop") define(proto, "maxTouchPoints", 0);
+  if (PROFILE === "desktop" && "userAgentData" in navigator) {
     var brands = [{ brand: "Google Chrome", version: "141" }, { brand: "Chromium", version: "141" }];
     define(proto, "userAgentData", {
       mobile: false, platform: "Windows", brands: brands,
@@ -25,10 +34,10 @@ const disguise = (platform) => String.raw`
       toJSON: function () { return { mobile: false, platform: "Windows", brands: brands }; }
     });
   }
-  try { delete window.ontouchstart; delete Document.prototype.ontouchstart; } catch (e) {}
+  if (PROFILE === "desktop") { try { delete window.ontouchstart; delete Document.prototype.ontouchstart; } catch (e) {} }
   // Consultas CSS de "pantalla táctil": se responden como en un computador con mouse.
   var realMatchMedia = window.matchMedia ? window.matchMedia.bind(window) : null;
-  if (realMatchMedia) {
+  if (realMatchMedia && PROFILE === "desktop") {
     window.matchMedia = function (query) {
       var q = String(query);
       var fake = null;
@@ -62,6 +71,6 @@ const disguise = (platform) => String.raw`
   }, 1500);
 })();
 true;
-`.replace("__PLATFORM__", platform);
+`.replace("__PROFILE__", profile);
 
 module.exports = { disguise };
