@@ -26,7 +26,9 @@ const rooms = new Map();
  * @property {number} createdAt
  * @property {number} maxParticipants
  * @property {Map<string, object>} extMembers  quienes están solo con la extensión (sin la web abierta)
- * @property {string|null} leader  nombre (en minúsculas) de quien lidera la sala: el primero en entrar
+ * @property {string|null} leader  clave privada del dispositivo que lidera la sala (el primero en entrar).
+ *   Antes era el nombre, y cualquiera con el mismo nombre podía cambiar los permisos.
+ * @property {Map<string,string>} memberKeys  socket.id → clave privada del dispositivo (nunca se envía a nadie)
  * @property {"all"|"leader"} controlMode  quién puede dar play, pausar o adelantar
  * @property {{url: string, platform: string, by: string}|null} nowWatching
  *           lo último que alguien abrió en una app de streaming (para mandar a los demás ahí)
@@ -52,6 +54,7 @@ function getOrCreateRoom(roomId, { isPublic = false, name = null, maxParticipant
       nowWatching: null,
       extMembers: new Map(),
       leader: null,
+      memberKeys: new Map(),
       controlMode: "all",
     });
   }
@@ -94,37 +97,46 @@ function roomPreview(roomId, onlineCount) {
 }
 
 /**
- * Quiénes están en la sala (web y extensión), una vez por nombre: si Ana tiene la web y
- * la extensión abiertas, aparece una sola vez.
+ * Quiénes están en la sala (web, extensión y app), una vez por dispositivo: si Ana tiene la
+ * web y la extensión abiertas en el mismo navegador comparten clave y aparece una sola vez.
+ * Dos personas con el mismo nombre aparecen por separado.
  */
 function membersOf(roomId) {
-  const room = rooms.get(roomId);
-  if (!room) return [];
-  const byName = new Map();
-  for (const person of [...room.participants.values(), ...room.extMembers.values()]) {
-    const key = person.name.toLowerCase();
-    if (!byName.has(key)) {
-      byName.set(key, { name: person.name, avatar: person.avatar, color: person.color, leader: key === room.leader });
-    }
-  }
-  return [...byName.values()];
+  return membersWithKeys(roomId).map(({ key: _key, ...member }) => member);
 }
 
-/** Ajustes de la sala que ven todos: quién lidera y quién controla la reproducción. */
-function settingsOf(roomId) {
+/** Igual que membersOf pero con la clave privada (solo para uso interno del servidor). */
+function membersWithKeys(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return [];
+  const byKey = new Map();
+  for (const person of [...room.participants.values(), ...room.extMembers.values()]) {
+    const key = room.memberKeys.get(person.id) ?? `s:${person.id}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, { key, name: person.name, avatar: person.avatar, color: person.color, leader: key === room.leader });
+    }
+  }
+  return [...byKey.values()];
+}
+
+/**
+ * Ajustes de la sala: quién lidera y quién controla la reproducción.
+ * Con `forKey`, dice además si ese dispositivo es el líder (youLead).
+ */
+function settingsOf(roomId, forKey = null) {
   const room = rooms.get(roomId);
   if (!room) return null;
   const leader = membersOf(roomId).find((m) => m.leader)?.name ?? null;
-  return { controlMode: room.controlMode, leader };
+  return { controlMode: room.controlMode, leader, youLead: !!forKey && forKey === room.leader };
 }
 
-/** Si quien lideraba ya no está, el liderazgo pasa a la siguiente persona de la sala. */
+/** Si quien lideraba ya no está, el liderazgo pasa al siguiente dispositivo de la sala. */
 function ensureLeader(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
-  const names = membersOf(roomId).map((m) => m.name.toLowerCase());
-  if (room.leader && names.includes(room.leader)) return;
-  room.leader = names[0] ?? null;
+  const keys = membersWithKeys(roomId).map((m) => m.key);
+  if (room.leader && keys.includes(room.leader)) return;
+  room.leader = keys[0] ?? null;
 }
 
 /** Salas públicas con gente, para la página "Salas públicas". */

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { SOCKET_URL } from "@/lib/constants";
+import { getClientKey } from "@/lib/clientKey";
 
 // La app entra a la sala igual que la extensión del navegador (eventos "ext-…" en
 // server/connection.js). Así quien usa la app y quien usa la extensión en el computador
@@ -57,6 +58,7 @@ export function useRoom(roomId: string, username: string, avatar: string, onOrde
   const [nowWatching, setNowWatching] = useState<NowWatching | null>(null);
   const [controlMode, setControlMode] = useState<"all" | "leader">("all");
   const [leader, setLeader] = useState<string | null>(null);
+  const [youLead, setYouLead] = useState(false);
   const [notice, setNotice] = useState<RoomNotice | null>(null);
   const [reaction, setReaction] = useState<{ id: number; emoji: string } | null>(null);
 
@@ -67,9 +69,9 @@ export function useRoom(roomId: string, username: string, avatar: string, onOrde
     const socket = io(SOCKET_URL, { transports: ["websocket"], reconnection: true });
     socketRef.current = socket;
 
-    socket.on("connect", () => {
+    socket.on("connect", async () => {
       setConnected(true);
-      socket.emit("ext-connect", { roomId, username, avatar });
+      socket.emit("ext-connect", { roomId, username, avatar, clientKey: await getClientKey() });
     });
     socket.on("disconnect", () => setConnected(false));
 
@@ -101,7 +103,8 @@ export function useRoom(roomId: string, username: string, avatar: string, onOrde
         })
       );
     });
-    socket.on("room-settings", (data: { controlMode?: unknown; leader?: unknown }) => {
+    socket.on("room-settings", (data: { controlMode?: unknown; leader?: unknown; youLead?: unknown }) => {
+      setYouLead(data?.youLead === true);
       setControlMode(data?.controlMode === "leader" ? "leader" : "all");
       setLeader(typeof data?.leader === "string" ? data.leader.slice(0, 24) : null);
     });
@@ -149,7 +152,8 @@ export function useRoom(roomId: string, username: string, avatar: string, onOrde
     leader,
     notice,
     reaction,
-    isLeader: !!leader && leader.toLowerCase() === username.trim().toLowerCase(),
+    // Lo decide el servidor por la clave privada del celular, no por el nombre.
+    isLeader: youLead,
     /** La persona tocó play, pausa o saltó en su reproductor. */
     sendPlayback: (type: "play" | "pause" | "seek", currentTime: number) => {
       const t = time(currentTime);

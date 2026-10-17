@@ -1,3 +1,4 @@
+import { getClientKey } from "@/lib/clientKey";
 // Hablar con la extensión Togetherly Sync desde la web (a través de togetherly-extension/bridge.js).
 // El bridge solo existe si la extensión está instalada; si no responde, no está.
 
@@ -36,6 +37,6 @@ export async function detectExtension(timeoutMs = 1500): Promise<boolean> {
 /** Conecta la extensión a la sala. true si respondió que sí. */
 export async function joinRoomWithExtension(roomId: string, username: string, avatar: string): Promise<boolean> {
   const reply = waitForReply((data) => data.ok === true && data.roomId === roomId, 5000);
-  postToExtension({ type: "JOIN_ROOM", roomId, username, avatar });
+  postToExtension({ type: "JOIN_ROOM", roomId, username, avatar, clientKey: getClientKey() });
   return (await reply) !== null;
 }

@@ -15,7 +15,7 @@
     if (!data || data.source !== "togetherly-web" || !ALLOWED_TYPES.has(data.type)) return;
     try {
       chrome.runtime.sendMessage(
-        { type: data.type, roomId: data.roomId, username: data.username, avatar: data.avatar },
+        { type: data.type, roomId: data.roomId, username: data.username, avatar: data.avatar, clientKey: data.clientKey },
         (reply) => {
           if (chrome.runtime.lastError || !reply) return;
           postToPage(reply);

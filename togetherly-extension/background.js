@@ -147,11 +147,27 @@ const MAX_CHAT_MESSAGES = 60;
 let chatMessages = [];
 let members = [];
 /** Quién lidera la sala y si solo esa persona controla la reproducción */
-let roomSettings = { controlMode: "all", leader: null };
-const isLeader = () => !!username && !!roomSettings.leader && username.toLowerCase() === roomSettings.leader.toLowerCase();
+let roomSettings = { controlMode: "all", leader: null, youLead: false };
+// El servidor dice quién lidera por la clave privada del dispositivo, no por el nombre.
+const isLeader = () => roomSettings.youLead === true;
+
+// Clave privada de este navegador (nunca se muestra a nadie). Si la extensión entra desde la
+// web, usa la clave de la web para que web + extensión cuenten como el mismo dispositivo.
+const CLIENT_KEY_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
+let sessionKey = null;
+async function getClientKey() {
+  if (sessionKey) return sessionKey;
+  const { clientKey } = await chrome.storage.local.get("clientKey");
+  if (typeof clientKey === "string" && CLIENT_KEY_PATTERN.test(clientKey)) return clientKey;
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const fresh = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  await chrome.storage.local.set({ clientKey: fresh });
+  return fresh;
+}
 
 // El service worker se duerme y despierta: la sala activa se guarda en storage.session.
-const ready = chrome.storage.session.get(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl", "chatMessages"]).then((saved) => {
+const ready = chrome.storage.session.get(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl", "chatMessages", "sessionKey"]).then((saved) => {
+  if (typeof saved.sessionKey === "string" && CLIENT_KEY_PATTERN.test(saved.sessionKey)) sessionKey = saved.sessionKey;
   if (saved.roomId && ROOM_ID_PATTERN.test(saved.roomId)) {
     roomId = saved.roomId;
     chatMessages = Array.isArray(saved.chatMessages) ? saved.chatMessages.slice(-MAX_CHAT_MESSAGES) : [];
@@ -191,9 +207,10 @@ async function connect() {
   socket?.disconnect();
   const client = new SocketClient(await getServerUrl());
   socket = client;
+  const clientKey = await getClientKey();
 
   client.on("connect", () => {
-    client.emit("ext-connect", { roomId, username, avatar });
+    client.emit("ext-connect", { roomId, username, avatar, clientKey });
     // Si el servidor se reinició (o el service worker se durmió), se vuelve a contar qué tengo abierto.
     if (myWatchingUrl) client.emit("ext-now-watching", { roomId, url: myWatchingUrl });
     setBadge(true);
@@ -250,6 +267,7 @@ async function connect() {
     roomSettings = {
       controlMode: data?.controlMode === "leader" ? "leader" : "all",
       leader: cleanText(data?.leader, 24, null),
+      youLead: data?.youLead === true,
     };
     sendToStreamingTabs({ type: "ROOM_SETTINGS", ...roomSettings, isLeader: isLeader() });
   });
@@ -317,7 +335,7 @@ function cleanChatMessage(data) {
 function clearChat() {
   chatMessages = [];
   members = [];
-  roomSettings = { controlMode: "all", leader: null };
+  roomSettings = { controlMode: "all", leader: null, youLead: false };
   chrome.storage.session.remove("chatMessages");
 }
 
@@ -343,15 +361,17 @@ async function handleMessage(message, sender) {
       roomId = message.roomId;
       username = cleanText(message.username, 24, "Invitado");
       avatar = cleanText(message.avatar, 8, "🍿");
+      sessionKey = typeof message.clientKey === "string" && CLIENT_KEY_PATTERN.test(message.clientKey) ? message.clientKey : null;
+      chrome.storage.session.set({ sessionKey });
       saveSession();
       if (!alreadyConnected) await connect();
       return { ok: true, roomId };
     }
     case "LEAVE_ROOM": {
-      roomId = username = avatar = nowWatching = myWatchingUrl = null;
+      roomId = username = avatar = nowWatching = myWatchingUrl = sessionKey = null;
       openWhenKnown = false;
       clearChat();
-      chrome.storage.session.remove(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl"]);
+      chrome.storage.session.remove(["roomId", "username", "avatar", "nowWatching", "myWatchingUrl", "sessionKey"]);
       socket?.disconnect();
       socket = null;
       setBadge(false);
