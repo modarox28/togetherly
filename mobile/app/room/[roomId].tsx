@@ -32,6 +32,8 @@ export default function RoomScreen() {
   const [seenOthers, setSeenOthers] = useState(0);
   const [draft, setDraft] = useState("");
   const autoOpened = useRef(false);
+  const drmShown = useRef(false);
+  const [drm, setDrm] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([storage.get(SESSION_KEYS.username), storage.get(SESSION_KEYS.character)]).then(([name, avatar]) => {
@@ -61,6 +63,11 @@ export default function RoomScreen() {
       setMyWatching(event.url);
       room.sendWatching(event.url);
     } else if (event.type === "video" && event.found) room.requestState(); // entraste tarde: ponte al día
+    else if (event.type === "drm" && !drmShown.current) {
+      // Diagnóstico de la prueba: qué protección de video tiene el navegador interno de este celular.
+      drmShown.current = true;
+      setDrm(`Protección de video · Widevine: ${event.widevine ? "sí" : "no"} · FairPlay: ${event.fairplay ? "sí" : "no"}`);
+    }
   };
 
   const closeChat = () => {
@@ -96,6 +103,12 @@ export default function RoomScreen() {
           <Text className="text-cozy-deep font-extrabold text-sm">Invitar</Text>
         </Pressable>
       </View>
+
+      {drm ? (
+        <Pressable onPress={() => setDrm(null)} className="mx-3 mb-2 bg-cozy-plum rounded-xl px-3 py-2">
+          <Text className="text-cozy-muted text-xs">{drm} (toca para ocultar)</Text>
+        </Pressable>
+      ) : null}
 
       {otherMovie ? (
         <Pressable

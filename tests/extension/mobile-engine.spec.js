@@ -106,3 +106,29 @@ for (const platform of ["netflix", "disney"]) {
     }
   });
 }
+
+test("app móvil: la página ve un computador (no un celular) y se revisa el DRM", async () => {
+  const { disguise } = require("../../mobile/lib/desktop-disguise.js");
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+    await context.route("https://www.netflix.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>Netflix</title>" }));
+    await context.addInitScript(() => {
+      window.__posted = [];
+      window.ReactNativeWebView = { postMessage: (text) => window.__posted.push(JSON.parse(text)) };
+    });
+    await context.addInitScript({ content: disguise("android") });
+    const page = await context.newPage();
+    await page.goto("https://www.netflix.com/browse");
+    const seen = await page.evaluate(() => ({
+      platform: navigator.platform,
+      touch: navigator.maxTouchPoints,
+      coarse: matchMedia("(pointer: coarse)").matches,
+      fine: matchMedia("(pointer: fine)").matches,
+    }));
+    expect(seen).toEqual({ platform: "Win32", touch: 0, coarse: false, fine: true });
+    await expect.poll(() => page.evaluate(() => window.__posted.find((m) => m.type === "drm")), { timeout: 5000 }).toMatchObject({ type: "drm" });
+  } finally {
+    await browser.close();
+  }
+});

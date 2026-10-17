@@ -5,6 +5,8 @@ import type { PlayerOrder } from "@/hooks/useRoom";
 // Mismo motor para Android y iPhone; también lo prueban las pruebas e2e (tests/extension/mobile-engine.spec.js).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { ENGINE_JS } = require("../lib/sync-engine.js") as { ENGINE_JS: string };
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { disguise } = require("../lib/desktop-disguise.js") as { disguise: (platform: string) => string };
 
 // Los tipos de NativeWind chocan con el componente de clase de WebView: se le dan sus props a mano.
 const Browser = WebView as unknown as ComponentType<WebViewProps & { ref?: Ref<WebView> }>;
@@ -18,7 +20,8 @@ export type EngineEvent =
   | { type: "play" | "pause" | "seek"; time: number }
   | { type: "watching"; url: string }
   | { type: "video"; found: boolean }
-  | { type: "failed"; action: string };
+  | { type: "failed"; action: string }
+  | { type: "drm"; widevine: boolean; fairplay: boolean; webkitKeys: boolean };
 
 interface Props {
   url: string;
@@ -32,6 +35,8 @@ const DESKTOP_USER_AGENT =
     ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
     : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
+const DISGUISE_JS = disguise(Platform.OS);
+
 function parseEvent(raw: string): EngineEvent | null {
   try {
     const data = JSON.parse(raw);
@@ -39,6 +44,7 @@ function parseEvent(raw: string): EngineEvent | null {
     if (["play", "pause", "seek"].includes(data.type) && typeof data.time === "number" && Number.isFinite(data.time)) return data;
     if (data.type === "watching" && typeof data.url === "string" && data.url.startsWith("https://")) return data;
     if (data.type === "video" || data.type === "failed") return data;
+    if (data.type === "drm") return { type: "drm", widevine: data.widevine === true, fairplay: data.fairplay === true, webkitKeys: data.webkitKeys === true };
   } catch {}
   return null;
 }
@@ -69,6 +75,7 @@ export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(functi
         source={{ uri: url }}
         style={{ flex: 1, backgroundColor: "#000" }}
         userAgent={DESKTOP_USER_AGENT}
+        injectedJavaScriptBeforeContentLoaded={DISGUISE_JS}
         injectedJavaScript={ENGINE_JS}
         onMessage={handleMessage}
         // Video con DRM (Netflix, Disney+…): en Android hay que permitirlo explícitamente.
