@@ -14,12 +14,11 @@
     "android": {
       "package": "com.togetherly.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0D0D1A",
-        "foregroundImage": "./assets/icon.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#2A2140"
       }
-    },
-    "web": {
-      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
@@ -30,6 +29,19 @@
     },
     "runtimeVersion": {
       "policy": "sdkVersion"
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "owner": "m0d4r0xs-team",
+    "extra": {
+      "eas": {
+        "projectId": "94634693-d94a-419f-9a76-c912d897afd7"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/94634693-d94a-419f-9a76-c912d897afd7"
     }
   }
 }

@@ -26,17 +26,18 @@ Si el Wi-Fi no deja conectar, usa `npx expo start --tunnel`.
 Se publica la app en Expo (EAS Update, gratis). Tu amigo solo instala **Expo Go** y abre el enlace:
 no necesita cuenta ni que tu computador esté prendido.
 
-Una sola vez (en `mobile`, con tu sesión de Expo iniciada):
-```
-npx eas-cli init
-npx eas-cli update:configure
-```
+El proyecto ya está vinculado a Expo (`m0d4r0xs-team/togetherly`, ver `app.json`).
 Cada vez que quieras publicar la versión actual:
 ```
 npm run publicar
 ```
 Luego en expo.dev → tu proyecto → **Updates** → la última → **Preview**: ese QR o enlace es el que
 mandas. `runtimeVersion` usa la política `sdkVersion` para que Expo Go pueda abrirla.
+
+## Íconos
+
+Salen del mismo logo de la web y la extensión. Para regenerarlos: `node scripts/make-icons.mjs`
+(desde `mobile/`, con `npm install` hecho en la raíz del repo).
 
 ## Archivos
 
