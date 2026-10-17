@@ -132,3 +132,28 @@ test("app móvil: la página ve un computador (no un celular) y se revisa el DRM
     await browser.close();
   }
 });
+
+test("app móvil · iPhone: sin MediaSource se usa ManagedMediaSource y el video no ofrece AirPlay", async () => {
+  const { disguise } = require("../../mobile/lib/desktop-disguise.js");
+  const browser = await chromium.launch();
+  try {
+    const context = await browser.newContext();
+    await context.route("https://www.netflix.com/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<title>Netflix</title>" }));
+    // Como Safari de iPhone: no hay MediaSource, sí ManagedMediaSource.
+    await context.addInitScript(() => {
+      window.ManagedMediaSource = window.MediaSource;
+      delete window.MediaSource;
+      window.ReactNativeWebView = { postMessage: () => {} };
+    });
+    await context.addInitScript({ content: disguise("ipad") });
+    const page = await context.newPage();
+    await page.goto("https://www.netflix.com/watch/1");
+    const seen = await page.evaluate(() => {
+      const v = document.createElement("video");
+      return { aliased: window.MediaSource === window.ManagedMediaSource, noAirPlay: v.disableRemotePlayback, width: screen.width };
+    });
+    expect(seen).toEqual({ aliased: true, noAirPlay: true, width: 1024 });
+  } finally {
+    await browser.close();
+  }
+});

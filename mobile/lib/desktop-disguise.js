@@ -21,6 +21,25 @@ const disguise = (profile) => String.raw`
     var sp = Screen.prototype;
     define(sp, "width", 1024); define(sp, "height", 1366);
     define(sp, "availWidth", 1024); define(sp, "availHeight", 1366);
+
+    // El error S7351 de Netflix en iPhone es por falta de MediaSource (el iPad sí lo tiene).
+    // El iPhone trae ManagedMediaSource (iOS 17.1+), casi igual: se usa en su lugar.
+    // Exige que el video no ofrezca AirPlay, así que se apaga en cada <video>.
+    if (!window.MediaSource && window.ManagedMediaSource) {
+      window.__togetherlyMMS = true;
+      window.MediaSource = window.ManagedMediaSource;
+      var noAirPlay = function (v) { try { v.disableRemotePlayback = true; } catch (e) {} };
+      var realCreate = Document.prototype.createElement;
+      Document.prototype.createElement = function (tag) {
+        var el = realCreate.apply(this, arguments);
+        if (String(tag).toLowerCase() === "video") noAirPlay(el);
+        return el;
+      };
+      new MutationObserver(function () {
+        var videos = document.getElementsByTagName("video");
+        for (var i = 0; i < videos.length; i++) noAirPlay(videos[i]);
+      }).observe(document, { childList: true, subtree: true });
+    }
   }
   if (PROFILE === "desktop") define(proto, "platform", "Win32");
   if (PROFILE === "desktop") define(proto, "maxTouchPoints", 0);
@@ -64,7 +83,8 @@ const disguise = (profile) => String.raw`
       .then(function (r) {
         try {
           window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: "drm", widevine: r[0], fairplay: r[1] || r[2], webkitKeys: typeof window.WebKitMediaKeys !== "undefined"
+            type: "drm", widevine: r[0], fairplay: r[1] || r[2], webkitKeys: typeof window.WebKitMediaKeys !== "undefined",
+            mse: window.__togetherlyMMS ? "managed" : typeof window.MediaSource !== "undefined" ? "yes" : "no"
           }));
         } catch (e) {}
       });
