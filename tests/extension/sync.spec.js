@@ -66,7 +66,7 @@ async function openBrowser(name) {
     await context.route(`${new URL(url).origin}/**`, (route) => {
       const pathname = new URL(route.request().url()).pathname;
       if (pathname.startsWith("/video/")) return serveVideo(route, path.basename(pathname));
-      return route.fulfill({ status: 200, contentType: "text/html", body: FAKE_PAGES[platform] });
+      return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: FAKE_PAGES[platform] });
     });
   }
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
@@ -122,10 +122,42 @@ async function openPlatform(browser, platform) {
 
 const timeGap = async (a, b) => Math.abs((await videoState(a)).time - (await videoState(b)).time);
 
+// Imita la API de Workers AI de Cloudflare (la trivia con IA) sin salir a internet.
+const AI_PORT = 3998;
+const AI_ACCOUNT = "a".repeat(32);
+let aiServer;
+const aiRequests = [];
+function startFakeAI() {
+  const http = require("node:http");
+  aiServer = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      aiRequests.push({ url: req.url, auth: req.headers.authorization, body });
+      const known = body.includes("Separación");
+      const questions = [
+        { question: "¿Dónde trabaja Mark?", options: ["En Lumon", "En un banco", "En una escuela", "En un hospital"], answer: 0 },
+        { question: "¿Qué separa el procedimiento?", options: ["Los recuerdos", "Los colores", "Los sueños", "Los idiomas"], answer: 0 },
+        { question: "¿En qué piso trabajan?", options: ["El sótano", "El ático", "La azotea", "El lobby"], answer: 0 },
+      ];
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ success: true, result: { response: known ? { known: true, questions } : { known: false, questions: [] } } }));
+    });
+  });
+  return new Promise((resolve) => aiServer.listen(AI_PORT, resolve));
+}
+
 test.beforeAll(async () => {
   prepareVideos();
+  await startFakeAI();
   server = spawn(process.execPath, [path.join(ROOT, "socket-server.js")], {
-    env: { ...process.env, SOCKET_PORT: String(PORT) },
+    env: {
+      ...process.env,
+      SOCKET_PORT: String(PORT),
+      CF_ACCOUNT_ID: AI_ACCOUNT,
+      CF_AI_TOKEN: "token-de-prueba-local",
+      CF_AI_BASE_URL: `http://localhost:${AI_PORT}`,
+    },
     stdio: "ignore",
   });
   for (let i = 0; i < 50; i++) {
@@ -137,7 +169,10 @@ test.beforeAll(async () => {
   throw new Error("El servidor de sockets no arrancó");
 });
 
-test.afterAll(() => server?.kill());
+test.afterAll(() => {
+  server?.kill();
+  aiServer?.close();
+});
 
 for (const platform of Object.keys(PLATFORM_URLS)) {
   test(`${platform}: play, pausa, salto y entrada tardía se sincronizan`, async () => {
@@ -182,6 +217,15 @@ for (const platform of Object.keys(PLATFORM_URLS)) {
         // Nunca se tocó currentTime directamente: Netflix real no se colgaría.
         expect((await videoState(pageA)).m7375).toBe(false);
         expect((await videoState(pageB)).m7375).toBe(false);
+      }
+      if (platform === "appletv") {
+        // El video de fondo de la página no se movió al minuto 5: se sincronizó la película.
+        const bgTime = await pageB.evaluate(() => document.querySelector("amp-background-video").shadowRoot.getElementById("bg").currentTime);
+        expect(Math.abs(bgTime - 300)).toBeGreaterThan(20);
+        // La extensión leyó el título del reproductor (sirve para la trivia).
+        await poll(async () => (await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json()).nowWatching?.title).toBe("Separación");
+        // Y los saltos de la sala pasaron por el reproductor de Apple (MusicKit).
+        expect(await pageB.evaluate(() => window.__mkSeeks ?? 0)).toBeGreaterThan(0);
       }
       if (platform === "prime") {
         // El avance del fondo no se movió al minuto 5: se sincronizó la película.
@@ -361,6 +405,38 @@ async function chatPanel(page) {
       return all
         .filter((n) => n.nodeName === "P" && classOf(n) === "text")
         .map((n) => (n.children ?? []).map((c) => c.nodeValue ?? "").join(""));
+    },
+    /** Todo el texto visible del cuadro de trivia */
+    async trivia() {
+      const all = await nodes();
+      const box = all.find((n) => n.nodeName === "DIV" && classOf(n) === "trivia");
+      if (!box) return "";
+      const texts = [];
+      const walk = (n) => {
+        if (n.nodeType === 3) texts.push(n.nodeValue);
+        for (const c of n.children ?? []) walk(c);
+      };
+      walk(box);
+      return texts.join(" | ");
+    },
+    /** Toca el botón del panel que tenga ese texto (o esa etiqueta) */
+    async click(text, nth = 0) {
+      const all = await nodes();
+      const textOf = (n) => (n.children ?? []).map((c) => c.nodeValue ?? "").join("");
+      const matches = all.filter(
+        (n) => n.nodeName === "BUTTON" && (textOf(n) === text || (n.attributes ?? []).includes(text))
+      );
+      const target = matches[nth];
+      if (!target) throw new Error(`No hay botón "${text}"`);
+      const { object } = await cdp.send("DOM.resolveNode", { backendNodeId: target.backendNodeId });
+      await cdp.send("Runtime.callFunctionOn", { objectId: object.objectId, functionDeclaration: "function(){ this.click(); }" });
+    },
+    /** Escribe en el campo del panel que tenga ese placeholder */
+    async fill(placeholder, text) {
+      const input = (await nodes()).find((n) => n.nodeName === "INPUT" && (n.attributes ?? []).includes(placeholder));
+      if (!input) throw new Error(`No hay campo "${placeholder}"`);
+      await cdp.send("DOM.focus", { backendNodeId: input.backendNodeId });
+      await page.keyboard.type(text);
     },
     /** Escribe y envía un mensaje desde el panel */
     async send(text) {
@@ -669,5 +745,128 @@ test("quien lidera puede expulsar (y no vuelve a entrar); reportar responde; sin
   } finally {
     lider.close();
     otro.close();
+  }
+});
+
+test("trivia entre amigos desde el chat: cada quien escribe una pregunta, el otro responde y salen los puntos", async () => {
+  const ana = await openBrowser("ana-trivia");
+  const beto = await openBrowser("beto-trivia");
+  try {
+    const roomId = `TRIV${Date.now() % 100000}`;
+    await joinWithPopup(ana, roomId, "Ana");
+    await joinWithPopup(beto, roomId, "Beto");
+    const pageA = await openPlatform(ana, "netflix");
+    const pageB = await openPlatform(beto, "netflix");
+    const chatA = await chatPanel(pageA);
+    const chatB = await chatPanel(pageB);
+
+    // En la Netflix de prueba no hay título: la IA no sabe qué vieron → trivia entre amigos.
+    await chatA.click("Jugar trivia de lo que vieron");
+    await expect.poll(() => chatB.trivia(), { timeout: 8000 }).toContain("Trivia entre amigos");
+
+    // Enviar sin marcar la correcta avisa qué falta.
+    await chatA.fill("Tu pregunta", "¿De qué color era el carro?");
+    await chatA.fill("Opción 1", "Rojo");
+    await chatA.fill("Opción 2", "Azul");
+    await chatA.click("Enviar pregunta");
+    await expect.poll(() => chatA.trivia()).toContain("marca la correcta");
+    await chatA.click("Marcar la opción 1 como correcta");
+    await chatA.click("Enviar pregunta");
+    await expect.poll(() => chatA.trivia(), { timeout: 8000 }).toContain("Esperando las preguntas");
+
+    await chatB.fill("Tu pregunta", "¿Cómo se llamaba el perro?");
+    await chatB.fill("Opción 1", "Max");
+    await chatB.fill("Opción 2", "Toby");
+    await chatB.click("Marcar la opción 2 como correcta");
+    await chatB.click("Enviar pregunta");
+
+    // Ya escribieron los dos: empiezan las preguntas. Cada quien responde la del otro.
+    for (let round = 0; round < 2; round++) {
+      await expect.poll(() => chatA.trivia(), { timeout: 10000 }).toMatch(new RegExp(`Pregunta ${round + 1} de 2`));
+      const text = await chatA.trivia();
+      if (text.includes("perro")) await chatA.click("Toby"); // Ana acierta
+      else await chatB.click("Azul"); // Beto se equivoca (era Rojo)
+      await expect.poll(() => chatA.trivia(), { timeout: 8000 }).toMatch(/Correcto|Así les fue/);
+    }
+
+    await expect.poll(() => chatB.trivia(), { timeout: 15000 }).toContain("Resultados");
+    const results = await chatB.trivia();
+    expect(results).toMatch(/Ana \| 1[0-5]\d/); // 100 por acertar + bono por rapidez
+    expect(results).toMatch(/Beto \| 0/);
+  } finally {
+    await ana.context.close();
+    await beto.context.close();
+  }
+});
+
+test("trivia con IA: el título llega del reproductor, la respuesta solo se revela al final y se puntúa", async () => {
+  const { io } = require("socket.io-client");
+  const roomId = `TIA${Date.now() % 100000}`;
+  const connect = () => io(SERVER_URL, { transports: ["websocket"], forceNew: true });
+  const ana = connect();
+  const beto = connect();
+  const states = { ana: [], beto: [] };
+  ana.on("trivia", (s) => states.ana.push(s));
+  beto.on("trivia", (s) => states.beto.push(s));
+  let titleEvent = null;
+  beto.on("movie-title", (d) => (titleEvent = d.title));
+  let offer = null;
+  beto.on("trivia-offer", (d) => (offer = d));
+  const last = (who) => states[who][states[who].length - 1];
+  try {
+    ana.emit("ext-connect", { roomId, username: "Ana", clientKey: "anaaa".repeat(4) });
+    beto.emit("ext-connect", { roomId, username: "Beto", clientKey: "betoo".repeat(4) });
+    const url = PLATFORM_URLS.appletv;
+    await new Promise((r) => setTimeout(r, 300));
+    ana.emit("ext-now-watching", { roomId, url });
+    await new Promise((r) => setTimeout(r, 200));
+    // Un título de otra película (otra dirección) no cuenta.
+    ana.emit("ext-movie-title", { roomId, url: "https://tv.apple.com/co/episode/otra/umc.cmc.otra", title: "Otra" });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(titleEvent).toBeNull();
+    await new Promise((r) => setTimeout(r, 3000)); // límite de 1 título cada 3 s por conexión
+    ana.emit("ext-movie-title", { roomId, url, title: "Separación" });
+    await expect.poll(() => titleEvent).toBe("Separación");
+
+    // Faltan 2 minutos: se ofrece la trivia una sola vez.
+    ana.emit("ext-movie-ending", { roomId });
+    await expect.poll(() => offer?.title).toBe("Separación");
+    offer = null;
+    beto.emit("ext-movie-ending", { roomId });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(offer).toBeNull();
+
+    beto.emit("trivia-start", { roomId });
+    await expect.poll(() => last("ana")?.phase, { timeout: 10000 }).toBe("question");
+    const q = last("ana");
+    expect(q.mode).toBe("ai");
+    expect(q.total).toBe(3);
+    expect(q.options).toHaveLength(4);
+    expect(q.correct).toBeUndefined(); // la respuesta no viaja mientras se puede responder
+    const request = aiRequests[aiRequests.length - 1];
+    expect(request.url).toBe(`/accounts/${AI_ACCOUNT}/ai/run/@cf/google/gemma-4-26b-a4b-it`);
+    expect(request.auth).toBe("Bearer token-de-prueba-local");
+
+    // Ana responde bien, Beto mal; respuestas repetidas o fuera de rango no cuentan.
+    const known = ["En Lumon", "Los recuerdos", "El sótano"];
+    const right = q.options.findIndex((o) => known.includes(o));
+    ana.emit("trivia-answer", { roomId, id: q.id, index: 0, choice: right });
+    ana.emit("trivia-answer", { roomId, id: q.id, index: 0, choice: (right + 1) % 4 });
+    beto.emit("trivia-answer", { roomId, id: q.id, index: 0, choice: 9 });
+    beto.emit("trivia-answer", { roomId, id: q.id, index: 0, choice: (right + 1) % 4 });
+    await expect.poll(() => last("beto")?.phase).toBe("reveal");
+    expect(last("beto").correct).toBe(right);
+    expect(last("ana").you.choice).toBe(right);
+    const scores = Object.fromEntries(last("beto").scores.map((s) => [s.name, s.points]));
+    expect(scores.Ana).toBeGreaterThanOrEqual(100);
+    expect(scores.Beto).toBe(0);
+    expect(JSON.stringify(states.beto)).not.toContain("anaaa"); // nunca se reparte la clave
+
+    // Solo quien la abrió (o quien lidera) la termina.
+    ana.emit("trivia-control", { roomId, action: "stop" }); // Ana lidera (entró primero)
+    await expect.poll(() => last("beto")?.phase).toBe("end");
+  } finally {
+    ana.close();
+    beto.close();
   }
 });

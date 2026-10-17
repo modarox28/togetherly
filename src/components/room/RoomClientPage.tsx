@@ -7,6 +7,7 @@ import { ExternalLink, Link2, Phone } from "lucide-react";
 import { PLATFORM_LABELS } from "@/lib/platforms";
 import { VideoPlayer, type VideoPlayerHandle } from "@/components/room/VideoPlayer";
 import { ChatPanel } from "@/components/room/ChatPanel";
+import { TriviaPanel } from "@/components/room/TriviaPanel";
 import { VideoCallPanel } from "@/components/room/VideoCallPanel";
 import { CallStrip } from "@/components/room/CallStrip";
 import { RoomHeader } from "@/components/room/RoomHeader";
@@ -250,6 +251,16 @@ export function RoomClientPage({ roomId }: Props) {
               />
             )}
           </AnimatePresence>
+          <TriviaPanel
+            trivia={state.trivia}
+            offer={state.triviaOffer}
+            error={state.triviaError}
+            onStart={(title) => actions.startTrivia(roomId, title)}
+            onDismissOffer={actions.dismissTriviaOffer}
+            onAnswer={(id, index, choice) => actions.answerTrivia(roomId, id, index, choice)}
+            onSubmit={(id, question, options, answer) => actions.submitTrivia(roomId, id, question, options, answer)}
+            onControl={(action) => actions.controlTrivia(roomId, action)}
+          />
           <ChatPanel
             messages={state.messages}
             reactions={state.reactions}

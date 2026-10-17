@@ -8,7 +8,9 @@
 const { createServer } = require("node:http");
 const { Server } = require("socket.io");
 const { handleConnection } = require("./server/connection");
-const { MAX_PARTICIPANTS, listPublicRooms, roomPreview } = require("./server/rooms");
+const { MAX_PARTICIPANTS, listPublicRooms, roomPreview, rooms, membersWithKeys } = require("./server/rooms");
+const { createTrivia } = require("./server/trivia");
+const { createTriviaAI } = require("./server/trivia-ai");
 const { isRoomId } = require("./server/validation");
 
 // ── Configuración (variables de entorno) ─────────────────────────────────
@@ -88,7 +90,9 @@ io.use((socket, next) => {
   next();
 });
 
-io.on("connection", (socket) => handleConnection(io, socket, plans));
+// Trivia al final de la película (IA gratis de Cloudflare si CF_ACCOUNT_ID y CF_AI_TOKEN están configurados).
+const trivia = createTrivia(io, { rooms, membersWithKeys, ai: createTriviaAI() });
+io.on("connection", (socket) => handleConnection(io, socket, plans, trivia));
 
 httpServer.listen(PORT, () => {
   console.log(`\n  Socket.io server running on port ${PORT}${passSecret ? " (límite por plan activo)" : ""}\n`);

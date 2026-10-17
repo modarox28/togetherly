@@ -57,9 +57,21 @@
     }
   });
 
+  // Duración en segundos si el reproductor la expone (sirve para avisar el final de la película).
+  function durationSeconds() {
+    try {
+      const info = getPlayer()?.timeline?.info;
+      const ms = info?.durationMs ?? info?.endPositionMs ?? info?.playbackDurationMs;
+      return typeof ms === "number" && Number.isFinite(ms) && ms > 0 ? ms / 1000 : null;
+    } catch {
+      return null;
+    }
+  }
+
   setInterval(() => {
     const seconds = positionSeconds();
     if (seconds === null) return;
-    document.dispatchEvent(new CustomEvent("togetherly:time", { detail: JSON.stringify({ seconds }) }));
+    const detail = { seconds, duration: durationSeconds() };
+    document.dispatchEvent(new CustomEvent("togetherly:time", { detail: JSON.stringify(detail) }));
   }, 500);
 })();

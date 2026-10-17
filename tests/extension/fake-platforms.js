@@ -69,6 +69,36 @@ const FAKE_PAGES = {
       window.__contentTime = () => v.currentTime + OFFSET;
       window.__user = { seek: (ms) => host.mediaPlayer.seek(ms), play: () => v.play(), pause: () => v.pause() };
     </script></body>`,
+
+  // Apple TV+: arriba, el video de fondo que las páginas de series reproducen solas
+  // (dentro de <amp-background-video>, largo y en bucle); abajo, la película en shadow DOM.
+  // Como en tv.apple.com real, el reproductor es MusicKit.getInstance().
+  appletv: `<!doctype html><title>Apple TV</title><body style="margin:0">
+    <amp-background-video></amp-background-video>
+    <amp-video></amp-video>
+    <script>
+      const bgHost = document.querySelector("amp-background-video");
+      const bg = document.createElement("video");
+      bg.id = "bg"; bg.src = "/video/movie.webm"; bg.muted = true; bg.autoplay = true; bg.loop = true;
+      bg.style.cssText = "width:100vw;height:40vh";
+      bgHost.attachShadow({ mode: "open" }).append(bg);
+      const host = document.querySelector("amp-video");
+      const v = document.createElement("video");
+      v.src = "/video/movie.webm"; v.muted = true; v.style.cssText = "width:100vw;height:60vh";
+      host.attachShadow({ mode: "open" }).append(v);
+      const player = {
+        nowPlayingItem: { title: "Separación" },
+        playbackState: 2,
+        play: () => v.play(),
+        pause: () => v.pause(),
+        seekToTime: async (s) => { window.__mkSeeks = (window.__mkSeeks || 0) + 1; v.currentTime = s; },
+        get currentPlaybackTime() { return v.currentTime; },
+        get currentPlaybackDuration() { return v.duration; },
+      };
+      window.MusicKit = { getInstance: () => player };
+      window.__video = v;
+      window.__user = { seek: (ms) => player.seekToTime(ms / 1000), play: () => v.play(), pause: () => v.pause() };
+    </script></body>`,
 };
 
 const PLATFORM_URLS = {
@@ -76,6 +106,7 @@ const PLATFORM_URLS = {
   prime: "https://www.primevideo.com/detail/0ABC/ref=atv_dp",
   // Como el Disney+ real: sin "www", con idioma en la ruta y un ?contextId= muy largo.
   disney: `https://disneyplus.com/es-419/play/1234-abcd?contextId=${"EiR1c".repeat(120)}`,
+  appletv: "https://tv.apple.com/co/episode/separacion/umc.cmc.prueba",
 };
 
 module.exports = { FAKE_PAGES, PLATFORM_URLS };

@@ -28,12 +28,14 @@
     }
   }
 
-  function findAllVideos(root = document, depth = 0) {
-    const videos = [...root.querySelectorAll("video")];
+  // skip: selector de contenedores que nunca tienen la película (p. ej. videos de fondo).
+  function findAllVideos(root = document, depth = 0, skip = null) {
+    const videos = [...root.querySelectorAll("video")].filter((v) => !skip || !v.closest(skip));
     if (depth > 4) return videos;
     for (const el of root.querySelectorAll("*")) {
+      if (skip && el.matches(skip)) continue;
       const shadow = shadowOf(el);
-      if (shadow) videos.push(...findAllVideos(shadow, depth + 1));
+      if (shadow) videos.push(...findAllVideos(shadow, depth + 1, skip));
     }
     return videos;
   }
@@ -104,29 +106,64 @@
     seek: (_v, seconds) => sendPageCommand("seek", seconds),
   };
 
-  // Disney+: su <video> no sabe el minuto real de la película y cambiar currentTime no salta.
-  // disney-main.js usa el reproductor de Disney y avisa el minuto real cada medio segundo.
-  let disneyPosition = null; // { seconds, at }
+  // Reproductor interno de la página (disney-main.js, apple-main.js): avisa cada medio segundo
+  // el minuto real, la duración y el título con "togetherly:time".
+  // En Disney+ el <video> no sabe el minuto real de la película y cambiar currentTime no salta.
+  let pagePosition = null; // { seconds, duration, title, at }
   document.addEventListener("togetherly:time", (e) => {
     try {
-      const { seconds } = JSON.parse(e.detail);
+      const { seconds, duration, title } = JSON.parse(e.detail);
       if (typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0) {
-        disneyPosition = { seconds, at: Date.now() };
+        pagePosition = {
+          seconds,
+          duration: typeof duration === "number" && Number.isFinite(duration) && duration > 0 ? duration : null,
+          title: typeof title === "string" ? title.trim().slice(0, 120) : "",
+          at: Date.now(),
+        };
       }
     } catch {}
   });
+  const pageFresh = () => pagePosition && Date.now() - pagePosition.at <= 2000;
+  // Minuto real: el que avisó el reproductor, corrido por el tiempo que pasó desde entonces.
+  const pageTime = (v) => {
+    if (!pageFresh()) return v.currentTime;
+    const elapsed = v.paused ? 0 : ((Date.now() - pagePosition.at) / 1000) * (v.playbackRate || 1);
+    return pagePosition.seconds + elapsed;
+  };
   const disneyControl = {
-    // Play y pausa sobre el <video> funcionan bien en Disney+ (probado con el sitio real).
     play: nativeControl.play,
     pause: nativeControl.pause,
     seek: (_v, seconds) => sendPageCommand("seek", seconds),
-    // Minuto real: el que avisó el reproductor de Disney, corrido por el tiempo que pasó desde entonces.
-    time: (v) => {
-      if (!disneyPosition || Date.now() - disneyPosition.at > 2000) return v.currentTime;
-      const elapsed = v.paused ? 0 : ((Date.now() - disneyPosition.at) / 1000) * (v.playbackRate || 1);
-      return disneyPosition.seconds + elapsed;
-    },
+    time: pageTime,
   };
+  // Apple TV+: su reproductor (MusicKit) da play, pausa y salto exactos; si no responde, el <video>.
+  const appleControl = {
+    play: async (v) => (await sendPageCommand("play")) || nativeControl.play(v),
+    pause: async (v) => (await sendPageCommand("pause")) || nativeControl.pause(v),
+    seek: async (v, seconds) => (await sendPageCommand("seek", seconds)) || nativeControl.seek(v, seconds),
+    time: pageTime,
+  };
+
+  // Título de lo que se está viendo (para la trivia). Primero lo que dice el reproductor,
+  // luego lo que el navegador muestra en los controles multimedia y al final el de la pestaña.
+  const TITLE_SUFFIX = /\s*[-|–·]\s*(Netflix|Disney\+|Prime Video|Amazon\.?\w*|HBO Max|Max|Apple TV\+?|Paramount\+|Crunchyroll).*$/i;
+  function cleanTitle(text) {
+    const t = String(text ?? "").replace(/\u200e/g, "").replace(/^(Ver|Watch)\s+/i, "").replace(TITLE_SUFFIX, "").trim();
+    return /^(Netflix|Disney\+|Prime Video|HBO Max|Max|Apple TV\+?|Paramount\+|Crunchyroll|Home|Inicio)$/i.test(t) ? "" : t.slice(0, 120);
+  }
+  function currentTitle(platformTitle) {
+    if (pageFresh() && pagePosition.title) return cleanTitle(pagePosition.title);
+    const fromPlatform = cleanTitle(platformTitle?.());
+    if (fromPlatform) return fromPlatform;
+    const fromSession = cleanTitle(navigator.mediaSession?.metadata?.title);
+    if (fromSession) return fromSession;
+    return cleanTitle(document.title);
+  }
+  // Duración real (para avisar cuando la película está por terminar).
+  function currentDuration(v) {
+    if (pageFresh() && pagePosition.duration) return pagePosition.duration;
+    return v && Number.isFinite(v.duration) && v.duration > 0 ? v.duration : null;
+  }
 
   const PLATFORMS = [
     {
@@ -136,6 +173,7 @@
       isPlayerPage: () => location.pathname.startsWith("/watch"),
       findVideo: () => pickMainVideo([...document.querySelectorAll("video")], 30),
       control: netflixControl,
+      title: () => document.querySelector("[data-uia='video-title'] h4, [data-uia='video-title']")?.textContent,
     },
     {
       id: "prime",
@@ -172,8 +210,9 @@
       name: "Apple TV+",
       matches: () => host === "tv.apple.com",
       isPlayerPage: () => true,
-      findVideo: () => pickMainVideo(findAllVideos(), 120),
-      control: nativeControl,
+      // Las páginas de series reproducen solas un video de fondo: ese nunca es la película.
+      findVideo: () => pickMainVideo(findAllVideos(document, 0, "amp-background-video"), 120),
+      control: appleControl,
     },
     {
       id: "paramount",
@@ -195,7 +234,14 @@
   ];
 
   globalThis.TogetherlyPlatforms = {
-    current: () => PLATFORMS.find((p) => p.matches()) ?? null,
+    current: () => {
+      const p = PLATFORMS.find((x) => x.matches()) ?? null;
+      if (p) {
+        p.currentTitle = () => currentTitle(p.title);
+        p.currentDuration = currentDuration;
+      }
+      return p;
+    },
     /** Para el diagnóstico del popup: todos los videos que ve la extensión en esta página. */
     describeVideos: () =>
       findAllVideos().map((v) => {

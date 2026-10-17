@@ -24,7 +24,9 @@ export type EngineEvent =
   | { type: "failed"; action: string }
   | { type: "drm"; widevine: boolean; fairplay: boolean; webkitKeys: boolean; mse: string }
   | { type: "crashed"; retrying: boolean }
-  | { type: "blocked"; host: string };
+  | { type: "blocked"; host: string }
+  | { type: "title"; title: string }
+  | { type: "ending" };
 
 interface Props {
   url: string;
@@ -69,6 +71,8 @@ function parseEvent(raw: string): EngineEvent | null {
     if (["play", "pause", "seek"].includes(data.type) && typeof data.time === "number" && Number.isFinite(data.time)) return data;
     if (data.type === "watching" && typeof data.url === "string" && data.url.startsWith("https://")) return data;
     if (data.type === "video" || data.type === "failed") return data;
+    if (data.type === "title" && typeof data.title === "string" && data.title.trim()) return { type: "title", title: data.title.trim().slice(0, 120) };
+    if (data.type === "ending") return { type: "ending" };
     if (data.type === "drm") return { type: "drm", widevine: data.widevine === true, fairplay: data.fairplay === true, webkitKeys: data.webkitKeys === true, mse: ["yes", "no", "managed"].includes(data.mse) ? data.mse : "?" };
   } catch {}
   return null;

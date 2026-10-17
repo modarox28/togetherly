@@ -41,6 +41,63 @@ export interface RoomNotice {
   text: string;
 }
 
+/** Trivia al final de la película (la manda el servidor, ver server/trivia.js). */
+export interface TriviaState {
+  id: number;
+  mode: "ai" | "friends";
+  phase: "loading" | "collect" | "question" | "reveal" | "end";
+  title: string;
+  index: number;
+  total: number;
+  endsAt: number | null;
+  players: number;
+  submitted: number;
+  answered: number;
+  question: string;
+  options: string[];
+  author: string | null;
+  correct: number | null;
+  scores: { name: string; avatar: string; points: number }[];
+  you: { answered: boolean; choice: number | null; isAuthor: boolean; submitted: boolean; canStop: boolean };
+}
+
+const int = (v: unknown, max: number) => (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= max ? (v as number) : 0);
+
+function cleanTrivia(raw: unknown): TriviaState | null {
+  const d = (raw ?? {}) as Record<string, unknown>;
+  const phases = ["loading", "collect", "question", "reveal", "end"] as const;
+  if (!Number.isInteger(d.id) || !phases.includes(d.phase as TriviaState["phase"])) return null;
+  const options = Array.isArray(d.options) ? d.options.slice(0, 4).map((o) => text(o, 60, "?")) : [];
+  const you = (d.you ?? {}) as Record<string, unknown>;
+  return {
+    id: d.id as number,
+    mode: d.mode === "friends" ? "friends" : "ai",
+    phase: d.phase as TriviaState["phase"],
+    title: text(d.title, 120, ""),
+    index: int(d.index, 50),
+    total: int(d.total, 50),
+    endsAt: typeof d.endsAt === "number" ? d.endsAt : null,
+    players: int(d.players, 50),
+    submitted: int(d.submitted, 50),
+    answered: int(d.answered, 50),
+    question: text(d.question, 160, ""),
+    options,
+    author: typeof d.author === "string" ? d.author.slice(0, 24) : null,
+    correct: Number.isInteger(d.correct) && (d.correct as number) < options.length ? (d.correct as number) : null,
+    scores: (Array.isArray(d.scores) ? d.scores.slice(0, 20) : []).map((x) => {
+      const s = (x ?? {}) as Record<string, unknown>;
+      return { name: text(s.name, 24, "Invitado"), avatar: text(s.avatar, 8, "🍿"), points: int(s.points, 100000) };
+    }),
+    you: {
+      answered: you.answered === true,
+      choice: Number.isInteger(you.choice) ? (you.choice as number) : null,
+      isAuthor: you.isAuthor === true,
+      submitted: you.submitted === true,
+      canStop: you.canStop === true,
+    },
+  };
+}
+
 const text = (value: unknown, max: number, fallback: string) =>
   typeof value === "string" && value.trim() ? value.trim().slice(0, max) : fallback;
 const time = (value: unknown) =>
@@ -71,6 +128,10 @@ export function useRoom(
   const [kicked, setKicked] = useState(false);
   const [notice, setNotice] = useState<RoomNotice | null>(null);
   const [reaction, setReaction] = useState<{ id: number; emoji: string } | null>(null);
+
+  const [trivia, setTrivia] = useState<TriviaState | null>(null);
+  const [triviaOffer, setTriviaOffer] = useState<string | null>(null);
+  const [triviaError, setTriviaError] = useState<string | null>(null);
 
   const showNotice = useCallback((message: string) => setNotice({ id: Date.now(), text: message }), []);
 
@@ -144,6 +205,15 @@ export function useRoom(
         ].slice(-100)
       );
     });
+    socket.on("trivia", (data: unknown) => {
+      const state = cleanTrivia(data);
+      if (!state) return;
+      setTrivia(state);
+      setTriviaError(null);
+      if (state.phase !== "end") setTriviaOffer(null);
+    });
+    socket.on("trivia-offer", (data: { title?: unknown }) => setTriviaOffer(text(data?.title, 120, "")));
+    socket.on("trivia-error", (data: { message?: unknown }) => setTriviaError(text(data?.message, 160, "No se pudo")));
     socket.on("reaction", (data: { emoji?: unknown }) => {
       const emoji = text(data?.emoji, 8, "");
       if (emoji) setReaction({ id: Date.now(), emoji });
@@ -185,6 +255,23 @@ export function useRoom(
     sendReaction: (emoji: string) => emit("ext-reaction", { emoji }),
     setControl: (mode: "all" | "leader") => emit("set-control", { mode }),
     kicked,
+    trivia,
+    triviaOffer,
+    triviaError,
+    dismissTriviaOffer: () => setTriviaOffer(null),
+    startTrivia: () => {
+      setTriviaOffer(null);
+      emit("trivia-start");
+    },
+    answerTrivia: (id: number, index: number, choice: number) => {
+      setTrivia((t) => (t && t.id === id ? { ...t, you: { ...t.you, answered: true, choice } } : t));
+      emit("trivia-answer", { id, index, choice });
+    },
+    submitTrivia: (id: number, question: string, options: string[], answer: number) =>
+      emit("trivia-submit", { id, question: question.trim().slice(0, 160), options: options.slice(0, 4).map((o) => o.trim().slice(0, 60)), answer }),
+    controlTrivia: (action: "begin" | "stop") => emit("trivia-control", { action }),
+    sendTitle: (url: string, title: string) => emit("ext-movie-title", { url, title: title.slice(0, 120) }),
+    sendEnding: () => emit("ext-movie-ending"),
     kickMember: (memberId: string) => emit("kick-member", { memberId }),
     reportMember: (memberId: string, reason: string) => emit("report-member", { memberId, reason: reason.slice(0, 200) }),
   };

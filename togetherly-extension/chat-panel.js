@@ -6,6 +6,8 @@
 //   pide   CHAT_STATE (al cargar) · manda CHAT_SEND { text } y REACTION_SEND { emoji }
 //   recibe CHAT_MESSAGE { message, mine } · CHAT_REACTION { emoji, by } · CHAT_MEMBERS { members }
 //          EXT_STATUS { connected, roomId }
+//   trivia: manda TRIVIA_START · TRIVIA_ANSWER · TRIVIA_SUBMIT · TRIVIA_CONTROL
+//           recibe TRIVIA_STATE { state } · TRIVIA_OFFER { title } · TRIVIA_ERROR { message }
 
 (() => {
   if (window.top !== window || globalThis.__togetherlyChat) return;
@@ -94,6 +96,33 @@
 
     .float { position: fixed; bottom: 150px; font-size: 32px; pointer-events: none; animation: rise 2.6s ease-out forwards; }
     @keyframes rise { to { transform: translateY(-220px) scale(1.4); opacity: 0; } }
+    .trivia-open { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; }
+    .trivia-open:hover { background: rgba(246,239,247,.08); }
+    .trivia { margin: 10px 12px 0; padding: 12px; border-radius: 16px; background: #2A2140;
+      box-shadow: inset 0 0 0 1.5px rgba(255,201,101,.35); display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+    .trivia .top { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #C9BCD6; }
+    .trivia .top b { flex: 1; color: #FFC965; font-weight: 800; }
+    .trivia .q { font-size: 15px; font-weight: 800; line-height: 1.3; }
+    .trivia .note { font-size: 12px; color: #C9BCD6; }
+    .trivia .row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .trivia .btn { padding: 8px 14px; border-radius: 999px; background: #FFC965; color: #2A2140; font-weight: 800; font-size: 13px; }
+    .trivia .btn.soft { background: rgba(246,239,247,.1); color: #F6EFF7; }
+    .trivia .btn:disabled { opacity: .5; cursor: default; }
+    .trivia .opt { width: 100%; text-align: left; padding: 9px 12px; border-radius: 12px; background: #1E1730;
+      box-shadow: inset 0 0 0 1.5px rgba(246,239,247,.14); font-weight: 700; font-size: 13px; }
+    .trivia .opt:not(:disabled):hover { box-shadow: inset 0 0 0 1.5px #FFC965; }
+    .trivia .opt:disabled { cursor: default; }
+    .trivia .opt.chosen { box-shadow: inset 0 0 0 2px #FFC965; }
+    .trivia .opt.right { background: #6FD3A8; color: #1E1730; box-shadow: none; }
+    .trivia .opt.wrong { background: #FF9AA2; color: #1E1730; box-shadow: none; }
+    .trivia input { padding: 8px 12px; border-radius: 10px; font-size: 13px; }
+    .trivia .optin { display: flex; gap: 6px; align-items: center; }
+    .trivia .mark { width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; background: rgba(246,239,247,.1); font-weight: 800; }
+    .trivia .mark[aria-pressed="true"] { background: #6FD3A8; color: #1E1730; }
+    .trivia ol { padding-left: 4px; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .trivia li { display: flex; gap: 8px; font-size: 13px; }
+    .trivia li span:nth-child(2) { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .trivia li b { color: #FFC965; }
     [hidden] { display: none !important; }
     @media (prefers-reduced-motion: reduce) { .float { animation-duration: .01s; } }
   `;
@@ -133,7 +162,10 @@
   const close = el("button", "close");
   close.setAttribute("aria-label", "Esconder el chat");
   close.append(svg('<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>'));
-  header.append(logo, title, close);
+  const triviaOpen = el("button", "trivia-open", "🎯");
+  triviaOpen.setAttribute("aria-label", "Jugar trivia de lo que vieron");
+  triviaOpen.title = "Trivia";
+  header.append(logo, title, triviaOpen, close);
 
   const memberList = el("div", "members");
 
@@ -205,7 +237,11 @@
   sendButton.append(svg('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>'));
   form.append(input, sendButton);
 
-  panel.append(header, memberList, actions, control, messageList, reactionRow, form);
+  const triviaBox = el("div", "trivia");
+  triviaBox.hidden = true;
+  triviaBox.setAttribute("aria-live", "polite");
+
+  panel.append(header, memberList, actions, control, triviaBox, messageList, reactionRow, form);
   root.append(launcher, panel);
   shadow.append(style, root);
 
@@ -373,6 +409,186 @@
     render();
   });
 
+  // ── Trivia al final de la película (ver server/trivia.js) ───────────────
+  let trivia = null; // estado que manda el servidor
+  let offerTitle = null; // la película está por terminar: se ofrece jugar
+  let closedTriviaId = null; // la persona cerró la tabla final
+  let triviaNote = "";
+  let tick = null;
+  let draft = { question: "", options: ["", "", "", ""], answer: null };
+
+  const secondsLeft = () => (trivia?.endsAt ? Math.max(0, Math.min(99, Math.floor((trivia.endsAt - Date.now()) / 1000))) : null);
+  const button = (text, className, onClick) => {
+    const b = el("button", className, text);
+    b.type = "button";
+    b.addEventListener("click", onClick);
+    return b;
+  };
+
+  function renderTrivia() {
+    clearInterval(tick);
+    const showOffer = offerTitle !== null && (!trivia || trivia.phase === "end");
+    const showGame = !!trivia && !(trivia.phase === "end" && closedTriviaId === trivia.id);
+    triviaBox.hidden = !showOffer && !showGame;
+    if (triviaBox.hidden) return;
+    // Mientras se escribe la pregunta no se redibuja (se perdería lo escrito).
+    if (showGame && trivia.phase === "collect" && !trivia.you.submitted && triviaBox.dataset.view === `collect-${trivia.id}`) {
+      updateCountdown();
+      tick = setInterval(updateCountdown, 1000);
+      return;
+    }
+    triviaBox.dataset.view = "";
+    const top = el("div", "top");
+    const label = el("b", null, "🎯 Trivia");
+    const countdown = el("span", "countdown");
+    top.append(label, countdown);
+    const parts = [top];
+
+    if (showOffer && !showGame) {
+      parts.push(el("p", "q", offerTitle ? `¿Jugamos una trivia de «${offerTitle}»?` : "¿Jugamos una trivia?"));
+      parts.push(el("div", "row"));
+      parts[2].append(
+        button("Jugar", "btn", () => startTrivia()),
+        button("Ahora no", "btn soft", () => {
+          offerTitle = null;
+          renderTrivia();
+        })
+      );
+    } else if (trivia.phase === "loading") {
+      parts.push(el("p", "q", `Preparando preguntas de «${trivia.title}»…`));
+    } else if (trivia.phase === "collect") {
+      label.textContent = "🎯 Trivia entre amigos";
+      if (trivia.you.submitted) {
+        parts.push(el("p", "q", "¡Listo! Esperando las preguntas de los demás…"));
+      } else {
+        triviaBox.dataset.view = `collect-${trivia.id}`;
+        parts.push(el("p", "note", "Escribe una pregunta sobre lo que vieron y marca con ✓ la respuesta correcta."));
+        parts.push(...collectForm());
+      }
+      parts.push(el("p", "note", `${trivia.submitted} de ${trivia.players} ya escribieron`));
+      if (trivia.you.canStop && trivia.submitted > 0) parts.push(button("Empezar ya", "btn soft", () => send({ type: "TRIVIA_CONTROL", action: "begin" })));
+    } else if (trivia.phase === "question" || trivia.phase === "reveal") {
+      label.textContent = `🎯 Pregunta ${trivia.index + 1} de ${trivia.total}`;
+      if (trivia.author) parts.push(el("p", "note", `Pregunta de ${trivia.you.isAuthor ? "ti" : trivia.author}`));
+      parts.push(el("p", "q", trivia.question));
+      trivia.options.forEach((option, i) => {
+        const b = button(option, "opt", () => {
+          send({ type: "TRIVIA_ANSWER", id: trivia.id, index: trivia.index, choice: i });
+          trivia.you = { ...trivia.you, answered: true, choice: i };
+          renderTrivia();
+        });
+        b.disabled = trivia.phase === "reveal" || trivia.you.answered || trivia.you.isAuthor;
+        if (trivia.you.choice === i) b.classList.add("chosen");
+        if (trivia.phase === "reveal" && trivia.correct === i) b.classList.add("right");
+        else if (trivia.phase === "reveal" && trivia.you.choice === i) b.classList.add("wrong");
+        parts.push(b);
+      });
+      if (trivia.phase === "reveal") {
+        const hit = trivia.you.choice !== null && trivia.you.choice === trivia.correct;
+        parts.push(el("p", "note", trivia.you.isAuthor ? "Así les fue con tu pregunta" : hit ? "¡Correcto! 🎉" : trivia.you.answered ? "Esta no fue 😅" : "Se acabó el tiempo"));
+      } else if (trivia.you.isAuthor) {
+        parts.push(el("p", "note", "Es tu pregunta: mira cómo les va"));
+      } else {
+        parts.push(el("p", "note", `${trivia.answered} de ${trivia.players} respondieron`));
+      }
+    } else if (trivia.phase === "end") {
+      label.textContent = "🏆 Resultados";
+      if (trivia.total === 0) parts.push(el("p", "note", "Nadie escribió preguntas esta vez."));
+      const list = el("ol");
+      trivia.scores.slice(0, 8).forEach((score, i) => {
+        const item = el("li");
+        item.append(el("span", null, ["🥇", "🥈", "🥉"][i] ?? `${i + 1}.`), el("span", null, `${score.avatar} ${score.name}`), el("b", null, String(score.points)));
+        list.append(item);
+      });
+      parts.push(list);
+      const row = el("div", "row");
+      row.append(
+        button("Cerrar", "btn soft", () => {
+          closedTriviaId = trivia.id;
+          renderTrivia();
+        })
+      );
+      parts.push(row);
+    }
+    if (showGame && trivia.you.canStop && !["end", "collect"].includes(trivia.phase)) {
+      top.append(button("Terminar", "btn soft", () => send({ type: "TRIVIA_CONTROL", action: "stop" })));
+    }
+    if (triviaNote) parts.push(el("p", "note", triviaNote));
+    triviaBox.replaceChildren(...parts);
+    updateCountdown();
+    tick = setInterval(updateCountdown, 1000);
+  }
+
+  function updateCountdown() {
+    const node = triviaBox.querySelector(".countdown");
+    const left = secondsLeft();
+    if (node) node.textContent = left !== null && trivia && ["question", "collect"].includes(trivia.phase) ? `${left} s` : "";
+  }
+
+  function collectForm() {
+    const question = el("input");
+    question.placeholder = "Tu pregunta";
+    question.maxLength = 160;
+    question.value = draft.question;
+    question.addEventListener("input", () => (draft.question = question.value));
+    const rows = draft.options.map((value, i) => {
+      const row = el("div", "optin");
+      const input = el("input");
+      input.placeholder = i < 2 ? `Opción ${i + 1}` : `Opción ${i + 1} (opcional)`;
+      input.maxLength = 60;
+      input.value = value;
+      input.addEventListener("input", () => (draft.options[i] = input.value));
+      const mark = el("button", "mark", "✓");
+      mark.type = "button";
+      mark.setAttribute("aria-label", `Marcar la opción ${i + 1} como correcta`);
+      mark.setAttribute("aria-pressed", String(draft.answer === i));
+      mark.addEventListener("click", () => {
+        draft.answer = i;
+        for (const m of triviaBox.querySelectorAll(".mark")) m.setAttribute("aria-pressed", String(m === mark));
+      });
+      row.append(input, mark);
+      return row;
+    });
+    const submit = button("Enviar pregunta", "btn", () => {
+      // Se quitan las opciones vacías y se ajusta el índice de la correcta.
+      const filled = draft.options.map((text, i) => ({ text: text.trim(), i })).filter((o) => o.text);
+      const answer = filled.findIndex((o) => o.i === draft.answer);
+      if (draft.question.trim().length < 3 || filled.length < 2 || answer === -1) {
+        triviaNote = "Escribe la pregunta, al menos 2 opciones y marca la correcta con ✓";
+        triviaBox.dataset.view = "";
+        return renderTrivia();
+      }
+      triviaNote = "";
+      send({ type: "TRIVIA_SUBMIT", id: trivia.id, question: draft.question.trim(), options: filled.map((o) => o.text), answer });
+    });
+    return [question, ...rows, submit];
+  }
+
+  function startTrivia() {
+    offerTitle = null;
+    triviaNote = "";
+    if (!isOpen) setOpen(true);
+    send({ type: "TRIVIA_START" });
+  }
+  triviaOpen.addEventListener("click", () => {
+    if (trivia && trivia.phase !== "end") {
+      closedTriviaId = null;
+      return renderTrivia();
+    }
+    startTrivia();
+  });
+
+  function applyTrivia(state) {
+    if (!state) return;
+    if (trivia?.id !== state.id) {
+      draft = { question: "", options: ["", "", "", ""], answer: null };
+      triviaNote = "";
+    }
+    trivia = state;
+    if (state.phase !== "end") offerTitle = null;
+    renderTrivia();
+  }
+
   function loadState(state) {
     roomId = state?.connected ? state.roomId : null;
     members = Array.isArray(state?.members) ? state.members : [];
@@ -380,6 +596,7 @@
     for (const message of state?.messages ?? []) addMessage(message, message.mine);
     applySettings(state?.roomSettings ? { ...state.roomSettings, isLeader: state.isLeader } : null);
     renderMembers();
+    if (state?.trivia) applyTrivia(state.trivia);
   }
 
   chrome.runtime.onMessage.addListener((message) => {
@@ -395,6 +612,23 @@
     } else if (message.type === "CHAT_MEMBERS" && Array.isArray(message.members)) {
       members = message.members;
       renderMembers();
+    } else if (message.type === "TRIVIA_STATE" && message.state) {
+      const isNew = trivia?.id !== message.state.id;
+      applyTrivia(message.state);
+      // Una trivia nueva abre el chat (una sola vez): si lo cierran, no se vuelve a abrir solo.
+      if (isNew && !isOpen && message.state.phase !== "end") setOpen(true);
+    } else if (message.type === "TRIVIA_OFFER") {
+      offerTitle = typeof message.title === "string" ? message.title : "";
+      if (!isOpen) {
+        unread += 1;
+        render();
+      }
+      renderTrivia();
+    } else if (message.type === "TRIVIA_ERROR" && typeof message.message === "string") {
+      triviaNote = message.message;
+      triviaBox.dataset.view = "";
+      if (!trivia) offerTitle = offerTitle ?? "";
+      renderTrivia();
     } else if (message.type === "EXT_STATUS") {
       // Al conectarse (o reconectarse) se pide el estado completo del chat.
       if (message.connected) send({ type: "CHAT_STATE" }, loadState);

@@ -120,6 +120,7 @@ GitHub Actions corre TypeScript, lint, `npm audit`, la compilación, estas prueb
 | `CLOUDFLARE_TURN_KEY_ID`, `CLOUDFLARE_TURN_API_TOKEN` | Vercel | Videollamada en redes difíciles (opcional, ver abajo) |
 | `TURN_URLS`, `TURN_USERNAME`, `TURN_CREDENTIAL` | Vercel | Alternativa a Cloudflare con otro proveedor TURN (opcional) |
 | `ROOM_PASS_SECRET` | Vercel **y** Render (mismo valor) | Pases Premium; sin ella no hay límite por plan |
+| `CF_ACCOUNT_ID`, `CF_AI_TOKEN` | Render | Trivia con IA (Workers AI de Cloudflare, plan gratis). Sin ellas, la trivia es entre amigos |
 | `ALLOWED_ORIGINS` | Render (ya viene en `render.yaml`) | Dominios que pueden conectarse. Render pone el puerto en `PORT` |
 
 Ninguna clave va en el código ni en GitHub: solo en `.env.local` (tu computador) o en los paneles de Vercel y Render.

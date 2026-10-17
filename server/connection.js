@@ -24,8 +24,9 @@ const RATE_LIMIT = { windowMs: 10_000, maxEvents: 150 };
  * @param {import("socket.io").Server} io
  * @param {import("socket.io").Socket} socket
  * @param {{ passSecret: string|null, freeLimit: number }} plans
+ * @param {ReturnType<typeof import("./trivia").createTrivia>} [trivia]
  */
-function handleConnection(io, socket, plans) {
+function handleConnection(io, socket, plans, trivia) {
   let currentRoomId = null;
   let currentUsername = null;
   let currentKey = null; // clave privada de este dispositivo (ver cleanClientKey)
@@ -111,6 +112,7 @@ function handleConnection(io, socket, plans) {
     socket.emit("ext-state", stateForExtension(roomId));
     const { nowWatching } = rooms.get(roomId);
     if (nowWatching) socket.emit("now-watching", nowWatching);
+    trivia?.sendState(roomId);
   });
 
   // La extensión avisa qué página de streaming tiene abierta quien está en la sala.
@@ -126,6 +128,51 @@ function handleConnection(io, socket, plans) {
     if (room.nowWatching) room.videoState = { playing: false, currentTime: 0, updatedAt: Date.now(), known: false };
     room.nowWatching = { ...clean, by: currentUsername || "Alguien" };
     io.to(data.roomId).emit("now-watching", room.nowWatching);
+  });
+
+  // Título de lo que se está viendo (lo lee la extensión o la app del reproductor). Sirve para la trivia.
+  // Solo cuenta si viene de alguien que está en la película de la sala.
+  let lastTitleAt = 0;
+  socket.on("ext-movie-title", (data) => {
+    if (!isInRoom(data?.roomId) || Date.now() - lastTitleAt < 3000) return;
+    const room = rooms.get(data.roomId);
+    const title = cleanText(data.title, 120).replace(/[\u0000-\u001f\u007f]/g, " ");
+    if (!room?.nowWatching || !title || room.nowWatching.title === title) return;
+    const clean = cleanStreamingUrl(data.url);
+    if (!clean || clean.url !== room.nowWatching.url) return;
+    lastTitleAt = Date.now();
+    room.nowWatching = { ...room.nowWatching, title };
+    io.to(data.roomId).emit("movie-title", { title });
+  });
+
+  // La película está por terminar (faltan menos de 2 minutos): se ofrece la trivia una sola vez.
+  socket.on("ext-movie-ending", (data) => {
+    if (!isInRoom(data?.roomId)) return;
+    const room = rooms.get(data.roomId);
+    if (!room?.nowWatching || room.triviaOfferedFor === room.nowWatching.url || trivia?.hasGame(data.roomId)) return;
+    room.triviaOfferedFor = room.nowWatching.url;
+    io.to(data.roomId).emit("trivia-offer", { title: room.nowWatching.title ?? "" });
+  });
+
+  // ── Trivia (ver server/trivia.js) ────────────────────────────────────────
+  socket.on("trivia-start", async (data) => {
+    if (!trivia || !isInRoom(data?.roomId)) return;
+    const error = await trivia.start(data.roomId, socket.id, { title: data.title, friends: data.friends === true });
+    if (error) socket.emit("trivia-error", { message: error });
+    else trivia.sendState(data.roomId);
+  });
+  socket.on("trivia-answer", (data) => {
+    if (trivia && isInRoom(data?.roomId)) trivia.answer(data.roomId, socket.id, data);
+  });
+  socket.on("trivia-submit", (data) => {
+    if (!trivia || !isInRoom(data?.roomId)) return;
+    const error = trivia.submit(data.roomId, socket.id, data);
+    if (error) socket.emit("trivia-error", { message: error });
+  });
+  socket.on("trivia-control", (data) => {
+    if (trivia && isInRoom(data?.roomId) && (data.action === "begin" || data.action === "stop")) {
+      trivia.control(data.roomId, socket.id, data.action);
+    }
   });
 
   socket.on("ext-state-request", (data) => {
@@ -191,6 +238,7 @@ function handleConnection(io, socket, plans) {
     });
     socket.to(roomId).emit("participant-joined", { participant });
     announceMembers(roomId);
+    trivia?.sendState(roomId);
   });
 
   socket.on("video-url-change", (data) => {
@@ -356,6 +404,7 @@ function handleConnection(io, socket, plans) {
     // así, si alguien cierra la web, los demás siguen sincronizados en Netflix.
     const remaining = io.sockets.adapter.rooms.get(currentRoomId)?.size ?? 0;
     if (remaining === 0) {
+      trivia?.clear(currentRoomId);
       rooms.delete(currentRoomId);
       return;
     }

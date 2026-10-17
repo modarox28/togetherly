@@ -36,12 +36,18 @@ async function openMoviePage(browser, platform) {
   const context = await browser.newContext({ viewport: { width: 1000, height: 600 } });
   await context.route(`${new URL(PLATFORM_URLS[platform]).origin}/**`, (route) => {
     if (new URL(route.request().url()).pathname.startsWith("/video/")) return serveVideo(route);
-    return route.fulfill({ status: 200, contentType: "text/html", body: FAKE_PAGES[platform] });
+    return route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: FAKE_PAGES[platform] });
   });
   // Lo que la app recibiría por ReactNativeWebView.postMessage
   await context.addInitScript(() => {
     window.__posted = [];
-    window.ReactNativeWebView = { postMessage: (text) => window.__posted.push(JSON.parse(text)) };
+    window.ReactNativeWebView = {
+      postMessage: (text) => {
+        const m = JSON.parse(text);
+        if (m.type === "title") window.__titles = m.title;
+        window.__posted.push(m);
+      },
+    };
   });
   const page = await context.newPage();
   await page.goto(PLATFORM_URLS[platform]);
@@ -74,7 +80,7 @@ function relay(from, to) {
 
 test.beforeAll(ensureVideo);
 
-for (const platform of ["netflix", "disney"]) {
+for (const platform of ["netflix", "disney", "appletv"]) {
   test(`app móvil · ${platform}: play, pausa y saltos se sincronizan y avisa qué película es`, async () => {
     const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
     try {
@@ -100,6 +106,12 @@ for (const platform of ["netflix", "disney"]) {
       expect((await state(a)).time).toBeGreaterThan(298); // sin rebotes
 
       if (platform === "netflix") expect((await state(b)).m7375).toBe(false);
+      if (platform === "appletv") {
+        // Usó MusicKit para saltar, ignoró el video de fondo y avisó el título (para la trivia).
+        expect(await b.evaluate(() => window.__mkSeeks ?? 0)).toBeGreaterThan(0);
+        expect(await b.evaluate(() => document.querySelector("amp-background-video").shadowRoot.getElementById("bg").currentTime)).toBeLessThan(200);
+        await poll(() => a.evaluate(() => window.__titles ?? null)).toBe("Separación");
+      }
       stops.forEach((stop) => stop());
     } finally {
       await browser.close();
