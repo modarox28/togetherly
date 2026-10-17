@@ -323,8 +323,10 @@
   });
 
   // En pantalla completa solo se ve lo que está dentro del elemento en pantalla completa.
+  // El panel va en <html>, no en <body>: el body encogido tiene transform y un "fixed" dentro de
+  // él quedaría pegado al borde del body (encima de la película) y no al de la ventana.
   function placeHost() {
-    const parent = document.fullscreenElement ?? document.body;
+    const parent = document.fullscreenElement ?? document.documentElement;
     if (parent && host.parentNode !== parent) parent.appendChild(host);
   }
   document.addEventListener("fullscreenchange", () => {

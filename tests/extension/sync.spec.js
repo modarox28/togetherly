@@ -407,6 +407,24 @@ test("el chat abierto no tapa la película: la página se encoge, y si no se pue
     const disney = await openPlatform(ana, "disney");
     await expect.poll(() => videoRight(disney), { timeout: 8000 }).toBeLessThanOrEqual(1280 - 320 + 1);
     expect(await chatOpenClass(disney)).toBe(true);
+    // Y el panel queda en el espacio libre de la derecha, sin tapar la película.
+    const panelLeft = await disney.evaluate(() => document.getElementById("togetherly-chat").getBoundingClientRect().left);
+    const cdp = await disney.context().newCDPSession(disney);
+    const { root } = await cdp.send("DOM.getDocument", { depth: -1, pierce: true });
+    let panelBox = null;
+    const walk = async (node) => {
+      if (panelBox) return;
+      if (node.attributes?.includes("class") && node.attributes[node.attributes.indexOf("class") + 1] === "panel") {
+        panelBox = (await cdp.send("DOM.getBoxModel", { nodeId: node.nodeId })).model.border;
+        return;
+      }
+      for (const child of [...(node.children ?? []), ...(node.shadowRoots ?? [])]) await walk(child);
+    };
+    await walk(root);
+    expect(panelLeft).toBeGreaterThanOrEqual(0);
+    expect(panelBox).not.toBeNull();
+    expect(panelBox[0]).toBeGreaterThanOrEqual(1280 - 320 - 1); // borde izquierdo del panel
+    expect(panelBox[0]).toBeGreaterThanOrEqual(await videoRight(disney) - 1);
 
     // Un reproductor que no se deja encoger (ancho fijo de pantalla): se quita el arreglo y el chat queda encima.
     const netflix = await openPlatform(ana, "netflix");
