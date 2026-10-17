@@ -143,14 +143,16 @@ function ensureLeader(roomId) {
 function listPublicRooms(limit = 100) {
   const list = [];
   for (const [id, room] of rooms.entries()) {
-    if (!room.isPublic || room.participants.size === 0) continue;
+    // Cuenta a todos: web, extensión y app del celular (una vez por dispositivo).
+    const members = membersOf(id);
+    if (!room.isPublic || members.length === 0) continue;
     list.push({
       id,
       name: room.name || id,
-      participants: room.participants.size,
-      host: room.host ? room.participants.get(room.host)?.name : null,
-      videoUrl: room.videoUrl,
-      platform: room.platform || "youtube",
+      participants: members.length,
+      host: members.find((m) => m.leader)?.name ?? (room.host ? room.participants.get(room.host)?.name : null) ?? null,
+      videoUrl: room.videoUrl ?? room.nowWatching?.url ?? null,
+      platform: room.nowWatching?.platform ?? room.platform ?? "youtube",
       createdAt: room.createdAt,
     });
   }

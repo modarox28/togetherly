@@ -98,7 +98,8 @@ function join(roomId, name, button, openWatching = false) {
   const label = button.textContent;
   button.disabled = true;
   button.textContent = "Conectando…";
-  chrome.runtime.sendMessage({ type: "JOIN_ROOM", roomId, username: name, avatar: "🍿", openWatching }, (reply) => {
+  // Unirse a la sala de otro (openWatching) exige que exista; crear una nueva no.
+  chrome.runtime.sendMessage({ type: "JOIN_ROOM", roomId, username: name, avatar: "🍿", openWatching, mustExist: openWatching }, (reply) => {
     button.disabled = false;
     button.textContent = label;
     if (reply?.ok) {

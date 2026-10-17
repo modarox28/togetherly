@@ -84,6 +84,11 @@ function handleConnection(io, socket, plans) {
     isExtension = true;
     socket.join(roomId);
     const room = newRoom(roomId); // guarda el estado aunque nadie tenga la web abierta
+    // Quien crea la sala desde la app puede hacerla pública (aparece en "Salas públicas").
+    if (room.participants.size === 0 && room.extMembers.size === 0 && data.isPublic === true) {
+      room.isPublic = true;
+      room.name = cleanText(data.roomName, 40) || roomId;
+    }
     rememberKey(room, data);
     room.extMembers.set(socket.id, {
       id: socket.id,
