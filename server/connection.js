@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- servidor Node en CommonJS */
 // Eventos de cada conexión (una persona en la web o una extensión).
 // Regla de seguridad: solo quien está dentro de una sala puede mandarle eventos.
-const { isRoomId, cleanText, cleanTime, isHttpUrl, isPlatform } = require("./validation");
+const { isRoomId, cleanText, cleanTime, isHttpUrl, isPlatform, cleanClientKey } = require("./validation");
 const { verifyRoomPass } = require("./room-pass");
 const { cleanStreamingUrl } = require("./streaming");
 const {
@@ -27,6 +27,7 @@ const RATE_LIMIT = { windowMs: 10_000, maxEvents: 150 };
 function handleConnection(io, socket, plans) {
   let currentRoomId = null;
   let currentUsername = null;
+  let currentKey = null; // clave privada de este dispositivo (ver cleanClientKey)
   let isExtension = false;
 
   // Límite de eventos por conexión: evita que un cliente sature la sala.
@@ -46,7 +47,19 @@ function handleConnection(io, socket, plans) {
   const announceMembers = (roomId) => {
     ensureLeader(roomId);
     io.to(roomId).emit("members", { members: membersOf(roomId) });
-    io.to(roomId).emit("room-settings", settingsOf(roomId));
+    announceSettings(roomId);
+  };
+  /** Cada uno recibe los ajustes con "youLead" propio (sin revelar la clave de nadie). */
+  const announceSettings = (roomId) => {
+    const room = rooms.get(roomId);
+    for (const id of io.sockets.adapter.rooms.get(roomId) ?? []) {
+      io.to(id).emit("room-settings", settingsOf(roomId, room?.memberKeys.get(id) ?? `s:${id}`));
+    }
+  };
+  /** Guarda la clave del dispositivo; si no mandó una válida (versión vieja), usa una de esta conexión. */
+  const rememberKey = (room, data) => {
+    currentKey = cleanClientKey(data?.clientKey) ?? `s:${socket.id}`;
+    room.memberKeys.set(socket.id, currentKey);
   };
 
   const isInRoom = (roomId) => isRoomId(roomId) && socket.rooms.has(roomId);
@@ -63,6 +76,7 @@ function handleConnection(io, socket, plans) {
     if (!isRoomId(roomId) || !canOpenRoom(roomId)) return;
     if (currentRoomId && currentRoomId !== roomId) {
       socket.leave(currentRoomId);
+      rooms.get(currentRoomId)?.memberKeys.delete(socket.id);
       if (rooms.get(currentRoomId)?.extMembers.delete(socket.id)) announceMembers(currentRoomId);
     }
     currentRoomId = roomId;
@@ -70,6 +84,7 @@ function handleConnection(io, socket, plans) {
     isExtension = true;
     socket.join(roomId);
     const room = newRoom(roomId); // guarda el estado aunque nadie tenga la web abierta
+    rememberKey(room, data);
     room.extMembers.set(socket.id, {
       id: socket.id,
       name: currentUsername,
@@ -135,6 +150,7 @@ function handleConnection(io, socket, plans) {
       color: colorForIndex(room.participants.size),
       avatar: cleanText(data.avatar, 8) || "🍿",
     };
+    rememberKey(room, data);
     room.participants.set(socket.id, participant);
     if (!room.host) room.host = socket.id;
 
@@ -167,7 +183,7 @@ function handleConnection(io, socket, plans) {
   // playing: true (play), false (pausa) o null (salto: no cambia si está reproduciendo)
   /** ¿Puede esta persona mover la reproducción? (todos, o solo quien lidera) */
   const canControl = (room) =>
-    room.controlMode !== "leader" || (!!currentUsername && currentUsername.toLowerCase() === room.leader);
+    room.controlMode !== "leader" || (!!currentKey && currentKey === room.leader);
 
   function onVideoEvent(eventName, playing) {
     socket.on(eventName, (data) => {
@@ -202,9 +218,9 @@ function handleConnection(io, socket, plans) {
   socket.on("set-control", (data) => {
     if (!isInRoom(data?.roomId) || !["all", "leader"].includes(data.mode)) return;
     const room = rooms.get(data.roomId);
-    if (!room || !currentUsername || currentUsername.toLowerCase() !== room.leader) return;
+    if (!room || !currentKey || currentKey !== room.leader) return;
     room.controlMode = data.mode;
-    io.to(data.roomId).emit("room-settings", settingsOf(data.roomId));
+    announceSettings(data.roomId);
   });
 
   // ── Chat y reacciones ────────────────────────────────────────────────────
@@ -288,6 +304,7 @@ function handleConnection(io, socket, plans) {
       rooms.delete(currentRoomId);
       return;
     }
+    room.memberKeys.delete(socket.id);
     if (isExtension) {
       // La extensión no sale como "participante" en el chat, pero sí en la lista de quiénes están.
       room.extMembers.delete(socket.id);

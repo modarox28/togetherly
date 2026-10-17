@@ -1,0 +1,3 @@
+# Falsos positivos revisados a mano: claves de prueba inventadas en una prueba e2e (no son secretos).
+cecb28a6e38cadb95851b3cdf3da66a7086dc7d7:tests/extension/sync.spec.js:generic-api-key:520
+cecb28a6e38cadb95851b3cdf3da66a7086dc7d7:tests/extension/sync.spec.js:generic-api-key:522

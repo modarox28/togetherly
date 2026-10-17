@@ -504,3 +504,42 @@ test("el servidor solo acepta direcciones de plataformas soportadas", async () =
     ext.close();
   }
 });
+
+test("líder: alguien con el mismo nombre no puede cambiar los permisos ni controlar", async () => {
+  const { io } = require("socket.io-client");
+  const roomId = `MISMO${Date.now() % 100000}`;
+  const connect = () => io(SERVER_URL, { transports: ["websocket"], forceNew: true });
+  const lider = connect();
+  const impostor = connect();
+  const settings = { lider: [], impostor: [] };
+  lider.on("room-settings", (s) => settings.lider.push(s));
+  impostor.on("room-settings", (s) => settings.impostor.push(s));
+  const denied = [];
+  impostor.on("control-denied", (d) => denied.push(d));
+  // Claves de prueba armadas al vuelo (no son secretos reales).
+  const keyAna = "ana".repeat(8);
+  const keyOtra = "otra".repeat(6);
+  try {
+    lider.emit("ext-connect", { roomId, username: "Ana", avatar: "🍿", clientKey: keyAna });
+    await expect.poll(() => settings.lider.at(-1)?.youLead).toBe(true);
+    impostor.emit("ext-connect", { roomId, username: "Ana", avatar: "🍿", clientKey: keyOtra });
+    await expect.poll(() => settings.impostor.at(-1)?.youLead).toBe(false);
+
+    // El impostor intenta ponerse como único que controla: no pasa nada.
+    impostor.emit("set-control", { roomId, mode: "leader" });
+    await new Promise((r) => setTimeout(r, 500));
+    expect(settings.lider.at(-1).controlMode).toBe("all");
+
+    // La líder sí puede, y entonces el impostor no controla aunque se llame igual.
+    lider.emit("set-control", { roomId, mode: "leader" });
+    await expect.poll(() => settings.impostor.at(-1)?.controlMode).toBe("leader");
+    impostor.emit("video-pause", { roomId, currentTime: 10 });
+    await expect.poll(() => denied.length).toBeGreaterThan(0);
+
+    // Y la clave nunca se reparte: no aparece en lo que reciben los demás.
+    expect(JSON.stringify(settings.impostor)).not.toContain(keyAna);
+  } finally {
+    lider.close();
+    impostor.close();
+  }
+});

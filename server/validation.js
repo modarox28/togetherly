@@ -22,4 +22,10 @@ const isHttpUrl = (value) => typeof value === "string" && value.length <= 2048 &
 
 const isPlatform = (value) => PLATFORMS.has(value);
 
-module.exports = { isRoomId, cleanText, cleanTime, isHttpUrl, isPlatform };
+/**
+ * Clave privada de cada dispositivo (la genera la web, la extensión o la app y nunca se
+ * reparte a los demás). Identifica a quién lidera la sala sin depender del nombre.
+ */
+const cleanClientKey = (value) => (typeof value === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(value) ? value : null);
+
+module.exports = { isRoomId, cleanText, cleanTime, isHttpUrl, isPlatform, cleanClientKey };

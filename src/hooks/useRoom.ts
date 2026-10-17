@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getSocket } from "@/lib/socket";
 import { parseNowWatching, type NowWatching } from "@/lib/streaming";
+import { getClientKey } from "@/lib/clientKey";
 
 export interface Participant {
   id: string;
@@ -220,7 +221,7 @@ export function useRoom(): [RoomState, RoomActions] {
 
   const actions: RoomActions = {
     joinRoom: useCallback((roomId, username, avatar, isPublic = false, roomName = "", pass = null) => {
-      getSocket().emit("join-room", { roomId, username, avatar, isPublic, roomName, pass });
+      getSocket().emit("join-room", { roomId, username, avatar, isPublic, roomName, pass, clientKey: getClientKey() });
     }, []),
     changeVideoUrl: useCallback((roomId, url) => {
       getSocket().emit("video-url-change", { roomId, url });
