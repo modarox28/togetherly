@@ -21,6 +21,23 @@ quien usa la extensión en el computador.
 
 Si el Wi-Fi no deja conectar, usa `npx expo start --tunnel`.
 
+## Compartirla con un amigo (sin que se cree cuenta)
+
+Se publica la app en Expo (EAS Update, gratis). Tu amigo solo instala **Expo Go** y abre el enlace:
+no necesita cuenta ni que tu computador esté prendido.
+
+Una sola vez (en `mobile`, con tu sesión de Expo iniciada):
+```
+npx eas-cli init
+npx eas-cli update:configure
+```
+Cada vez que quieras publicar la versión actual:
+```
+npm run publicar
+```
+Luego en expo.dev → tu proyecto → **Updates** → la última → **Preview**: ese QR o enlace es el que
+mandas. `runtimeVersion` usa la política `sdkVersion` para que Expo Go pueda abrirla.
+
 ## Archivos
 
 | Archivo | Qué hace |
