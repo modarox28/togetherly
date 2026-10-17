@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, type ComponentType, type Ref } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, type ComponentType, type Ref } from "react";
 import { Platform, View } from "react-native";
 import WebView, { type WebViewMessageEvent, type WebViewProps } from "react-native-webview";
 import type { PlayerOrder } from "@/hooks/useRoom";
@@ -21,7 +21,8 @@ export type EngineEvent =
   | { type: "watching"; url: string }
   | { type: "video"; found: boolean }
   | { type: "failed"; action: string }
-  | { type: "drm"; widevine: boolean; fairplay: boolean; webkitKeys: boolean };
+  | { type: "drm"; widevine: boolean; fairplay: boolean; webkitKeys: boolean }
+  | { type: "crashed"; retrying: boolean };
 
 interface Props {
   url: string;
@@ -36,8 +37,8 @@ const DESKTOP_USER_AGENT =
     : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
 // iPad: sin cambios (así Netflix ya reproduce) · iPhone: se presenta como iPad · Android: como computador.
-const PROFILE = Platform.OS === "android" ? "desktop" : Platform.OS === "ios" && Platform.isPad ? "none" : "ipad";
-const DISGUISE_JS = disguise(PROFILE);
+const PROFILE: Profile = Platform.OS === "android" ? "desktop" : Platform.OS === "ios" && Platform.isPad ? "none" : "ipad";
+type Profile = "none" | "ipad" | "desktop";
 
 function parseEvent(raw: string): EngineEvent | null {
   try {
@@ -53,6 +54,17 @@ function parseEvent(raw: string): EngineEvent | null {
 
 export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(function StreamingWebView({ url, onEvent }, ref) {
   const webViewRef = useRef<WebView>(null);
+  // Si el navegador interno se cierra (pasó en una tablet Samsung con Netflix), se vuelve a
+  // abrir una vez sin disfraz, en vez de cerrar toda la app.
+  const [profile, setProfile] = useState<Profile>(PROFILE);
+  const [attempt, setAttempt] = useState(0);
+  const onCrash = () => {
+    const retrying = attempt < 2;
+    onEvent({ type: "crashed", retrying });
+    if (!retrying) return;
+    setProfile("none");
+    setAttempt((n) => n + 1);
+  };
 
   useImperativeHandle(ref, () => ({
     // La orden viaja como JSON: nunca se arma código con texto que llega de la sala.
@@ -73,11 +85,14 @@ export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(functi
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
       <Browser
+        key={`${profile}-${attempt}`}
         ref={webViewRef}
         source={{ uri: url }}
         style={{ flex: 1, backgroundColor: "#000" }}
         userAgent={DESKTOP_USER_AGENT}
-        injectedJavaScriptBeforeContentLoaded={DISGUISE_JS}
+        injectedJavaScriptBeforeContentLoaded={disguise(profile)}
+        onRenderProcessGone={onCrash}
+        onContentProcessDidTerminate={onCrash}
         injectedJavaScript={ENGINE_JS}
         onMessage={handleMessage}
         // Video con DRM (Netflix, Disney+…): en Android hay que permitirlo explícitamente.
