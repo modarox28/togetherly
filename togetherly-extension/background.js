@@ -137,6 +137,7 @@ let username = null;
 let avatar = null;
 /** Lo último que alguien de la sala abrió: { url, platform, by } */
 let nowWatching = null;
+let triviaState = null; // última trivia de la sala (para el panel que se abre después)
 /** Lo que tengo abierto yo (se vuelve a contar si se cae y vuelve la conexión) */
 let myWatchingUrl = null;
 /** Al unirse desde el popup, abrir la película de la sala en cuanto se sepa cuál es */
@@ -298,6 +299,18 @@ async function connect() {
     sendToStreamingTabs({ type: "CONTROL_DENIED", leader: cleanText(data?.leader, 24, "quien lidera la sala") });
   });
 
+  // Trivia al final de la película → panel de chat (ver server/trivia.js)
+  client.on("trivia", (data) => {
+    triviaState = cleanTrivia(data);
+    if (triviaState) sendToStreamingTabs({ type: "TRIVIA_STATE", state: triviaState });
+  });
+  client.on("trivia-offer", (data) => {
+    sendToStreamingTabs({ type: "TRIVIA_OFFER", title: cleanText(data?.title, 120, "") });
+  });
+  client.on("trivia-error", (data) => {
+    sendToStreamingTabs({ type: "TRIVIA_ERROR", message: cleanText(data?.message, 160, "No se pudo") });
+  });
+
   // En qué va la sala (al entrar tarde o al pedirlo)
   client.on("ext-state", (state) => {
     if (state?.known) {
@@ -355,7 +368,45 @@ function cleanChatMessage(data) {
   };
 }
 
+/** Estado de la trivia con solo los campos esperados (el panel lo muestra con textContent). */
+function cleanTrivia(data) {
+  if (!data || !Number.isInteger(data.id)) return null;
+  const phases = ["loading", "collect", "question", "reveal", "end"];
+  if (!phases.includes(data.phase)) return null;
+  const int = (v, max) => (Number.isInteger(v) && v >= 0 && v <= max ? v : 0);
+  const options = Array.isArray(data.options) ? data.options.slice(0, 4).map((o) => cleanText(o, 60, "?")) : [];
+  return {
+    id: data.id,
+    mode: data.mode === "friends" ? "friends" : "ai",
+    phase: data.phase,
+    title: cleanText(data.title, 120, ""),
+    index: int(data.index, 50),
+    total: int(data.total, 50),
+    endsAt: typeof data.endsAt === "number" ? data.endsAt : null,
+    players: int(data.players, 50),
+    submitted: int(data.submitted, 50),
+    answered: int(data.answered, 50),
+    question: cleanText(data.question, 160, ""),
+    options,
+    author: cleanText(data.author, 24, null),
+    correct: Number.isInteger(data.correct) && data.correct < options.length ? data.correct : null,
+    scores: (Array.isArray(data.scores) ? data.scores.slice(0, 20) : []).map((x) => ({
+      name: cleanText(x?.name, 24, "Invitado"),
+      avatar: cleanText(x?.avatar, 8, "🍿"),
+      points: int(x?.points, 100000),
+    })),
+    you: {
+      answered: data.you?.answered === true,
+      choice: Number.isInteger(data.you?.choice) ? data.you.choice : null,
+      isAuthor: data.you?.isAuthor === true,
+      submitted: data.you?.submitted === true,
+      canStop: data.you?.canStop === true,
+    },
+  };
+}
+
 function clearChat() {
+  triviaState = null;
   chatMessages = [];
   members = [];
   roomSettings = { controlMode: "all", leader: null, youLead: false };
@@ -441,7 +492,39 @@ async function handleMessage(message, sender) {
         myName: username,
         roomSettings,
         isLeader: isLeader(),
+        trivia: triviaState,
       };
+    case "MOVIE_TITLE": {
+      const url = cleanStreamingUrl(message.url);
+      const title = cleanText(message.title, 120, null);
+      if (roomId && url && title) socket?.emit("ext-movie-title", { roomId, url, title });
+      return { ok: true };
+    }
+    case "MOVIE_ENDING":
+      if (roomId) socket?.emit("ext-movie-ending", { roomId });
+      return { ok: true };
+    case "TRIVIA_START":
+      if (roomId) socket?.emit("trivia-start", { roomId, title: cleanText(message.title, 120, ""), friends: message.friends === true });
+      return { ok: true };
+    case "TRIVIA_ANSWER":
+      if (roomId && Number.isInteger(message.id) && Number.isInteger(message.index) && Number.isInteger(message.choice)) {
+        socket?.emit("trivia-answer", { roomId, id: message.id, index: message.index, choice: message.choice });
+      }
+      return { ok: true };
+    case "TRIVIA_SUBMIT":
+      if (roomId && Number.isInteger(message.id) && Array.isArray(message.options)) {
+        socket?.emit("trivia-submit", {
+          roomId,
+          id: message.id,
+          question: cleanText(message.question, 160, ""),
+          options: message.options.slice(0, 4).map((o) => cleanText(o, 60, "")),
+          answer: message.answer,
+        });
+      }
+      return { ok: true };
+    case "TRIVIA_CONTROL":
+      if (roomId && ["begin", "stop"].includes(message.action)) socket?.emit("trivia-control", { roomId, action: message.action });
+      return { ok: true };
     case "KICK_MEMBER":
       if (roomId && typeof message.memberId === "string") socket?.emit("kick-member", { roomId, memberId: message.memberId });
       return { ok: true };

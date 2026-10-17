@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StreamingWebView, type StreamingWebViewHandle, type EngineEvent } from "@/components/StreamingWebView";
+import { TriviaCard } from "@/components/TriviaCard";
 import { useRoom, type PlayerOrder } from "@/hooks/useRoom";
 import { storage, SESSION_KEYS } from "@/lib/storage";
 import { REACTIONS, STREAMING_PLATFORMS, inviteUrl } from "@/lib/constants";
@@ -84,6 +85,12 @@ export default function RoomScreen() {
       setMyWatching(event.url);
       room.sendWatching(event.url);
     } else if (event.type === "video" && event.found) room.requestState(); // entraste tarde: ponte al día
+    // Título (para la trivia) y aviso de que la película está por terminar: solo si es la de la sala.
+    else if (event.type === "title") {
+      if (myUrlRef.current && sameMovie()) room.sendTitle(myUrlRef.current, event.title);
+    } else if (event.type === "ending") {
+      if (sameMovie()) room.sendEnding();
+    }
     else if (event.type === "blocked") {
       setDrm(`Por seguridad, Togetherly solo abre plataformas de streaming (se bloqueó ${event.host || "una página"}).`);
     } else if (event.type === "crashed") {
@@ -154,7 +161,7 @@ export default function RoomScreen() {
         <View className="flex-1">
           <Text className="text-cozy-cream font-extrabold">Sala {roomId}</Text>
           <Text className="text-cozy-muted text-xs">
-            {room.connected ? `${room.members.length} ${room.members.length === 1 ? "persona" : "personas"}` : "Conectando…"}
+            {room.connected ? `${room.members.length} ${room.members.length === 1 ? "persona" : "personas"}` : "Conectando… (la primera vez puede tardar un minuto)"}
             {room.controlMode === "leader" && room.leader ? ` · 👑 controla ${room.leader}` : ""}
           </Text>
         </View>
@@ -221,9 +228,22 @@ export default function RoomScreen() {
         )}
         <Notice text={room.notice?.text} id={room.notice?.id} />
         <FloatingReaction emoji={room.reaction?.emoji} id={room.reaction?.id} />
+        <TriviaCard
+          trivia={room.trivia}
+          offer={room.triviaOffer}
+          error={room.triviaError}
+          onStart={room.startTrivia}
+          onDismissOffer={room.dismissTriviaOffer}
+          onAnswer={room.answerTrivia}
+          onSubmit={room.submitTrivia}
+          onControl={room.controlTrivia}
+        />
         {full ? (
           // Botones mínimos, casi transparentes, para no tapar la película.
           <View style={{ position: "absolute", top: 12, right: 12, flexDirection: "row", gap: 8, opacity: 0.55 }}>
+            <Pressable onPress={room.startTrivia} className="bg-cozy-deep rounded-full px-4 py-2" accessibilityLabel="Jugar trivia">
+              <Text className="text-cozy-cream font-bold">🎯</Text>
+            </Pressable>
             <Pressable onPress={openChat} className="bg-cozy-deep rounded-full px-4 py-2 flex-row items-center gap-1" accessibilityLabel="Abrir chat">
               <Text className="text-cozy-cream font-bold">💬{unread > 0 ? ` ${unread > 9 ? "9+" : unread}` : ""}</Text>
             </Pressable>
@@ -243,6 +263,9 @@ export default function RoomScreen() {
           </Pressable>
         ))}
         <View className="flex-1" />
+        <Pressable onPress={room.startTrivia} className="w-10 h-10 rounded-full bg-cozy-plum items-center justify-center" accessibilityLabel="Jugar trivia de lo que vieron">
+          <Text className="text-lg">🎯</Text>
+        </Pressable>
         <Pressable onPress={openChat} className="bg-cozy-lamp rounded-full px-5 py-3 flex-row items-center gap-2">
           <Text className="text-cozy-deep font-extrabold">Chat</Text>
           {unread > 0 ? (

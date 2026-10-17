@@ -10,6 +10,8 @@
 //   { type: "watching", url }                abrió una película (para el enlace de invitación)
 //   { type: "video", found }                 si hay reproductor en la página
 //   { type: "failed", action }               no se pudo aplicar una orden
+//   { type: "title", title }                 nombre de lo que se está viendo (para la trivia)
+//   { type: "ending" }                       faltan menos de 2 minutos (se ofrece la trivia)
 //
 // Ojo: el texto va dentro de String.raw`…`: no usar comillas invertidas ni "${" en el código.
 
@@ -60,6 +62,13 @@ const ENGINE_JS = String.raw`
   function disneyPlayer() {
     try { return document.querySelector("disney-web-player").mediaPlayer || null; } catch (e) { return null; }
   }
+  // Apple TV+: MusicKit (play, pause, seekToTime, currentPlaybackTime). Sin nada cargado, playbackState es 0.
+  function applePlayer() {
+    try {
+      var p = window.MusicKit.getInstance();
+      return p && p.nowPlayingItem && p.playbackState !== 0 ? p : null;
+    } catch (e) { return null; }
+  }
 
   // ── Encontrar el video principal ─────────────────────────────────────────
   function allVideos(root, depth) {
@@ -67,9 +76,10 @@ const ENGINE_JS = String.raw`
     if (depth > 4) return list;
     var all = root.querySelectorAll("*");
     for (var i = 0; i < all.length; i++) {
-      if (all[i].shadowRoot) list = list.concat(allVideos(all[i].shadowRoot, depth + 1));
+      // Apple TV+ reproduce solo un video de fondo en las páginas de series: nunca es la película.
+      if (all[i].shadowRoot && all[i].tagName !== "AMP-BACKGROUND-VIDEO") list = list.concat(allVideos(all[i].shadowRoot, depth + 1));
     }
-    return list;
+    return list.filter(function (v) { return !(v.closest && v.closest("amp-background-video")); });
   }
   function findVideo() {
     var best = null, bestScore = -1, videos = allVideos(document, 0);
@@ -100,16 +110,41 @@ const ENGINE_JS = String.raw`
         if (validTime(ms)) return ms / 1000;
       } catch (e) {}
     }
+    if (platform === "appletv") {
+      var a = applePlayer();
+      if (a && validTime(a.currentPlaybackTime)) return a.currentPlaybackTime;
+    }
     return video.currentTime;
   }
+  function duration() {
+    var a = platform === "appletv" ? applePlayer() : null;
+    if (a && validTime(a.currentPlaybackDuration) && a.currentPlaybackDuration > 0) return a.currentPlaybackDuration;
+    return video && isFinite(video.duration) && video.duration > 0 ? video.duration : null;
+  }
+  // Nombre de lo que se ve: del reproductor, de los controles multimedia o de la pestaña.
+  function cleanTitle(t) {
+    t = String(t || "").replace(/\u200e/g, "").replace(/^(Ver|Watch)\s+/i, "")
+      .replace(/\s*[-|–·]\s*(Netflix|Disney\+|Prime Video|Amazon\.?\w*|HBO Max|Max|Apple TV\+?|Paramount\+|Crunchyroll).*$/i, "").trim();
+    return /^(Netflix|Disney\+|Prime Video|HBO Max|Max|Apple TV\+?|Paramount\+|Crunchyroll|Home|Inicio)$/i.test(t) ? "" : t.slice(0, 120);
+  }
+  function title() {
+    var a = platform === "appletv" ? applePlayer() : null;
+    if (a && a.nowPlayingItem && a.nowPlayingItem.title) return cleanTitle(a.nowPlayingItem.title);
+    if (platform === "netflix") {
+      var n = document.querySelector("[data-uia='video-title'] h4, [data-uia='video-title']");
+      if (n && cleanTitle(n.textContent)) return cleanTitle(n.textContent);
+    }
+    try { if (navigator.mediaSession.metadata && cleanTitle(navigator.mediaSession.metadata.title)) return cleanTitle(navigator.mediaSession.metadata.title); } catch (e) {}
+    return cleanTitle(document.title);
+  }
   function doPlay() {
-    var p = platform === "netflix" ? netflixPlayer() : null;
+    var p = platform === "netflix" ? netflixPlayer() : platform === "appletv" ? applePlayer() : null;
     if (p) { p.play(); return; }
     var promise = video.play();
     if (promise && promise.catch) promise.catch(function () { post({ type: "failed", action: "play" }); });
   }
   function doPause() {
-    var p = platform === "netflix" ? netflixPlayer() : null;
+    var p = platform === "netflix" ? netflixPlayer() : platform === "appletv" ? applePlayer() : null;
     if (p) p.pause(); else video.pause();
   }
   function doSeek(seconds) {
@@ -123,6 +158,10 @@ const ENGINE_JS = String.raw`
       // En Disney+ el <video> no sabe el minuto real: solo su reproductor sabe saltar.
       var d = disneyPlayer();
       if (d) { d.seek(Math.round(seconds * 1000)); return; }
+    }
+    if (platform === "appletv") {
+      var a = applePlayer();
+      if (a) { a.seekToTime(seconds); return; }
     }
     video.currentTime = seconds;
   }
@@ -182,11 +221,27 @@ const ENGINE_JS = String.raw`
     if (!isPlayerPage()) { if (video) attach(null); return; }
     if (!(video && video.isConnected && video.readyState > 0)) attach(findVideo());
     var url = location.href.split("#")[0];
-    if (url !== lastUrl && (video || platform !== "prime")) {
+    if (url !== lastUrl && (video || (platform !== "prime" && platform !== "appletv"))) {
       lastUrl = url;
       post({ type: "watching", url: url });
     }
+    reportDetails(url);
   }, 1000);
+
+  // Título (para la trivia) y aviso de final: faltan 2 minutos de algo de 20+ minutos (una vez).
+  var lastTitle = null;
+  var endingFor = null;
+  function reportDetails(url) {
+    if (!video) return;
+    var t = title();
+    if (t && t + url !== lastTitle) { lastTitle = t + url; post({ type: "title", title: t }); }
+    var d = duration();
+    var left = d ? d - currentTime() : null;
+    if (d >= 1200 && left !== null && left >= 0 && left <= 120 && !video.paused && endingFor !== url) {
+      endingFor = url;
+      post({ type: "ending" });
+    }
+  }
 
   // Saltos sin evento "seeked" (Disney+): el minuto brincó más de lo esperado.
   setInterval(function () {

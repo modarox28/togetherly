@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { getSocket } from "@/lib/socket";
 import { parseNowWatching, type NowWatching } from "@/lib/streaming";
 import { getClientKey } from "@/lib/clientKey";
+import { cleanTrivia, type TriviaState } from "@/lib/trivia";
 
 export interface Participant {
   id: string;
@@ -60,6 +61,11 @@ interface RoomState {
   isPublic: boolean;
   /** Película que alguien abrió con la extensión (Netflix, Prime…), si hay. */
   nowWatching: NowWatching | null;
+  /** Trivia de la sala (ver server/trivia.js) */
+  trivia: TriviaState | null;
+  /** La película está por terminar: se ofrece la trivia (con el título, si se sabe). */
+  triviaOffer: string | null;
+  triviaError: string | null;
 }
 
 interface RoomActions {
@@ -74,6 +80,11 @@ interface RoomActions {
   onRemotePlay: (cb: (t: number) => void) => void;
   onRemotePause: (cb: (t: number) => void) => void;
   onRemoteSeek: (cb: (t: number) => void) => void;
+  startTrivia: (roomId: string, title?: string) => void;
+  answerTrivia: (roomId: string, id: number, index: number, choice: number) => void;
+  submitTrivia: (roomId: string, id: number, question: string, options: string[], answer: number) => void;
+  controlTrivia: (roomId: string, action: "begin" | "stop") => void;
+  dismissTriviaOffer: () => void;
 }
 
 export function useRoom(): [RoomState, RoomActions] {
@@ -85,6 +96,9 @@ export function useRoom(): [RoomState, RoomActions] {
     premium: false,
     isPublic: false,
     nowWatching: null,
+    trivia: null,
+    triviaOffer: null,
+    triviaError: null,
     participants: [],
     you: null,
     isHost: false,
@@ -196,6 +210,19 @@ export function useRoom(): [RoomState, RoomActions] {
       typingTimeoutsRef.current.set(username, timeout);
     });
 
+    socket.on("trivia", (data: unknown) => {
+      const trivia = cleanTrivia(data);
+      if (trivia) setState((s) => ({ ...s, trivia, triviaError: null, triviaOffer: trivia.phase === "end" ? s.triviaOffer : null }));
+    });
+    socket.on("trivia-offer", (data: { title?: unknown }) => {
+      const title = typeof data?.title === "string" ? data.title.slice(0, 120) : "";
+      setState((s) => ({ ...s, triviaOffer: title }));
+    });
+    socket.on("trivia-error", (data: { message?: unknown }) => {
+      const message = typeof data?.message === "string" ? data.message.slice(0, 160) : "No se pudo";
+      setState((s) => ({ ...s, triviaError: message }));
+    });
+
     socket.on("reaction", ({ emoji, username }: { emoji: string; username: string }) => {
       const reaction: Reaction = { id: crypto.randomUUID(), emoji, username, x: 10 + Math.random() * 80 };
       setState((s) => ({ ...s, reactions: [...s.reactions, reaction].slice(-20) }));
@@ -219,6 +246,9 @@ export function useRoom(): [RoomState, RoomActions] {
       socket.off("chat-message");
       socket.off("typing");
       socket.off("reaction");
+      socket.off("trivia");
+      socket.off("trivia-offer");
+      socket.off("trivia-error");
       socket.disconnect();
     };
   }, []);
@@ -251,6 +281,27 @@ export function useRoom(): [RoomState, RoomActions] {
     onRemotePlay: useCallback((cb) => { remotePlayRef.current = cb; }, []),
     onRemotePause: useCallback((cb) => { remotePauseRef.current = cb; }, []),
     onRemoteSeek: useCallback((cb) => { remoteSeekRef.current = cb; }, []),
+    startTrivia: useCallback((roomId, title = "") => {
+      setState((s) => ({ ...s, triviaOffer: null, triviaError: null }));
+      getSocket().emit("trivia-start", { roomId, title: title.trim().slice(0, 120) });
+    }, []),
+    answerTrivia: useCallback((roomId, id, index, choice) => {
+      setState((s) => (s.trivia?.id === id ? { ...s, trivia: { ...s.trivia, you: { ...s.trivia.you, answered: true, choice } } } : s));
+      getSocket().emit("trivia-answer", { roomId, id, index, choice });
+    }, []),
+    submitTrivia: useCallback((roomId, id, question, options, answer) => {
+      getSocket().emit("trivia-submit", {
+        roomId,
+        id,
+        question: question.trim().slice(0, 160),
+        options: options.slice(0, 4).map((o) => o.trim().slice(0, 60)),
+        answer,
+      });
+    }, []),
+    controlTrivia: useCallback((roomId, action) => {
+      getSocket().emit("trivia-control", { roomId, action });
+    }, []),
+    dismissTriviaOffer: useCallback(() => setState((s) => ({ ...s, triviaOffer: null })), []),
   };
 
   return [state, actions];

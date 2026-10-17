@@ -162,7 +162,28 @@
       if (found) attachVideo(found);
     }
     reportNowWatching();
+    reportMovieDetails();
   }, 1000);
+
+  // Título (para la trivia) y aviso cuando la película está por terminar (faltan 2 minutos).
+  // Solo en películas o episodios largos (20+ minutos) y solo una vez por película.
+  let lastReportedTitle = null;
+  let endingReportedFor = null;
+  function reportMovieDetails() {
+    if (!video || !isTopFrame || !watchingRoomMovie()) return;
+    const url = location.href.split("#")[0];
+    const title = platform.currentTitle?.() ?? "";
+    if (title && title + url !== lastReportedTitle) {
+      lastReportedTitle = title + url;
+      sendToBackground({ type: "MOVIE_TITLE", url, title });
+    }
+    const duration = platform.currentDuration?.(video);
+    const left = duration ? duration - currentTime() : null;
+    if (duration >= 20 * 60 && left !== null && left >= 0 && left <= 120 && !video.paused && endingReportedFor !== url) {
+      endingReportedFor = url;
+      sendToBackground({ type: "MOVIE_ENDING" });
+    }
+  }
 
   // Solo la pestaña principal sabe la dirección real (en Crunchyroll el video va en un iframe).
   function reportNowWatching() {
