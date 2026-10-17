@@ -72,7 +72,7 @@ export default function RoomScreen() {
     } else if (event.type === "drm" && !drmShown.current) {
       // Diagnóstico de la prueba: qué protección de video tiene el navegador interno de este celular.
       drmShown.current = true;
-      setDrm(`Protección de video · Widevine: ${event.widevine ? "sí" : "no"} · FairPlay: ${event.fairplay ? "sí" : "no"}`);
+      setDrm(`Protección de video · Widevine: ${event.widevine ? "sí" : "no"} · FairPlay: ${event.fairplay ? "sí" : "no"} · MediaSource: ${event.mse === "managed" ? "adaptado" : event.mse === "yes" ? "sí" : "no"}`);
     }
   };
 
