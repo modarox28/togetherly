@@ -203,6 +203,21 @@ async function getServerUrl() {
   return FALLBACK_SERVER_URL;
 }
 
+/** true / false si la sala existe; null si el servidor no respondió. */
+async function roomExists(id) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45000); // Render gratis tarda en despertar
+    const response = await fetch(`${await getServerUrl()}/api/rooms/${encodeURIComponent(id)}`, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!response.ok) return null;
+    const preview = await response.json();
+    return preview?.exists === true;
+  } catch {
+    return null;
+  }
+}
+
 async function connect() {
   socket?.disconnect();
   const client = new SocketClient(await getServerUrl());
@@ -348,6 +363,12 @@ async function handleMessage(message, sender) {
     case "JOIN_ROOM": {
       if (typeof message.roomId !== "string" || !ROOM_ID_PATTERN.test(message.roomId)) {
         return { ok: false, error: "Código de sala inválido" };
+      }
+      // "Unirme" con un código: la sala tiene que existir (si no, se crearía una vacía sin querer).
+      if (message.mustExist === true && message.roomId !== roomId) {
+        const check = await roomExists(message.roomId);
+        if (check === false) return { ok: false, error: "No hay ninguna sala con ese código. Revisa que esté bien escrito." };
+        if (check === null) return { ok: false, error: "No pude revisar el código (el servidor puede estar despertando). Intenta de nuevo en unos segundos." };
       }
       const alreadyConnected = message.roomId === roomId && socket?.isOpen;
       if (message.roomId !== roomId) {

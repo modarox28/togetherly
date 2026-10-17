@@ -84,9 +84,20 @@ async function joinWithPopup({ context, extensionId }, roomId, name) {
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
   // Se escribe en minúsculas a propósito: el popup debe respetar el código en mayúsculas.
-  await popup.fill("#input-room", roomId.toLowerCase());
-  await popup.fill("#input-name", name);
-  await popup.click("#btn-connect");
+  const exists = (await (await fetch(`${SERVER_URL}/api/rooms/${roomId}`)).json()).exists;
+  if (!exists) {
+    // La primera persona crea la sala con ese código (como hace la web en /j/CODIGO).
+    // "Unirme" en el popup solo deja entrar a salas que ya existen.
+    await popup.evaluate(
+      ({ id, who }) => new Promise((resolve) => chrome.runtime.sendMessage({ type: "JOIN_ROOM", roomId: id, username: who, avatar: "🍿" }, resolve)),
+      { id: roomId, who: name }
+    );
+    await popup.reload();
+  } else {
+    await popup.fill("#input-room", roomId.toLowerCase());
+    await popup.fill("#input-name", name);
+    await popup.click("#btn-connect");
+  }
   await expect(popup.locator("#status-text")).toHaveText("Sincronizando", { timeout: 10000 });
   await expect(popup.locator("#room-code")).toHaveText(roomId);
   await popup.close();
@@ -541,5 +552,21 @@ test("líder: alguien con el mismo nombre no puede cambiar los permisos ni contr
   } finally {
     lider.close();
     impostor.close();
+  }
+});
+
+test("unirse con un código que no existe avisa y no crea una sala", async () => {
+  const ana = await openBrowser("ana-codigo");
+  try {
+    const popup = await ana.context.newPage();
+    await popup.goto(`chrome-extension://${ana.extensionId}/popup.html`);
+    await popup.fill("#input-room", "NOEXISTE9");
+    await popup.fill("#input-name", "Ana");
+    await popup.click("#btn-connect");
+    await expect(popup.locator("body")).toContainText("No hay ninguna sala con ese código", { timeout: 10000 });
+    const preview = await (await fetch(`${SERVER_URL}/api/rooms/NOEXISTE9`)).json();
+    expect(preview.exists).toBe(false);
+  } finally {
+    await ana.context.close();
   }
 });

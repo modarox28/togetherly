@@ -22,7 +22,7 @@ const samePage = (a: string | null, b: string | null) => {
 };
 
 export default function RoomScreen() {
-  const { roomId: rawRoomId } = useLocalSearchParams<{ roomId: string }>();
+  const { roomId: rawRoomId, pub, rname } = useLocalSearchParams<{ roomId: string; pub?: string; rname?: string }>();
   const roomId = String(rawRoomId ?? "").toUpperCase();
   const router = useRouter();
   const player = useRef<StreamingWebViewHandle>(null);
@@ -47,7 +47,10 @@ export default function RoomScreen() {
   }, [roomId, router]);
 
   const onOrder = useCallback((order: PlayerOrder) => player.current?.apply(order), []);
-  const room = useRoom(roomId, me?.name ?? "", me?.avatar ?? "🍿", onOrder);
+  const room = useRoom(roomId, me?.name ?? "", me?.avatar ?? "🍿", onOrder, {
+    isPublic: pub === "1",
+    roomName: typeof rname === "string" ? rname : undefined,
+  });
 
   // Como el enlace de invitación: si la sala ya está viendo algo, entras directo a esa película.
   useEffect(() => {

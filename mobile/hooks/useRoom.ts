@@ -45,7 +45,15 @@ const text = (value: unknown, max: number, fallback: string) =>
 const time = (value: unknown) =>
   typeof value === "number" && Number.isFinite(value) && value >= 0 && value < 86400 ? value : null;
 
-export function useRoom(roomId: string, username: string, avatar: string, onOrder: (order: PlayerOrder) => void) {
+export function useRoom(
+  roomId: string,
+  username: string,
+  avatar: string,
+  onOrder: (order: PlayerOrder) => void,
+  options: { isPublic?: boolean; roomName?: string } = {}
+) {
+  const isPublic = options.isPublic === true;
+  const roomName = options.roomName;
   const socketRef = useRef<Socket | null>(null);
   const orderRef = useRef(onOrder);
   useEffect(() => {
@@ -71,7 +79,8 @@ export function useRoom(roomId: string, username: string, avatar: string, onOrde
 
     socket.on("connect", async () => {
       setConnected(true);
-      socket.emit("ext-connect", { roomId, username, avatar, clientKey: await getClientKey() });
+      // isPublic/roomName solo cuentan si la sala es nueva (lo decide el servidor).
+      socket.emit("ext-connect", { roomId, username, avatar, clientKey: await getClientKey(), isPublic, roomName });
     });
     socket.on("disconnect", () => setConnected(false));
 
@@ -136,7 +145,7 @@ export function useRoom(roomId: string, username: string, avatar: string, onOrde
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [roomId, username, avatar, showNotice]);
+  }, [roomId, username, avatar, showNotice, isPublic, roomName]);
 
   const emit = useCallback(
     (event: string, payload: Record<string, unknown> = {}) => socketRef.current?.emit(event, { roomId, ...payload }),
