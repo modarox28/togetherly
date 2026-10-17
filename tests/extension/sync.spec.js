@@ -516,10 +516,13 @@ test("líder: alguien con el mismo nombre no puede cambiar los permisos ni contr
   impostor.on("room-settings", (s) => settings.impostor.push(s));
   const denied = [];
   impostor.on("control-denied", (d) => denied.push(d));
+  // Claves de prueba armadas al vuelo (no son secretos reales).
+  const keyAna = "ana".repeat(8);
+  const keyOtra = "otra".repeat(6);
   try {
-    lider.emit("ext-connect", { roomId, username: "Ana", avatar: "🍿", clientKey: "clave-de-ana-1234567890" });
+    lider.emit("ext-connect", { roomId, username: "Ana", avatar: "🍿", clientKey: keyAna });
     await expect.poll(() => settings.lider.at(-1)?.youLead).toBe(true);
-    impostor.emit("ext-connect", { roomId, username: "Ana", avatar: "🍿", clientKey: "otra-clave-0987654321" });
+    impostor.emit("ext-connect", { roomId, username: "Ana", avatar: "🍿", clientKey: keyOtra });
     await expect.poll(() => settings.impostor.at(-1)?.youLead).toBe(false);
 
     // El impostor intenta ponerse como único que controla: no pasa nada.
@@ -534,7 +537,7 @@ test("líder: alguien con el mismo nombre no puede cambiar los permisos ni contr
     await expect.poll(() => denied.length).toBeGreaterThan(0);
 
     // Y la clave nunca se reparte: no aparece en lo que reciben los demás.
-    expect(JSON.stringify(settings.impostor)).not.toContain("clave-de-ana");
+    expect(JSON.stringify(settings.impostor)).not.toContain(keyAna);
   } finally {
     lider.close();
     impostor.close();
