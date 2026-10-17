@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, FlatList, TextInput, Modal, KeyboardAvoidingView, Platform, Share, Animated } from "react-native";
+import { View, Text, Pressable, FlatList, TextInput, Modal, KeyboardAvoidingView, Platform, Share, Animated, BackHandler } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { StreamingWebView, type StreamingWebViewHandle, type EngineEvent } from "@/components/StreamingWebView";
 import { useRoom, type PlayerOrder } from "@/hooks/useRoom";
 import { storage, SESSION_KEYS } from "@/lib/storage";
@@ -32,6 +34,8 @@ export default function RoomScreen() {
   const [seenOthers, setSeenOthers] = useState(0);
   const [draft, setDraft] = useState("");
   const autoOpened = useRef(false);
+  // Pantalla completa: solo la película (en horizontal), con dos botones pequeños encima.
+  const [full, setFull] = useState(false);
   const drmShown = useRef(false);
   const [drm, setDrm] = useState<string | null>(null);
 
@@ -84,11 +88,39 @@ export default function RoomScreen() {
   const share = () =>
     Share.share({ message: `Veamos juntos en Togetherly 🍿 Entra aquí: ${inviteUrl(roomId)} (código ${roomId})` });
 
+  const setFullscreen = (on: boolean) => {
+    setFull(on);
+    (on
+      ? ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE)
+      : ScreenOrientation.unlockAsync()
+    ).catch(() => {});
+  };
+
+  // El botón "atrás" de Android sale de la pantalla completa en vez de salir de la sala.
+  useEffect(() => {
+    if (!full) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setFullscreen(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [full]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Al salir de la sala se suelta la orientación.
+  useEffect(() => () => void ScreenOrientation.unlockAsync().catch(() => {}), []);
+
+  const openChat = () => {
+    setChatOpen(true);
+    setSeenOthers(othersCount);
+  };
+
   const otherMovie = room.nowWatching && url && myWatching && !samePage(room.nowWatching.url, myWatching) ? room.nowWatching : null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#1C1530" }} edges={["top", "bottom"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: full ? "#000" : "#1C1530" }} edges={full ? [] : ["top", "bottom"]}>
+      <StatusBar hidden={full} style="light" />
       {/* Barra superior */}
+      {!full ? (
       <View className="flex-row items-center px-3 py-2 gap-2">
         <Pressable onPress={() => router.replace("/")} className="px-3 py-2" accessibilityLabel="Salir de la sala">
           <Text className="text-cozy-muted text-base">✕</Text>
@@ -105,18 +137,24 @@ export default function RoomScreen() {
             <Text className="text-cozy-cream text-xs font-bold">Cambiar</Text>
           </Pressable>
         ) : null}
+        {url ? (
+          <Pressable onPress={() => setFullscreen(true)} className="bg-cozy-plum rounded-full px-3 py-2" accessibilityLabel="Pantalla completa">
+            <Text className="text-cozy-cream text-xs font-bold">⛶ Completa</Text>
+          </Pressable>
+        ) : null}
         <Pressable onPress={share} className="bg-cozy-lamp rounded-full px-4 py-2">
           <Text className="text-cozy-deep font-extrabold text-sm">Invitar</Text>
         </Pressable>
       </View>
+      ) : null}
 
-      {drm ? (
+      {drm && !full ? (
         <Pressable onPress={() => setDrm(null)} className="mx-3 mb-2 bg-cozy-plum rounded-xl px-3 py-2">
           <Text className="text-cozy-muted text-xs">{drm} (toca para ocultar)</Text>
         </Pressable>
       ) : null}
 
-      {otherMovie ? (
+      {otherMovie && !full ? (
         <Pressable
           onPress={() => setUrl(otherMovie.url)}
           className="mx-3 mb-2 bg-cozy-card rounded-2xl px-4 py-3 flex-row items-center"
@@ -157,9 +195,21 @@ export default function RoomScreen() {
         )}
         <Notice text={room.notice?.text} id={room.notice?.id} />
         <FloatingReaction emoji={room.reaction?.emoji} id={room.reaction?.id} />
+        {full ? (
+          // Botones mínimos, casi transparentes, para no tapar la película.
+          <View style={{ position: "absolute", top: 12, right: 12, flexDirection: "row", gap: 8, opacity: 0.55 }}>
+            <Pressable onPress={openChat} className="bg-cozy-deep rounded-full px-4 py-2 flex-row items-center gap-1" accessibilityLabel="Abrir chat">
+              <Text className="text-cozy-cream font-bold">💬{unread > 0 ? ` ${unread > 9 ? "9+" : unread}` : ""}</Text>
+            </Pressable>
+            <Pressable onPress={() => setFullscreen(false)} className="bg-cozy-deep rounded-full px-4 py-2" accessibilityLabel="Salir de pantalla completa">
+              <Text className="text-cozy-cream font-bold">✕</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       {/* Reacciones y chat */}
+      {!full ? (
       <View className="flex-row items-center px-3 py-2 gap-2">
         {REACTIONS.slice(0, 4).map((emoji) => (
           <Pressable key={emoji} onPress={() => room.sendReaction(emoji)} className="w-10 h-10 rounded-full bg-cozy-plum items-center justify-center">
@@ -167,13 +217,7 @@ export default function RoomScreen() {
           </Pressable>
         ))}
         <View className="flex-1" />
-        <Pressable
-          onPress={() => {
-            setChatOpen(true);
-            setSeenOthers(othersCount);
-          }}
-          className="bg-cozy-lamp rounded-full px-5 py-3 flex-row items-center gap-2"
-        >
+        <Pressable onPress={openChat} className="bg-cozy-lamp rounded-full px-5 py-3 flex-row items-center gap-2">
           <Text className="text-cozy-deep font-extrabold">Chat</Text>
           {unread > 0 ? (
             <View className="bg-cozy-deep rounded-full px-2">
@@ -182,8 +226,9 @@ export default function RoomScreen() {
           ) : null}
         </Pressable>
       </View>
+      ) : null}
 
-      <Modal visible={chatOpen} animationType="slide" transparent onRequestClose={closeChat}>
+      <Modal visible={chatOpen} animationType="slide" transparent onRequestClose={closeChat} supportedOrientations={["portrait", "landscape"]}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} className="flex-1 justify-end bg-black/40">
           <View className="bg-cozy-deep rounded-t-3xl h-[70%] pb-6">
             <View className="flex-row items-center px-5 pt-4 pb-2">
