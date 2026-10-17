@@ -28,17 +28,6 @@ const disguise = (profile) => String.raw`
     if (!window.MediaSource && window.ManagedMediaSource) {
       window.__togetherlyMMS = true;
       window.MediaSource = window.ManagedMediaSource;
-      var noAirPlay = function (v) { try { v.disableRemotePlayback = true; } catch (e) {} };
-      var realCreate = Document.prototype.createElement;
-      Document.prototype.createElement = function (tag) {
-        var el = realCreate.apply(this, arguments);
-        if (String(tag).toLowerCase() === "video") noAirPlay(el);
-        return el;
-      };
-      new MutationObserver(function () {
-        var videos = document.getElementsByTagName("video");
-        for (var i = 0; i < videos.length; i++) noAirPlay(videos[i]);
-      }).observe(document, { childList: true, subtree: true });
     }
   }
   if (PROFILE === "desktop") define(proto, "platform", "Win32");
@@ -69,6 +58,43 @@ const disguise = (profile) => String.raw`
         addEventListener: function () {}, removeEventListener: function () {}, dispatchEvent: function () { return false; } };
     };
   }
+
+  // Cada <video>: dentro de la app (no en el reproductor de pantalla completa del iPhone)
+  // y, si se usa ManagedMediaSource, sin AirPlay (lo exige).
+  function fixVideo(v) {
+    try {
+      v.playsInline = true;
+      v.setAttribute("playsinline", "");
+      v.setAttribute("webkit-playsinline", "");
+      if (window.__togetherlyMMS) v.disableRemotePlayback = true;
+    } catch (e) {}
+  }
+  var realCreate = Document.prototype.createElement;
+  Document.prototype.createElement = function (tag) {
+    var el = realCreate.apply(this, arguments);
+    if (String(tag).toLowerCase() === "video") fixVideo(el);
+    return el;
+  };
+
+  // Sin zoom: así nadie agranda la página por error al tocar la película.
+  // Se respeta el ancho que pide la página (el iPad ya funciona así); solo se agrega "sin zoom".
+  var NO_ZOOM = "maximum-scale=1, user-scalable=no";
+  function lockZoom() {
+    var head = document.head || document.documentElement;
+    if (!head) return;
+    var meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) { meta = realCreate.call(document, "meta"); meta.name = "viewport"; meta.content = NO_ZOOM; head.appendChild(meta); return; }
+    var content = meta.content || "";
+    if (content.indexOf("user-scalable=no") === -1) meta.content = (content ? content + ", " : "") + NO_ZOOM;
+  }
+  document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+  document.addEventListener("touchmove", function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  new MutationObserver(function () {
+    lockZoom();
+    var videos = document.getElementsByTagName("video");
+    for (var i = 0; i < videos.length; i++) fixVideo(videos[i]);
+  }).observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ["content"] });
+  lockZoom();
 
   // ¿Qué DRM hay? (diagnóstico para saber si Netflix/Disney+ pueden reproducir aquí)
   function check(keySystem, initDataType) {

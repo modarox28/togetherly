@@ -150,9 +150,17 @@ test("app móvil · iPhone: sin MediaSource se usa ManagedMediaSource y el video
     await page.goto("https://www.netflix.com/watch/1");
     const seen = await page.evaluate(() => {
       const v = document.createElement("video");
-      return { aliased: window.MediaSource === window.ManagedMediaSource, noAirPlay: v.disableRemotePlayback, width: screen.width };
+      document.body.append(v);
+      return {
+        aliased: window.MediaSource === window.ManagedMediaSource,
+        noAirPlay: v.disableRemotePlayback,
+        inline: v.hasAttribute("playsinline"),
+        width: screen.width,
+      };
     });
-    expect(seen).toEqual({ aliased: true, noAirPlay: true, width: 1024 });
+    expect(seen).toEqual({ aliased: true, noAirPlay: true, inline: true, width: 1024 });
+    // Sin zoom: la página no se puede agrandar.
+    await expect.poll(() => page.evaluate(() => document.querySelector('meta[name="viewport"]')?.content)).toContain("user-scalable=no");
   } finally {
     await browser.close();
   }

@@ -99,6 +99,10 @@ export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(functi
         allowsProtectedMedia
         mediaPlaybackRequiresUserAction={false}
         allowsInlineMediaPlayback
+        // Sin zoom ni rebote: la película no se mueve por un toque accidental.
+        setBuiltInZoomControls={false}
+        setDisplayZoomControls={false}
+        bounces={false}
         allowsFullscreenVideo
         javaScriptEnabled
         domStorageEnabled
