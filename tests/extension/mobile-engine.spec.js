@@ -117,7 +117,7 @@ test("app móvil: la página ve un computador (no un celular) y se revisa el DRM
       window.__posted = [];
       window.ReactNativeWebView = { postMessage: (text) => window.__posted.push(JSON.parse(text)) };
     });
-    await context.addInitScript({ content: disguise("android") });
+    await context.addInitScript({ content: disguise("desktop") });
     const page = await context.newPage();
     await page.goto("https://www.netflix.com/browse");
     const seen = await page.evaluate(() => ({

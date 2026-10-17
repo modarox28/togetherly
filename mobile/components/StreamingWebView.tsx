@@ -6,7 +6,7 @@ import type { PlayerOrder } from "@/hooks/useRoom";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { ENGINE_JS } = require("../lib/sync-engine.js") as { ENGINE_JS: string };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { disguise } = require("../lib/desktop-disguise.js") as { disguise: (platform: string) => string };
+const { disguise } = require("../lib/desktop-disguise.js") as { disguise: (profile: "none" | "ipad" | "desktop") => string };
 
 // Los tipos de NativeWind chocan con el componente de clase de WebView: se le dan sus props a mano.
 const Browser = WebView as unknown as ComponentType<WebViewProps & { ref?: Ref<WebView> }>;
@@ -35,7 +35,9 @@ const DESKTOP_USER_AGENT =
     ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
     : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
-const DISGUISE_JS = disguise(Platform.OS);
+// iPad: sin cambios (así Netflix ya reproduce) · iPhone: se presenta como iPad · Android: como computador.
+const PROFILE = Platform.OS === "android" ? "desktop" : Platform.OS === "ios" && Platform.isPad ? "none" : "ipad";
+const DISGUISE_JS = disguise(PROFILE);
 
 function parseEvent(raw: string): EngineEvent | null {
   try {
