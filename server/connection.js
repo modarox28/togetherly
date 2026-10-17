@@ -13,6 +13,7 @@ const {
   stateForExtension,
   colorForIndex,
   membersOf,
+  membersWithKeys,
   settingsOf,
   ensureLeader,
 } = require("./rooms");
@@ -61,6 +62,11 @@ function handleConnection(io, socket, plans) {
     currentKey = cleanClientKey(data?.clientKey) ?? `s:${socket.id}`;
     room.memberKeys.set(socket.id, currentKey);
   };
+  /** ¿Quien lidera expulsó a este dispositivo de la sala? */
+  const isBanned = (room, data) => {
+    const key = cleanClientKey(data?.clientKey);
+    return !!key && room.banned.has(key);
+  };
 
   const isInRoom = (roomId) => isRoomId(roomId) && socket.rooms.has(roomId);
   const isInSameRoom = (targetId) => {
@@ -84,6 +90,10 @@ function handleConnection(io, socket, plans) {
     isExtension = true;
     socket.join(roomId);
     const room = newRoom(roomId); // guarda el estado aunque nadie tenga la web abierta
+    if (isBanned(room, data)) {
+      socket.emit("kicked", { roomId });
+      return;
+    }
     // Quien crea la sala desde la app puede hacerla pública (aparece en "Salas públicas").
     if (room.participants.size === 0 && room.extMembers.size === 0 && data.isPublic === true) {
       room.isPublic = true;
@@ -133,6 +143,10 @@ function handleConnection(io, socket, plans) {
     }
 
     const room = newRoom(roomId, { isPublic: data.isPublic, name: data.roomName });
+    if (isBanned(room, data)) {
+      socket.emit("kicked", { roomId });
+      return;
+    }
     const passLimit = verifyRoomPass(plans.passSecret, data.pass, roomId);
     if (passLimit) {
       const allowed = Math.min(Math.max(passLimit, plans.freeLimit), MAX_PARTICIPANTS);
@@ -173,6 +187,7 @@ function handleConnection(io, socket, plans) {
       maxParticipants: room.maxParticipants,
       premium: room.premium === true,
       nowWatching: room.nowWatching,
+      isPublic: room.isPublic === true,
     });
     socket.to(roomId).emit("participant-joined", { participant });
     announceMembers(roomId);
@@ -275,9 +290,40 @@ function handleConnection(io, socket, plans) {
   socket.on("reaction", onReaction);
   socket.on("ext-reaction", onReaction);
 
+  // ── Expulsar (solo quien lidera) y reportar ──────────────────────────────
+  socket.on("kick-member", (data) => {
+    if (!isInRoom(data?.roomId) || typeof data.memberId !== "string") return;
+    const room = rooms.get(data.roomId);
+    if (!room || !currentKey || currentKey !== room.leader) return;
+    const target = membersWithKeys(data.roomId).find((m) => m.id === data.memberId);
+    if (!target || target.key === currentKey) return;
+    room.banned.add(target.key);
+    for (const [socketId, key] of room.memberKeys) {
+      if (key !== target.key) continue;
+      const other = io.sockets.sockets.get(socketId);
+      other?.emit("kicked", { roomId: data.roomId });
+      other?.disconnect(true); // al desconectarse sale de la sala y se avisa a los demás
+    }
+  });
+
+  // Los reportes quedan en el registro del servidor (Render → Logs) para revisarlos a mano.
+  socket.on("report-member", (data) => {
+    if (!isInRoom(data?.roomId) || typeof data.memberId !== "string") return;
+    const target = membersOf(data.roomId).find((m) => m.id === data.memberId);
+    if (!target) return;
+    const reason = cleanText(data.reason, 200) || "sin motivo";
+    console.warn(
+      `[reporte] sala=${data.roomId} reportado="${target.name}" (${target.id}) por="${currentUsername ?? "?"}" motivo="${reason}" ${new Date().toISOString()}`
+    );
+    socket.emit("report-received");
+  });
+
   // ── Señalización de la videollamada (WebRTC): solo entre personas de la misma sala ──
   socket.on("call-request", (data) => {
-    if (isInRoom(data?.roomId)) socket.to(data.roomId).emit("call-request", { from: currentUsername, fromId: socket.id });
+    // En salas públicas (con desconocidos) no hay videollamada.
+    if (isInRoom(data?.roomId) && !rooms.get(data.roomId)?.isPublic) {
+      socket.to(data.roomId).emit("call-request", { from: currentUsername, fromId: socket.id });
+    }
   });
   socket.on("call-accept", (data) => {
     if (isInSameRoom(data?.targetId)) io.to(data.targetId).emit("call-accepted", { fromId: socket.id });

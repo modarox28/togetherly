@@ -102,6 +102,10 @@
     .seg { display: flex; gap: 4px; }
     .chip[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
     [hidden] { display: none !important; }
+      .terms { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.4; margin: 10px 0 2px; color: inherit; opacity: .85; }
+    .terms input { margin-top: 2px; }
+    .terms a { color: inherit; font-weight: 700; }
+    .terms[hidden] { display: none; }
   </style>
 </head>
 <body>
@@ -130,6 +134,10 @@
         <label for="input-name">Tu nombre</label>
         <input id="input-name" type="text" placeholder="¿Cómo te dicen?" maxlength="24" autocomplete="off" />
       </div>
+      <label class="terms" id="terms-row">
+        <input type="checkbox" id="input-terms" />
+        <span>Tengo 18 años o más y acepto los <a href="https://togetherly-weld.vercel.app/terminos" target="_blank" rel="noopener">Términos</a> y la <a href="https://togetherly-weld.vercel.app/privacidad" target="_blank" rel="noopener">Privacidad</a>.</span>
+      </label>
       <p class="error" id="error" role="alert"></p>
       <button class="btn" id="btn-create">Crear sala nueva</button>
 

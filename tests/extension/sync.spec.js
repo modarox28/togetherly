@@ -76,7 +76,7 @@ async function openBrowser(name) {
     .poll(() => worker.evaluate(() => !!globalThis.chrome?.storage?.local).catch(() => false), { timeout: 10000 })
     .toBe(true);
   // Apunta la extensión al servidor local de pruebas.
-  await worker.evaluate((url) => chrome.storage.local.set({ serverUrl: url }), SERVER_URL);
+  await worker.evaluate((url) => chrome.storage.local.set({ serverUrl: url, termsAccepted: "2026-10-17" }), SERVER_URL);
   return { context, extensionId };
 }
 
@@ -613,5 +613,61 @@ test("si un invitado se va a otra película, no se sincroniza con la de la sala 
   } finally {
     await ana.context.close();
     await beto.context.close();
+  }
+});
+
+test("quien lidera puede expulsar (y no vuelve a entrar); reportar responde; sin videollamada en salas públicas", async () => {
+  const { io } = require("socket.io-client");
+  const roomId = `EXP${Date.now() % 100000}`;
+  const connect = () => io(SERVER_URL, { transports: ["websocket"], forceNew: true });
+  const lider = connect();
+  const otro = connect();
+  const keyLider = "lider".repeat(5);
+  const keyOtro = "otrox".repeat(5);
+  let members = [];
+  lider.on("members", (d) => (members = d.members));
+  let kicked = 0;
+  otro.on("kicked", () => kicked++);
+  let reported = false;
+  otro.on("report-received", () => (reported = true));
+  try {
+    lider.emit("ext-connect", { roomId, username: "Ana", clientKey: keyLider, isPublic: true, roomName: "Pública" });
+    await expect.poll(() => members.length).toBe(1);
+    otro.emit("ext-connect", { roomId, username: "Beto", clientKey: keyOtro });
+    await expect.poll(() => members.length).toBe(2);
+    const beto = members.find((m) => m.name === "Beto");
+    const ana = members.find((m) => m.name === "Ana");
+    expect(beto.id).toMatch(/^[a-f0-9]{12}$/);
+    expect(JSON.stringify(members)).not.toContain(keyOtro); // la clave nunca se reparte
+
+    // Beto reporta a Ana: el servidor confirma.
+    otro.emit("report-member", { roomId, memberId: ana.id, reason: "prueba" });
+    await expect.poll(() => reported).toBe(true);
+
+    // Sala pública: pedir videollamada no le llega a nadie.
+    let callArrived = false;
+    lider.on("call-request", () => (callArrived = true));
+    otro.emit("call-request", { roomId });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(callArrived).toBe(false);
+
+    // Beto (no lidera) no puede expulsar a Ana.
+    otro.emit("kick-member", { roomId, memberId: ana.id });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(members.length).toBe(2);
+
+    // Ana expulsa a Beto: sale de la sala y no puede volver a entrar.
+    lider.emit("kick-member", { roomId, memberId: beto.id });
+    await expect.poll(() => kicked).toBeGreaterThan(0);
+    await expect.poll(() => members.length).toBe(1);
+    const vuelve = connect();
+    let rejected = false;
+    vuelve.on("kicked", () => (rejected = true));
+    vuelve.emit("ext-connect", { roomId, username: "Beto", clientKey: keyOtro });
+    await expect.poll(() => rejected).toBe(true);
+    vuelve.close();
+  } finally {
+    lider.close();
+    otro.close();
   }
 });

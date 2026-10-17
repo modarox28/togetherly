@@ -1,24 +1,42 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, Linking } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { storage, SESSION_KEYS } from "@/lib/storage";
 import { generateRoomId, isRoomCode } from "@/lib/utils";
 import { CHARACTERS, SOCKET_URL } from "@/lib/constants";
 import { PublicRooms } from "@/components/PublicRooms";
+import { acceptTerms, hasAcceptedTerms } from "@/lib/terms";
+import { API_URL } from "@/lib/constants";
 
 // Inicio: tu nombre, tu personaje y crear sala o unirte con el código.
 // Si llegas con un enlace de invitación (/j/CODIGO), el código ya viene puesto.
 export default function HomeScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ code?: string }>();
+  const params = useLocalSearchParams<{ code?: string; aviso?: string }>();
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(CHARACTERS[0].emoji);
   const [code, setCode] = useState(typeof params.code === "string" ? params.code.toUpperCase() : "");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(typeof params.aviso === "string" ? params.aviso.slice(0, 120) : "");
   const [isPublic, setIsPublic] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [checking, setChecking] = useState(false);
+  // Edad mínima (18) y términos: se aceptan una vez antes de crear o entrar a una sala.
+  const [termsOk, setTermsOk] = useState(true);
+  const [termsChecked, setTermsChecked] = useState(false);
+  useEffect(() => {
+    hasAcceptedTerms().then(setTermsOk);
+  }, []);
+  const needTerms = () => {
+    if (termsOk) return false;
+    if (!termsChecked) {
+      setError("Confirma que tienes 18 años o más y aceptas los términos.");
+      return true;
+    }
+    acceptTerms();
+    setTermsOk(true);
+    return false;
+  };
 
   /** true/false si la sala existe; null si el servidor no respondió (Render gratis tarda en despertar). */
   const roomExists = async (id: string): Promise<boolean | null> => {
@@ -38,6 +56,7 @@ export default function HomeScreen() {
   const join = async (roomId: string) => {
     const id = roomId.trim().toUpperCase();
     if (!name.trim()) return setError("Escribe tu nombre para que te reconozcan en la sala");
+    if (needTerms()) return;
     if (!isRoomCode(id)) return setError("El código de la sala tiene 6 letras o números");
     setChecking(true);
     setError("");
@@ -59,6 +78,7 @@ export default function HomeScreen() {
   const enter = async (roomId: string, makePublic = false) => {
     const cleanName = name.trim();
     if (!cleanName) return setError("Escribe tu nombre para que te reconozcan en la sala");
+    if (needTerms()) return;
     if (!isRoomCode(roomId)) return setError("El código de la sala tiene 6 letras o números");
     await storage.set(SESSION_KEYS.username, cleanName.slice(0, 24));
     await storage.set(SESSION_KEYS.character, avatar);
@@ -104,6 +124,30 @@ export default function HomeScreen() {
               </Pressable>
             ))}
           </ScrollView>
+
+          {!termsOk ? (
+            <Pressable
+              onPress={() => setTermsChecked((v) => !v)}
+              className="flex-row items-start mt-6 gap-3"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: termsChecked }}
+            >
+              <View className={`w-6 h-6 rounded-md items-center justify-center mt-0.5 ${termsChecked ? "bg-cozy-lamp" : "bg-cozy-card"}`}>
+                {termsChecked ? <Text className="text-cozy-deep font-extrabold">✓</Text> : null}
+              </View>
+              <Text className="text-cozy-cream flex-1 text-sm leading-5">
+                Tengo 18 años o más y acepto los{" "}
+                <Text className="text-cozy-lamp font-bold underline" onPress={() => Linking.openURL(`${API_URL}/terminos`)}>
+                  Términos de uso
+                </Text>{" "}
+                y la{" "}
+                <Text className="text-cozy-lamp font-bold underline" onPress={() => Linking.openURL(`${API_URL}/privacidad`)}>
+                  Privacidad
+                </Text>
+                .
+              </Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             onPress={() => setIsPublic((v) => !v)}
@@ -158,6 +202,13 @@ export default function HomeScreen() {
           {error ? <Text className="text-[#FF9AA2] mt-4 text-center">{error}</Text> : null}
 
           <PublicRooms onJoin={(id) => join(id)} />
+
+          <Text className="text-cozy-muted text-xs text-center mt-10 leading-5">
+            <Text className="underline" onPress={() => Linking.openURL(`${API_URL}/terminos`)}>Términos</Text> ·{" "}
+            <Text className="underline" onPress={() => Linking.openURL(`${API_URL}/privacidad`)}>Privacidad</Text>
+            {"\n"}Togetherly no está afiliado a Netflix, Disney+ ni otras plataformas. Cada persona ve con su propia
+            suscripción.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

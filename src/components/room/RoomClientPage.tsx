@@ -135,7 +135,8 @@ export function RoomClientPage({ roomId }: Props) {
   }
 
   const inCall = call.callState === "connected" || call.callState === "calling";
-  const canCall = call.callState === "idle" && state.participants.length >= 2;
+  // En salas públicas no hay videollamada (puede haber desconocidos).
+  const canCall = call.callState === "idle" && state.participants.length >= 2 && !state.isPublic;
   const hasVideo = !!state.videoUrl;
 
   return (

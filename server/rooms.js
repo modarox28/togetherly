@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- servidor Node en CommonJS */
+const { randomBytes } = require("node:crypto");
 // Estado de las salas en memoria. Si el servidor se reinicia, las salas se vacían
 // (es lo esperado: una sala solo existe mientras alguien está conectado).
 const { cleanText } = require("./validation");
@@ -55,6 +56,8 @@ function getOrCreateRoom(roomId, { isPublic = false, name = null, maxParticipant
       extMembers: new Map(),
       leader: null,
       memberKeys: new Map(),
+      publicIds: new Map(), // clave privada → id público (para expulsar o reportar sin revelar la clave)
+      banned: new Set(), // claves expulsadas por quien lidera
       controlMode: "all",
     });
   }
@@ -105,6 +108,12 @@ function membersOf(roomId) {
   return membersWithKeys(roomId).map(({ key: _key, ...member }) => member);
 }
 
+/** Id público y aleatorio de un dispositivo en la sala: se puede mostrar sin revelar su clave. */
+function publicIdOf(room, key) {
+  if (!room.publicIds.has(key)) room.publicIds.set(key, randomBytes(6).toString("hex"));
+  return room.publicIds.get(key);
+}
+
 /** Igual que membersOf pero con la clave privada (solo para uso interno del servidor). */
 function membersWithKeys(roomId) {
   const room = rooms.get(roomId);
@@ -113,7 +122,7 @@ function membersWithKeys(roomId) {
   for (const person of [...room.participants.values(), ...room.extMembers.values()]) {
     const key = room.memberKeys.get(person.id) ?? `s:${person.id}`;
     if (!byKey.has(key)) {
-      byKey.set(key, { key, name: person.name, avatar: person.avatar, color: person.color, leader: key === room.leader });
+      byKey.set(key, { key, id: publicIdOf(room, key), name: person.name, avatar: person.avatar, color: person.color, leader: key === room.leader });
     }
   }
   return [...byKey.values()];
@@ -160,6 +169,7 @@ function listPublicRooms(limit = 100) {
 }
 
 module.exports = {
+  membersWithKeys,
   MAX_PARTICIPANTS,
   MAX_ROOMS,
   canOpenRoom,

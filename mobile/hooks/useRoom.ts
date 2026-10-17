@@ -8,6 +8,7 @@ import { getClientKey } from "@/lib/clientKey";
 // están en la misma sala y se sincronizan entre sí.
 
 export interface Member {
+  id: string | null;
   name: string;
   avatar: string;
   leader: boolean;
@@ -67,6 +68,7 @@ export function useRoom(
   const [controlMode, setControlMode] = useState<"all" | "leader">("all");
   const [leader, setLeader] = useState<string | null>(null);
   const [youLead, setYouLead] = useState(false);
+  const [kicked, setKicked] = useState(false);
   const [notice, setNotice] = useState<RoomNotice | null>(null);
   const [reaction, setReaction] = useState<{ id: number; emoji: string } | null>(null);
 
@@ -108,7 +110,8 @@ export function useRoom(
       setMembers(
         data.members.slice(0, 20).map((m) => {
           const member = (m ?? {}) as Record<string, unknown>;
-          return { name: text(member.name, 24, "Invitado"), avatar: text(member.avatar, 8, "🍿"), leader: member.leader === true };
+          const id = typeof member.id === "string" && /^[a-f0-9]{6,32}$/.test(member.id) ? member.id : null;
+          return { id, name: text(member.name, 24, "Invitado"), avatar: text(member.avatar, 8, "🍿"), leader: member.leader === true };
         })
       );
     });
@@ -117,6 +120,11 @@ export function useRoom(
       setControlMode(data?.controlMode === "leader" ? "leader" : "all");
       setLeader(typeof data?.leader === "string" ? data.leader.slice(0, 24) : null);
     });
+    socket.on("kicked", () => {
+      setKicked(true);
+      socket.disconnect();
+    });
+    socket.on("report-received", () => showNotice("Gracias, revisaremos el reporte"));
     socket.on("control-denied", (data: { leader?: unknown }) => {
       showNotice(`👑 Solo ${text(data?.leader, 24, "quien lidera")} controla la reproducción`);
     });
@@ -176,6 +184,9 @@ export function useRoom(
     },
     sendReaction: (emoji: string) => emit("ext-reaction", { emoji }),
     setControl: (mode: "all" | "leader") => emit("set-control", { mode }),
+    kicked,
+    kickMember: (memberId: string) => emit("kick-member", { memberId }),
+    reportMember: (memberId: string, reason: string) => emit("report-member", { memberId, reason: reason.slice(0, 200) }),
   };
 }
 

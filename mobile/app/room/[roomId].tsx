@@ -36,6 +36,7 @@ export default function RoomScreen() {
   const autoOpened = useRef(false);
   // Pantalla completa: solo la película (en horizontal), con dos botones pequeños encima.
   const [full, setFull] = useState(false);
+  const [selected, setSelected] = useState<{ id: string; name: string; leader: boolean } | null>(null);
   const drmShown = useRef(false);
   const [drm, setDrm] = useState<string | null>(null);
 
@@ -83,7 +84,9 @@ export default function RoomScreen() {
       setMyWatching(event.url);
       room.sendWatching(event.url);
     } else if (event.type === "video" && event.found) room.requestState(); // entraste tarde: ponte al día
-    else if (event.type === "crashed") {
+    else if (event.type === "blocked") {
+      setDrm(`Por seguridad, Togetherly solo abre plataformas de streaming (se bloqueó ${event.host || "una página"}).`);
+    } else if (event.type === "crashed") {
       setDrm(
         event.retrying
           ? "El navegador de la película se cerró: lo abrí de nuevo en modo normal."
@@ -121,6 +124,13 @@ export default function RoomScreen() {
     });
     return () => sub.remove();
   }, [full]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Si quien lidera te sacó de la sala, vuelves al inicio con un aviso.
+  useEffect(() => {
+    if (!room.kicked) return;
+    ScreenOrientation.unlockAsync().catch(() => {});
+    router.replace({ pathname: "/", params: { aviso: "Quien lidera te sacó de esa sala." } });
+  }, [room.kicked, router]);
 
   // Al salir de la sala se suelta la orientación.
   useEffect(() => () => void ScreenOrientation.unlockAsync().catch(() => {}), []);
@@ -256,14 +266,50 @@ export default function RoomScreen() {
 
             <View className="flex-row flex-wrap gap-2 px-5 pb-2">
               {room.members.map((m) => (
-                <View key={m.name} className="flex-row items-center bg-cozy-plum rounded-full px-3 py-1">
+                <Pressable
+                  key={m.id ?? m.name}
+                  onPress={() => m.id && setSelected({ id: m.id, name: m.name, leader: m.leader })}
+                  className="flex-row items-center bg-cozy-plum rounded-full px-3 py-1"
+                >
                   <Text>{m.avatar} </Text>
                   <Text className="text-cozy-cream text-xs font-bold">
                     {m.name}
                     {m.leader ? " 👑" : ""}
                   </Text>
-                </View>
+                </Pressable>
               ))}
+            </View>
+
+            {selected ? (
+              // Reportar a alguien y, si lideras, sacarlo de la sala.
+              <View className="flex-row flex-wrap items-center gap-2 px-5 pb-2">
+                <Text className="text-cozy-muted text-xs w-full">{selected.name}</Text>
+                <Pressable
+                  onPress={() => {
+                    room.reportMember(selected.id, "Comportamiento inapropiado (desde la app)");
+                    setSelected(null);
+                  }}
+                  className="bg-cozy-plum rounded-full px-3 py-1.5"
+                >
+                  <Text className="text-cozy-cream text-xs font-bold">Reportar</Text>
+                </Pressable>
+                {room.isLeader && !selected.leader ? (
+                  <Pressable
+                    onPress={() => {
+                      room.kickMember(selected.id);
+                      setSelected(null);
+                    }}
+                    className="bg-[#FF9AA2] rounded-full px-3 py-1.5"
+                  >
+                    <Text className="text-cozy-deep text-xs font-bold">Expulsar de la sala</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable onPress={() => setSelected(null)} className="px-3 py-1.5">
+                  <Text className="text-cozy-muted text-xs font-bold">Cancelar</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            <View>
             </View>
 
             {room.isLeader ? (

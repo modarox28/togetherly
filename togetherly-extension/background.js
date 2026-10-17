@@ -271,6 +271,7 @@ async function connect() {
   client.on("members", (data) => {
     if (!Array.isArray(data?.members)) return;
     members = data.members.slice(0, 20).map((m) => ({
+      id: typeof m?.id === "string" && /^[a-f0-9]{6,32}$/.test(m.id) ? m.id : null,
       name: cleanText(m?.name, 24, "Invitado"),
       avatar: cleanText(m?.avatar, 8, "🍿"),
       color: /^#[0-9a-f]{6}$/i.test(m?.color) ? m.color : "#FFC965",
@@ -287,6 +288,11 @@ async function connect() {
       youLead: data?.youLead === true,
     };
     sendToStreamingTabs({ type: "ROOM_SETTINGS", ...roomSettings, isLeader: isLeader() });
+  });
+  // Quien lidera te expulsó: se sale de la sala y se avisa en las pestañas.
+  client.on("kicked", () => {
+    sendToStreamingTabs({ type: "KICKED" });
+    handleMessage({ type: "LEAVE_ROOM" }, {});
   });
   client.on("control-denied", (data) => {
     sendToStreamingTabs({ type: "CONTROL_DENIED", leader: cleanText(data?.leader, 24, "quien lidera la sala") });
@@ -436,6 +442,14 @@ async function handleMessage(message, sender) {
         roomSettings,
         isLeader: isLeader(),
       };
+    case "KICK_MEMBER":
+      if (roomId && typeof message.memberId === "string") socket?.emit("kick-member", { roomId, memberId: message.memberId });
+      return { ok: true };
+    case "REPORT_MEMBER":
+      if (roomId && typeof message.memberId === "string") {
+        socket?.emit("report-member", { roomId, memberId: message.memberId, reason: cleanText(message.reason, 200, "") });
+      }
+      return { ok: true };
     case "SET_CONTROL":
       if (roomId && ["all", "leader"].includes(message.mode)) socket?.emit("set-control", { roomId, mode: message.mode });
       return { ok: true };

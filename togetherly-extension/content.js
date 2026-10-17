@@ -284,6 +284,8 @@
       if (message.action === "play") showToast(`▶ ${who} dio play`);
       if (message.action === "pause") showToast(`⏸ ${who} pausó`);
       if (message.action === "seek") showToast(`⏩ ${who} saltó a ${formatTime(message.currentTime)}`);
+    } else if (message.type === "KICKED") {
+      showToast("Quien lidera te sacó de la sala");
     } else if (message.type === "CONTROL_DENIED") {
       const leader = typeof message.leader === "string" ? message.leader.slice(0, 24) : "quien lidera la sala";
       showToast(`👑 Solo ${leader} controla la reproducción`);

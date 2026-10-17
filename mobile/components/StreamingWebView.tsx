@@ -1,6 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState, type ComponentType, type Ref } from "react";
 import { Platform, View } from "react-native";
 import WebView, { type WebViewMessageEvent, type WebViewProps } from "react-native-webview";
+import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import type { PlayerOrder } from "@/hooks/useRoom";
 // Mismo motor para Android y iPhone; también lo prueban las pruebas e2e (tests/extension/mobile-engine.spec.js).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -22,7 +23,8 @@ export type EngineEvent =
   | { type: "video"; found: boolean }
   | { type: "failed"; action: string }
   | { type: "drm"; widevine: boolean; fairplay: boolean; webkitKeys: boolean; mse: string }
-  | { type: "crashed"; retrying: boolean };
+  | { type: "crashed"; retrying: boolean }
+  | { type: "blocked"; host: string };
 
 interface Props {
   url: string;
@@ -39,6 +41,26 @@ const DESKTOP_USER_AGENT =
 // iPad: sin cambios (así Netflix ya reproduce) · iPhone: se presenta como iPad · Android: como computador.
 const PROFILE: Profile = Platform.OS === "android" ? "desktop" : Platform.OS === "ios" && Platform.isPad ? "none" : "ipad";
 type Profile = "none" | "ipad" | "desktop";
+
+// Por seguridad, el navegador de la app solo abre las plataformas de streaming y sus páginas de
+// inicio de sesión: así nadie puede mostrar dentro de Togetherly una página falsa que pida contraseñas.
+// (Solo cuenta la página principal; lo que carga por dentro —videos, imágenes— no se toca.)
+const ALLOWED_SITES = [
+  "netflix.com", "disneyplus.com", "disney.com", "bamgrid.com", "primevideo.com", "amazon.com", "amazon.com.br",
+  "amazon.co.uk", "amazon.es", "amazon.com.mx", "amazon.de", "a2z.com", "hbomax.com", "max.com", "paramountplus.com",
+  "cbs.com", "apple.com", "crunchyroll.com", "youtube.com", "google.com", "facebook.com",
+];
+export function isAllowedUrl(url: string): boolean {
+  if (/^(about|blob|data):/.test(url)) return true;
+  try {
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== "https:") return false;
+    const host = hostname.toLowerCase();
+    return ALLOWED_SITES.some((site) => host === site || host.endsWith(`.${site}`));
+  } catch {
+    return false;
+  }
+}
 
 function parseEvent(raw: string): EngineEvent | null {
   try {
@@ -92,6 +114,15 @@ export const StreamingWebView = forwardRef<StreamingWebViewHandle, Props>(functi
         userAgent={DESKTOP_USER_AGENT}
         injectedJavaScriptBeforeContentLoaded={disguise(profile)}
         onRenderProcessGone={onCrash}
+        onShouldStartLoadWithRequest={(request: ShouldStartLoadRequest) => {
+          if (request.isTopFrame === false || isAllowedUrl(request.url)) return true;
+          let host = "";
+          try {
+            host = new URL(request.url).hostname;
+          } catch {}
+          onEvent({ type: "blocked", host: host.slice(0, 60) });
+          return false;
+        }}
         onContentProcessDidTerminate={onCrash}
         injectedJavaScript={ENGINE_JS}
         onMessage={handleMessage}
